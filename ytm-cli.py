@@ -10,6 +10,8 @@ import argparse
 import signal
 import select
 
+__version__ = "0.1.0"
+
 # Configuration
 SONGS_TO_DISPLAY = 7
 
