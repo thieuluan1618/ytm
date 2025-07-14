@@ -9,11 +9,9 @@ import os
 import argparse
 import signal
 import select
+import configparser
 
 __version__ = "0.1.0"
-
-# Configuration
-SONGS_TO_DISPLAY = 7
 
 def goodbye_message(signum, frame):
     """Handle Ctrl+C gracefully with a goodbye message"""
@@ -62,7 +60,13 @@ def play_music_with_controls(playlist):
             print(f"\n[green]▶️ Playing: {title}[/green]")
             print("[cyan]n: next song, b: previous song, q: quit to search[/cyan]")
             
-            mpv_process = subprocess.Popen(["mpv", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            mpv_flags = []
+            config = configparser.ConfigParser()
+            config.read('config.ini')
+            if 'mpv' in config and 'flags' in config['mpv']:
+                mpv_flags = config['mpv']['flags'].split()
+
+            mpv_process = subprocess.Popen(["mpv", url] + mpv_flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
             while True:
                 if mpv_process.poll() is not None:
@@ -107,9 +111,14 @@ def search_and_play(query=None):
         return
 
     current_selection = 0
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    
+    songs_to_display = int(config.get('general', 'songs_to_display', fallback='10'))
+    
     while True:
         clear_screen()
-        for i, song in enumerate(results[:SONGS_TO_DISPLAY]):
+        for i, song in enumerate(results[:songs_to_display]):
             title = song['title']
             artist = song['artists'][0]['name']
             if i == current_selection:
@@ -119,9 +128,10 @@ def search_and_play(query=None):
 
         key = getch()
         if key == 'j':
-            current_selection = (current_selection + 1) % SONGS_TO_DISPLAY
+            
+            current_selection = (current_selection + 1) % songs_to_display
         elif key == 'k':
-            current_selection = (current_selection - 1 + SONGS_TO_DISPLAY) % SONGS_TO_DISPLAY
+            current_selection = (current_selection - 1 + songs_to_display) % songs_to_display
         elif key == '\r': # Enter key
             break
         elif key == 'q':
