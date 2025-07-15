@@ -10,8 +10,19 @@ import argparse
 import signal
 import select
 import configparser
+import curses
+from curses import wrapper
 
 __version__ = "0.1.0"
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+songs_to_display = int(config.get('general', 'songs_to_display', fallback='5'))
+
+def get_mpv_flags():
+    if 'mpv' in config and 'flags' in config['mpv']:
+        return config['mpv']['flags'].split()
+    return []
 
 def goodbye_message(signum, frame):
     """Handle Ctrl+C gracefully with a goodbye message"""
@@ -60,11 +71,7 @@ def play_music_with_controls(playlist):
             print(f"\n[green]▶️ Playing: {title}[/green]")
             print("[cyan]n: next song, b: previous song, q: quit to search[/cyan]")
             
-            mpv_flags = []
-            config = configparser.ConfigParser()
-            config.read('config.ini')
-            if 'mpv' in config and 'flags' in config['mpv']:
-                mpv_flags = config['mpv']['flags'].split()
+            mpv_flags = get_mpv_flags()
 
             mpv_process = subprocess.Popen(["mpv", url] + mpv_flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -104,43 +111,61 @@ def search_and_play(query=None):
         print(f"🎵 Searching for: {query}")
     
     ytmusic = YTMusic()
-
     results = ytmusic.search(query, filter="songs")
     if not results:
         print("[red]No songs found.[/red]")
         return
 
-    current_selection = 0
     config = configparser.ConfigParser()
     config.read('config.ini')
-    
     songs_to_display = int(config.get('general', 'songs_to_display', fallback='10'))
-    
-    while True:
-        clear_screen()
-        for i, song in enumerate(results[:songs_to_display]):
-            title = song['title']
-            artist = song['artists'][0]['name']
-            if i == current_selection:
-                print(f"> [bold green]{i+1}. {title} - {artist}[/bold green]")
-            else:
-                print(f"  {i+1}. {title} - {artist}")
 
-        key = getch()
-        if key == 'j':
-            
-            current_selection = (current_selection + 1) % songs_to_display
-        elif key == 'k':
-            current_selection = (current_selection - 1 + songs_to_display) % songs_to_display
-        elif key == '\r': # Enter key
-            break
-        elif key == 'q':
-            return
+    def selection_ui(stdscr):
+        curses.curs_set(0)
+        curses.use_default_colors()
+        
+        # Define color pair 1: yellow text, default background
+        curses.init_pair(1, curses.COLOR_YELLOW, -1)
+        YELLOW = curses.color_pair(1)
 
-    song = results[current_selection]
-    
+        current_selection = 0
+
+        while True:
+            stdscr.erase()
+            stdscr.addstr(0, 0, f"🎵 Search Results for: {query}\n\n")
+
+            for i, song in enumerate(results[:songs_to_display]):
+                title = song['title']
+                artist = song['artists'][0]['name']
+                line = f"[{i+1}] {title} - {artist}"
+
+                if i == current_selection:
+                    stdscr.addstr(i + 2, 0, f"> {line}", YELLOW)
+                else:
+                    stdscr.addstr(i + 2, 0, f"  {line}")
+
+            stdscr.refresh()
+            key = stdscr.getch()
+
+            if key in (curses.KEY_DOWN, ord('j')):
+                current_selection = (current_selection + 1) % songs_to_display
+            elif key in (curses.KEY_UP, ord('k')):
+                current_selection = (current_selection - 1 + songs_to_display) % songs_to_display
+            elif key in (ord('\n'), 10, 13):
+                return current_selection
+            elif key == ord('q'):
+                return None
+            elif ord('1') <= key <= ord(str(min(9, songs_to_display))):
+                return key - ord('1')
+
+
+    selected_index = wrapper(selection_ui)
+    if selected_index is None:
+        return
+
+    song = results[selected_index]
     playlist = [song]
-    
+
     print("\n[yellow]🎶 Fetching Radio...[/yellow]")
     try:
         radio = ytmusic.get_watch_playlist(videoId=song['videoId'])
@@ -148,8 +173,8 @@ def search_and_play(query=None):
     except Exception as e:
         print(f"[red]Error fetching radio: {e}[/red]")
 
-
     play_music_with_controls(playlist)
+
 
 
 if __name__ == "__main__":
