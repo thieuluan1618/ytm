@@ -12,6 +12,9 @@ import select
 import configparser
 import curses
 from curses import wrapper
+import json
+import socket
+import tempfile
 
 __version__ = "0.1.0"
 
@@ -46,9 +49,21 @@ def getch():
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return ch
 
+def send_mpv_command(socket_path, command):
+    """Send a command to mpv via IPC socket"""
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(socket_path)
+        sock.send((json.dumps(command) + "\n").encode())
+        sock.close()
+    except Exception:
+        pass  # Ignore errors if mpv isn't ready yet
+
 def play_music_with_controls(playlist):
     current_song_index = 0
     mpv_process = None
+    socket_path = None
+    is_paused = False
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -58,6 +73,9 @@ def play_music_with_controls(playlist):
             if mpv_process:
                 mpv_process.terminate()
                 mpv_process.wait()
+            
+            if socket_path and os.path.exists(socket_path):
+                os.unlink(socket_path)
 
             item = playlist[current_song_index]
             video_id = item['videoId']
@@ -67,13 +85,26 @@ def play_music_with_controls(playlist):
                  title = f"{title} - {item['artists'][0]['name']}"
 
             url = f"https://music.youtube.com/watch?v={video_id}"
-            clear_screen()
-            print(f"\n[green]▶️ Playing: {title}[/green]")
-            print("[cyan]n: next song, b: previous song, q: quit to search[/cyan]")
+            
+            # Create a temporary socket for mpv IPC
+            socket_path = tempfile.mktemp(suffix='.sock')
+            
+            def update_display():
+                clear_screen()
+                status = "⏸️ Paused" if is_paused else "▶️ Playing"
+                print(f"\n[green]{status}: {title}[/green]")
+                print("[cyan]space: play/pause, n: next song, b: previous song, q: quit to search[/cyan]")
+            
+            update_display()
             
             mpv_flags = get_mpv_flags()
+            mpv_flags.extend([f"--input-ipc-server={socket_path}"])
 
             mpv_process = subprocess.Popen(["mpv", url] + mpv_flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            is_paused = False
+
+            # Give mpv a moment to start and create the socket
+            time.sleep(0.1)
 
             while True:
                 if mpv_process.poll() is not None:
@@ -83,7 +114,11 @@ def play_music_with_controls(playlist):
                 rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
                 if rlist:
                     key = sys.stdin.read(1)
-                    if key == 'n':
+                    if key == ' ':  # Space bar for play/pause
+                        is_paused = not is_paused
+                        send_mpv_command(socket_path, {"command": ["cycle", "pause"]})
+                        update_display()
+                    elif key == 'n':
                         current_song_index += 1
                         break
                     elif key == 'b':
@@ -102,6 +137,8 @@ def play_music_with_controls(playlist):
         if mpv_process:
             mpv_process.terminate()
             mpv_process.wait()
+        if socket_path and os.path.exists(socket_path):
+            os.unlink(socket_path)
 
 
 def search_and_play(query=None):
