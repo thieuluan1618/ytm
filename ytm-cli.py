@@ -16,7 +16,7 @@ import json
 import socket
 import tempfile
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 config = configparser.ConfigParser()
 config.read('config.ini')
