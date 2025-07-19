@@ -9,7 +9,7 @@ import signal
 
 def goodbye_message(signum, frame):
     """Handle Ctrl+C gracefully with a goodbye message"""
-    print("\n[yellow]👋 Goodbye! Thanks for using YTM CLI! 💩 💩 💩 [/yellow]")
+    print("\n👋 Goodbye! Thanks for using YTM CLI! 💩 💩 💩")
     sys.exit(0)
 
 

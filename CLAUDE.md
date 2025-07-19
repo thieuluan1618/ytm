@@ -42,7 +42,7 @@ pip freeze > requirements.txt
 - **Single-file architecture**: All functionality is contained in `ytm-cli.py`
 - **YTMusic Integration**: Uses `ytmusicapi` library for YouTube Music API access
 - **Media Player**: Integrates with mpv via subprocess and IPC socket communication
-- **Terminal UI**: Uses `curses` for interactive song selection and `rich` for formatted output
+- **Terminal UI**: Prioritizes `curses` for all text display and interactive interfaces, with `rich` as secondary for simple formatting
 
 ### Key Functions
 
