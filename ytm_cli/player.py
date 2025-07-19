@@ -11,10 +11,9 @@ import json
 import socket
 import tempfile
 
-from rich import print
+from ytm_cli.utils import goodbye_message
 
 from .config import get_mpv_flags, ytmusic
-from .utils import clear_screen
 
 
 def send_mpv_command(socket_path, command):
@@ -60,15 +59,15 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
                 display_lyrics_with_curses(lyrics_data['lyrics'], title, socket_path)
                 return True
             else:
-                print("[red]No lyrics content found.[/red]")
+                print("No lyrics content found.")
                 time.sleep(1)
                 return False
         else:
-            print("[red]No lyrics available for this song.[/red]")
+            print("No lyrics available for this song.")
             time.sleep(1)
             return False
     except Exception as e:
-        print(f"[red]Error getting lyrics: {e}[/red]")
+        print(f"Error getting lyrics: {e}")
         time.sleep(1)
         return False
 
@@ -105,11 +104,15 @@ def play_music_with_controls(playlist):
             # Create a temporary socket for mpv IPC
             socket_path = tempfile.mktemp(suffix='.sock')
             
+            def cleanup():
+                if mpv_process:
+                    mpv_process.terminate()
+                    mpv_process.wait()
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            
             def update_display():
-                clear_screen()
-                status = "⏸️ Paused" if is_paused else "▶️ Playing"
-                print(f"\n[green]{status}: {title}[/green]")
-                print("[cyan]space: play/pause, n: next song, b: previous song, l: lyrics, q: quit to search[/cyan]")
+                from .ui import display_player_status
+                display_player_status(title, is_paused)
             
             update_display()
             
@@ -123,35 +126,33 @@ def play_music_with_controls(playlist):
             time.sleep(0.1)
 
             while True:
-                if mpv_process.poll() is not None:
-                    current_song_index += 1
-                    break
-
-                rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
-                if rlist:
-                    key = sys.stdin.read(1)
-                    if key == ' ':  # Space bar for play/pause
-                        is_paused = not is_paused
-                        send_mpv_command(socket_path, {"command": ["cycle", "pause"]})
-                        update_display()
-                    elif key == 'n':
+                    if mpv_process.poll() is not None:
                         current_song_index += 1
                         break
-                    elif key == 'b':
-                        if current_song_index > 0:
-                            current_song_index -= 1
-                        break
-                    elif key == 'l':
-                        # Show lyrics
-                        get_and_display_lyrics(video_id, title, socket_path)
-                        update_display()
-                    elif key == 'q':
-                        if mpv_process:
-                            mpv_process.terminate()
-                            mpv_process.wait()
-                        # Restore terminal settings before returning
-                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                        return
+
+                    rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
+                    if rlist:
+                        key = sys.stdin.read(1)
+                        if key == ' ':  # Space bar for play/pause
+                            is_paused = not is_paused
+                            send_mpv_command(socket_path, {"command": ["cycle", "pause"]})
+                            update_display()
+                        elif key == 'n':
+                            current_song_index += 1
+                            break
+                        elif key == 'b':
+                            if current_song_index > 0:
+                                current_song_index -= 1
+                            break
+                        elif key == 'l':
+                            # Show lyrics
+                            get_and_display_lyrics(video_id, title, socket_path)
+                            update_display()
+                        elif key == 'q' or key == '\x03':
+                            cleanup()
+                            goodbye_message(None, None)
+                            return
+            
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         if mpv_process:

@@ -1,5 +1,8 @@
 {
     "cSpell.words": [
+        "tcgetattr",
+        "TCSADRAIN",
+        "tcsetattr",
         "ytmusic",
         "ytmusicapi"
     ]

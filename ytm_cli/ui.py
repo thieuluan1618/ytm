@@ -4,6 +4,7 @@ import curses
 from curses import wrapper
 import time
 import json
+import os
 
 from .player import get_mpv_time_position
 
@@ -188,3 +189,50 @@ def selection_ui(stdscr, results, query, songs_to_display):
             return None
         elif ord('1') <= key <= ord(str(min(9, songs_to_display))):
             return key - ord('1')
+
+
+def display_player_status(title, is_paused):
+    """Display player status with centered text that adapts to terminal width"""
+    # Clear screen
+    os.system('clear' if os.name == 'posix' else 'cls')
+    
+    # Get terminal dimensions
+    try:
+        terminal_size = os.get_terminal_size()
+        width = terminal_size.columns
+    except OSError:
+        width = 80  # fallback
+    
+    # Status and title
+    status = "⏸️ Paused" if is_paused else "▶️ Playing"
+    status_line = f"{status}: {title}"
+    
+    # Controls text
+    controls = "space: play/pause, n: next song, b: previous song, l: lyrics, q: quit to search"
+    
+    # Center the text
+    print()  # Empty line
+    if len(status_line) <= width:
+        print(status_line.center(width))
+    else:
+        print(status_line[:width])
+    
+    print()  # Empty line
+    if len(controls) <= width:
+        print(controls.center(width))
+    else:
+        # Word wrap if too long
+        words = controls.split()
+        lines = []
+        current_line = ""
+        for word in words:
+            if len(current_line + " " + word) <= width:
+                current_line += " " + word if current_line else word
+            else:
+                lines.append(current_line)
+                current_line = word
+        if current_line:
+            lines.append(current_line)
+        
+        for line in lines:
+            print(line.center(width))
