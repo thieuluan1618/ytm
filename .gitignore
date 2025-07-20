@@ -76,4 +76,4 @@ config.ini.local
 .ytmusic_oauth.json
 headers_auth.json
 
-auth/*
+auth/*curl_command.txt
