@@ -75,3 +75,5 @@ config.ini.local
 *.sock
 .ytmusic_oauth.json
 headers_auth.json
+
+auth/*
