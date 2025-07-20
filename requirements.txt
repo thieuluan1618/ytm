@@ -2,3 +2,4 @@ ytmusicapi
 rich
 mpv
 bump2version
+pyperclip

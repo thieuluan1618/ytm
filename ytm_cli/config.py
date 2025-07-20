@@ -1,13 +1,14 @@
 """Configuration management for YTM CLI"""
 
 import configparser
-from ytmusicapi import YTMusic
+from .auth import AuthManager
 
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-# Initialize YTMusic instance
-ytmusic = YTMusic()
+# Initialize authentication manager and YTMusic instance
+auth_manager = AuthManager()
+ytmusic = auth_manager.get_ytmusic_instance()
 
 def get_songs_to_display():
     """Get the number of songs to display from config"""

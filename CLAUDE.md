@@ -76,3 +76,30 @@ Configuration is managed through `config.ini`:
 ## Version Management
 
 Version is defined as `__version__ = "0.2.0"` in the main script. Use `bump2version` for version updates as indicated in requirements.txt.
+
+## Authentication
+
+The application supports optional authentication via OAuth or browser method:
+
+### OAuth Authentication (Recommended)
+```bash
+python -m ytm_cli auth setup-oauth    # Interactive OAuth setup
+python -m ytm_cli auth scan            # Scan for credential files
+python -m ytm_cli auth manual          # Show setup manual
+```
+
+**Note**: New OAuth apps may encounter "Google verification process" errors. This is normal and can be resolved by:
+1. Adding test users to the OAuth consent screen
+2. Using browser authentication as alternative
+3. Run `python -m ytm_cli auth troubleshoot` for detailed solutions
+
+### Browser Authentication (Alternative)
+```bash
+python -m ytm_cli auth setup-browser   # Setup using browser headers
+```
+
+### Authentication Management
+```bash
+python -m ytm_cli auth status          # Check auth status
+python -m ytm_cli auth disable         # Disable authentication
+```

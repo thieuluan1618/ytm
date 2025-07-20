@@ -4,7 +4,7 @@ import argparse
 from curses import wrapper
 from rich import print
 
-from .config import ytmusic, get_songs_to_display
+from .config import ytmusic, get_songs_to_display, auth_manager
 from .ui import selection_ui
 from .player import play_music_with_controls
 from .utils import setup_signal_handler
@@ -44,15 +44,332 @@ def search_and_play(query=None):
     play_music_with_controls(playlist)
 
 
+def show_oauth_manual():
+    """Show detailed OAuth setup manual"""
+    print("\n[cyan]📚 OAuth Authentication Setup Manual[/cyan]")
+    print("=" * 60)
+    
+    print("\n[yellow]🎯 What is OAuth Authentication?[/yellow]")
+    print("OAuth provides secure, long-term access to YouTube Music without")
+    print("needing to copy browser headers. It's the recommended method.")
+    
+    print("\n[yellow]📋 Prerequisites:[/yellow]")
+    print("• Google account")
+    print("• Access to Google Cloud Console")
+    print("• YouTube Music subscription (recommended)")
+    
+    print("\n[yellow]🔧 Step-by-Step Setup:[/yellow]")
+    
+    print("\n[cyan]Step 1: Create Google Cloud Project[/cyan]")
+    print("1. Go to: https://console.cloud.google.com")
+    print("2. Click 'Select a project' → 'New Project'")
+    print("3. Enter project name (e.g., 'YTM CLI')")
+    print("4. Click 'Create'")
+    
+    print("\n[cyan]Step 2: Enable YouTube Data API[/cyan]")
+    print("1. Go to: https://console.cloud.google.com/apis/library")
+    print("2. Search for 'YouTube Data API v3'")
+    print("3. Click on it and press 'Enable'")
+    
+    print("\n[cyan]Step 3: Create OAuth Credentials[/cyan]")
+    print("1. Go to: https://console.cloud.google.com/apis/credentials")
+    print("2. Click '+ CREATE CREDENTIALS' → 'OAuth client ID'")
+    print("3. If prompted, configure OAuth consent screen:")
+    print("   • User Type: External")
+    print("   • App name: YTM CLI (or your choice)")
+    print("   • User support email: your email")
+    print("   • Developer contact: your email")
+    print("4. For Application type, select: 'TV and Limited Input devices'")
+    print("5. Enter name: 'YTM CLI' (or your choice)")
+    print("6. Click 'Create'")
+    
+    print("\n[cyan]Step 4: Get Your Credentials[/cyan]")
+    print("1. Copy the 'Client ID' (looks like: xxxxx.apps.googleusercontent.com)")
+    print("2. Copy the 'Client Secret' (random string)")
+    print("3. [Optional] Download the JSON file:")
+    print("   • Click 'Download JSON' to save client_secret_*.json")
+    print("   • Place it in your project directory for auto-detection")
+    print("4. Keep these safe - you'll enter them in the next step")
+    
+    print("\n[yellow]⚠️  Important Notes:[/yellow]")
+    print("• Keep Client ID and Secret private")
+    print("• Don't share oauth.json file")
+    print("• OAuth tokens last longer than browser auth")
+    print("• You may need to verify your app for production use")
+    
+    print("\n[yellow]🔍 Troubleshooting:[/yellow]")
+    print("• 'Access blocked' error: Check OAuth consent screen config")
+    print("• 'Invalid client' error: Verify Client ID/Secret are correct")
+    print("• 'Quota exceeded' error: Check API quotas in Cloud Console")
+    print("• 'Google verification process' error: Add test users (see troubleshoot command)")
+    print("• App verification required: https://support.google.com/cloud/answer/7454865")
+    print("• Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for verification help")
+    
+    print("\n[yellow]📚 Additional Resources:[/yellow]")
+    print("• YouTube Data API docs: https://developers.google.com/youtube/v3")
+    print("• OAuth 2.0 guide: https://developers.google.com/identity/protocols/oauth2")
+    print("• ytmusicapi docs: https://ytmusicapi.readthedocs.io/en/stable/setup/oauth.html")
+    
+    print("\n[green]✅ Ready to continue with OAuth setup![/green]")
+    print("After getting your credentials, run:")
+    print("[cyan]python -m ytm_cli auth setup-oauth[/cyan]")
+    print("\n[yellow]💡 Pro Tip:[/yellow]")
+    print("If you downloaded the JSON file, just place it in your project")
+    print("directory as 'client_secret_*.json' for automatic detection!")
+    print("=" * 60)
+
+
+def setup_oauth_command(open_browser=True):
+    """Setup OAuth authentication"""
+    print("\n[cyan]OAuth Authentication Setup[/cyan]")
+    
+    # First, scan for credential files
+    print("[yellow]Scanning for credential files...[/yellow]")
+    credential_files = auth_manager.scan_for_credential_files()
+    
+    client_id = None
+    client_secret = None
+    
+    if credential_files:
+        print(f"[green]Found {len(credential_files)} credential file(s)![/green]")
+        
+        # Try to use a credential file
+        selected_creds = auth_manager.select_credential_file(credential_files)
+        if selected_creds:
+            client_id = selected_creds['client_id']
+            client_secret = selected_creds['client_secret']
+            project_id = selected_creds.get('project_id', 'Unknown')
+            
+            print(f"[green]Using credentials from file (Project: {project_id})[/green]")
+            print(f"Client ID: {client_id[:20]}...")
+            
+            # Confirm before proceeding
+            response = input("Proceed with these credentials? (Y/n): ").strip().lower()
+            if response == 'n':
+                client_id = None
+                client_secret = None
+    
+    # If no credentials from file, ask for manual input
+    if not client_id or not client_secret:
+        print("\n[yellow]Manual credential entry required.[/yellow]")
+        
+        # Ask if user wants to see the manual
+        show_manual = input("Show detailed setup manual? (y/N): ").strip().lower()
+        if show_manual == 'y':
+            show_oauth_manual()
+            input("\nPress Enter to continue with setup...")
+        
+        print("\nYou need YouTube Data API credentials from Google Cloud Console.")
+        print("See: https://developers.google.com/youtube/registering_an_application")
+        print("Or use the manual above for detailed instructions.\n")
+        
+        if open_browser:
+            response = input("Open Google Cloud Console in browser? (Y/n): ").strip().lower()
+            if response != 'n':
+                try:
+                    import webbrowser
+                    print("[yellow]Opening Google Cloud Console...[/yellow]")
+                    webbrowser.open('https://console.cloud.google.com/apis/credentials')
+                    print("[green]Browser opened![/green]")
+                except Exception as e:
+                    print(f"[red]Could not open browser: {e}[/red]")
+                    print("Please manually open: https://console.cloud.google.com/apis/credentials")
+        
+        print("\n[yellow]Enter your OAuth credentials:[/yellow]")
+        client_id = input("Client ID: ").strip()
+        if not client_id:
+            print("[red]Client ID is required[/red]")
+            return
+        
+        client_secret = input("Client Secret: ").strip()
+        if not client_secret:
+            print("[red]Client Secret is required[/red]")
+            return
+    
+    print("\n[yellow]Setting up OAuth authentication...[/yellow]")
+    success = auth_manager.setup_oauth_auth(client_id, client_secret, open_browser)
+    
+    if success:
+        print("\n[green]🎉 OAuth setup complete![/green]")
+        print("You can now use YouTube Music with authenticated access.")
+        print("Your credentials are saved in 'oauth.json'")
+    else:
+        print("\n[red]❌ OAuth setup failed.[/red]")
+        print("Common solutions:")
+        print("• Verification error: [cyan]python -m ytm_cli auth troubleshoot[/cyan]")  
+        print("• Quick alternative: [cyan]python -m ytm_cli auth setup-browser[/cyan]")
+        print("• Retry OAuth: [cyan]python -m ytm_cli auth setup-oauth[/cyan]")
+
+
+def setup_browser_command(open_browser=True):
+    """Setup browser authentication"""
+    auth_manager.setup_browser_auth_interactive(open_browser)
+
+
+def auth_status_command():
+    """Show authentication status"""
+    status = auth_manager.get_auth_status()
+    
+    print("\n[cyan]Authentication Status[/cyan]")
+    print(f"Enabled: {'[green]Yes[/green]' if status['enabled'] else '[red]No[/red]'}")
+    print(f"Method: [yellow]{status['method']}[/yellow]")
+    
+    if status['method'] == 'oauth':
+        print(f"OAuth file: {'[green]Found[/green]' if status['oauth_file_exists'] else '[red]Missing[/red]'}")
+    elif status['method'] == 'browser':
+        print(f"Browser file: {'[green]Found[/green]' if status['browser_file_exists'] else '[red]Missing[/red]'}")
+    
+    print()
+
+
+def scan_credentials_command():
+    """Scan for credential files"""
+    print("\n[cyan]Credential File Scanner[/cyan]")
+    print("[yellow]Scanning for Google Cloud credential files...[/yellow]")
+    
+    credential_files = auth_manager.scan_for_credential_files()
+    
+    if not credential_files:
+        print("[red]No credential files found.[/red]")
+        print("\nLooking for files matching these patterns:")
+        print("• client_secret*.json")
+        print("• auth/client_secret*.json") 
+        print("• credentials/client_secret*.json")
+        print("• *client_secret*.json")
+        print("\n[yellow]💡 Download your credentials from Google Cloud Console[/yellow]")
+        print("and save as 'client_secret_*.json' in your project directory.")
+    else:
+        print(f"[green]Found {len(credential_files)} credential file(s):[/green]\n")
+        
+        for i, (file_path, creds) in enumerate(credential_files, 1):
+            project_id = creds.get('project_id', 'Unknown')
+            client_id = creds['client_id']
+            
+            print(f"[{i}] [cyan]{file_path}[/cyan]")
+            print(f"    Project ID: {project_id}")
+            print(f"    Client ID: {client_id[:50]}...")
+            print()
+        
+        print("[green]✅ All files are ready for OAuth setup![/green]")
+        print("Run: [cyan]python -m ytm_cli auth setup-oauth[/cyan]")
+
+
+def show_oauth_troubleshoot():
+    """Show OAuth verification troubleshooting guide"""
+    print("\n[red]🚨 OAuth Verification Error Troubleshooting[/red]")
+    print("=" * 60)
+    
+    print("\n[yellow]❌ Error: 'YTM CLI has not completed the Google verification process'[/yellow]")
+    print("This is normal for new OAuth applications and can be fixed!")
+    
+    print("\n[cyan]🔧 Solution 1: Add Test Users (Recommended for Personal Use)[/cyan]")
+    print("1. Go to: https://console.cloud.google.com/apis/credentials/consent")
+    print("2. Click 'EDIT APP' on your OAuth consent screen")
+    print("3. Go to 'Test users' section")
+    print("4. Click '+ ADD USERS'")
+    print("5. Add your Gmail address (and any other users who need access)")
+    print("6. Click 'SAVE'")
+    print("7. Try OAuth setup again")
+    
+    print("\n[yellow]📝 Important: Test users can access unverified apps[/yellow]")
+    print("• Up to 100 test users allowed")
+    print("• Perfect for personal or small team use")
+    print("• No verification process needed")
+    
+    print("\n[cyan]🔧 Solution 2: Set App as Internal (Google Workspace Users)[/cyan]")
+    print("1. Go to: https://console.cloud.google.com/apis/credentials/consent")
+    print("2. Click 'EDIT APP'")
+    print("3. Change 'User Type' from 'External' to 'Internal'")
+    print("4. Click 'SAVE'")
+    print("5. Only works if you have Google Workspace domain")
+    
+    print("\n[cyan]🔧 Solution 3: App Verification (For Public Distribution)[/cyan]")
+    print("1. Go to: https://console.cloud.google.com/apis/credentials/consent")
+    print("2. Complete all required fields in OAuth consent screen")
+    print("3. Submit for verification (takes 1-6 weeks)")
+    print("4. Required for public apps with >100 users")
+    
+    print("\n[yellow]🎯 Quick Fix for Personal Use:[/yellow]")
+    print("1. Add your Gmail as a test user (Solution 1)")
+    print("2. Use browser authentication as alternative")
+    print("   Run: [cyan]python -m ytm_cli auth setup-browser[/cyan]")
+    
+    print("\n[yellow]⚠️  Alternative: Browser Authentication[/yellow]")
+    print("If OAuth continues to fail, browser authentication works immediately:")
+    print("• No Google verification needed")
+    print("• Uses your browser session cookies")
+    print("• Valid for ~2 years")
+    print("• Run: [cyan]python -m ytm_cli auth setup-browser[/cyan]")
+    
+    print("\n[green]✅ After fixing, try OAuth setup again:[/green]")
+    print("[cyan]python -m ytm_cli auth setup-oauth[/cyan]")
+    print("=" * 60)
+
+
+def disable_auth_command():
+    """Disable authentication"""
+    auth_manager.disable_auth()
+
+
 def main():
     """Main CLI entry point"""
     setup_signal_handler()
     
     parser = argparse.ArgumentParser(description="YouTube Music CLI 🎧")
+    
+    # Create subcommands
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Search command (default)
+    search_parser = subparsers.add_parser('search', help='Search and play music (default)')
+    search_parser.add_argument("query", nargs="?", help="Song to search for")
+    
+    # Auth commands
+    auth_parser = subparsers.add_parser('auth', help='Authentication management')
+    auth_subparsers = auth_parser.add_subparsers(dest='auth_command', help='Auth commands')
+    
+    oauth_parser = auth_subparsers.add_parser('setup-oauth', help='Setup OAuth authentication')
+    oauth_parser.add_argument('--no-browser', action='store_true', help='Don\'t open browser automatically')
+    
+    browser_parser = auth_subparsers.add_parser('setup-browser', help='Setup browser authentication')
+    browser_parser.add_argument('--no-browser', action='store_true', help='Don\'t open browser automatically')
+    
+    auth_subparsers.add_parser('manual', help='Show OAuth setup manual')
+    auth_subparsers.add_parser('scan', help='Scan for credential files')
+    auth_subparsers.add_parser('troubleshoot', help='OAuth verification troubleshooting')
+    auth_subparsers.add_parser('status', help='Show authentication status')
+    auth_subparsers.add_parser('disable', help='Disable authentication')
+    
+    # For backward compatibility, also accept query as positional argument
     parser.add_argument("query", nargs="?", help="Song to search for (optional)")
+    
     args = parser.parse_args()
-
-    search_and_play(args.query)
+    
+    # Handle auth commands
+    if args.command == 'auth':
+        if args.auth_command == 'setup-oauth':
+            open_browser = not getattr(args, 'no_browser', False)
+            setup_oauth_command(open_browser)
+        elif args.auth_command == 'setup-browser':
+            open_browser = not getattr(args, 'no_browser', False)
+            setup_browser_command(open_browser)
+        elif args.auth_command == 'manual':
+            show_oauth_manual()
+        elif args.auth_command == 'scan':
+            scan_credentials_command()
+        elif args.auth_command == 'troubleshoot':
+            show_oauth_troubleshoot()
+        elif args.auth_command == 'status':
+            auth_status_command()
+        elif args.auth_command == 'disable':
+            disable_auth_command()
+        else:
+            print("Available auth commands: setup-oauth, setup-browser, manual, scan, troubleshoot, status, disable")
+    elif args.command == 'search':
+        search_and_play(args.query)
+    else:
+        # Default behavior for backward compatibility
+        search_and_play(args.query)
 
 
 if __name__ == "__main__":

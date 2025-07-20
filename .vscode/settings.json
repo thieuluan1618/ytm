@@ -1,5 +1,11 @@
 {
     "cSpell.words": [
+        "addstr",
+        "getch",
+        "getmaxyx",
+        "NPAGE",
+        "PPAGE",
+        "stdscr",
         "tcgetattr",
         "TCSADRAIN",
         "tcsetattr",
