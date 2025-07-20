@@ -153,28 +153,56 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
 
 def selection_ui(stdscr, results, query, songs_to_display):
     """Interactive song selection UI using curses"""
+    from .playlists import playlist_manager
+    
     curses.curs_set(0)
     curses.use_default_colors()
     
-    # Define color pair 1: yellow text, default background
-    curses.init_pair(1, curses.COLOR_YELLOW, -1)
+    # Define color pairs
+    curses.init_pair(1, curses.COLOR_YELLOW, -1)  # Selected item
+    curses.init_pair(2, curses.COLOR_CYAN, -1)    # Instructions
+    curses.init_pair(3, curses.COLOR_GREEN, -1)   # Success messages
     YELLOW = curses.color_pair(1)
+    CYAN = curses.color_pair(2)
+    GREEN = curses.color_pair(3)
 
     current_selection = 0
+    status_message = ""
+    status_timer = 0
 
     while True:
         stdscr.erase()
-        stdscr.addstr(0, 0, f"🎵 Search Results for: {query}\n\n")
+        max_y, max_x = stdscr.getmaxyx()
+        
+        # Header
+        stdscr.addstr(0, 0, f"🎵 Search Results for: {query}\n")
+        
+        # Instructions
+        instructions = "Enter: play | a: add to playlist | q: quit | ↑↓/jk: navigate"
+        stdscr.addstr(1, 0, instructions[:max_x-1], CYAN)
+        stdscr.addstr(2, 0, "")  # Empty line
 
+        # Song list
         for i, song in enumerate(results[:songs_to_display]):
             title = song['title']
             artist = song['artists'][0]['name']
             line = f"[{i+1}] {title} - {artist}"
+            
+            # Truncate if too long
+            if len(line) > max_x - 3:
+                line = line[:max_x-6] + "..."
 
             if i == current_selection:
-                stdscr.addstr(i + 2, 0, f"> {line}", YELLOW)
+                stdscr.addstr(i + 3, 0, f"> {line}", YELLOW)
             else:
-                stdscr.addstr(i + 2, 0, f"  {line}")
+                stdscr.addstr(i + 3, 0, f"  {line}")
+
+        # Status message (temporary feedback)
+        if status_message and time.time() - status_timer < 3:
+            status_y = min(songs_to_display + 4, max_y - 1)
+            stdscr.addstr(status_y, 0, status_message[:max_x-1], GREEN)
+        elif time.time() - status_timer >= 3:
+            status_message = ""
 
         stdscr.refresh()
         key = stdscr.getch()
@@ -187,8 +215,97 @@ def selection_ui(stdscr, results, query, songs_to_display):
             return current_selection
         elif key == ord('q'):
             return None
+        elif key == ord('a') or key == ord('A'):
+            # Add to playlist functionality
+            selected_song = results[current_selection]
+            if add_song_to_playlist_ui(stdscr, selected_song):
+                status_message = f"✅ Added '{selected_song['title']}' to playlist!"
+                status_timer = time.time()
         elif ord('1') <= key <= ord(str(min(9, songs_to_display))):
             return key - ord('1')
+
+
+def add_song_to_playlist_ui(stdscr, song):
+    """UI for adding a song to a playlist"""
+    from .playlists import playlist_manager
+    
+    # Get available playlists
+    playlists = playlist_manager.get_playlist_names()
+    
+    curses.curs_set(1)  # Show cursor for input
+    max_y, max_x = stdscr.getmaxyx()
+    
+    # Clear and draw dialog
+    stdscr.erase()
+    
+    # Title
+    title = f"Add '{song['title']}' to playlist"
+    if len(title) > max_x - 4:
+        title = title[:max_x-7] + "..."
+    
+    stdscr.addstr(2, 2, title)
+    stdscr.addstr(3, 2, "─" * min(len(title), max_x - 4))
+    
+    current_line = 5
+    
+    if playlists:
+        stdscr.addstr(current_line, 2, "Existing playlists:")
+        current_line += 1
+        
+        for i, playlist_name in enumerate(playlists[:8]):  # Show max 8 playlists
+            display_name = playlist_name
+            if len(display_name) > max_x - 10:
+                display_name = display_name[:max_x-13] + "..."
+            stdscr.addstr(current_line, 4, f"[{i+1}] {display_name}")
+            current_line += 1
+        
+        current_line += 1
+        stdscr.addstr(current_line, 2, "Enter number to select existing playlist,")
+        current_line += 1
+        stdscr.addstr(current_line, 2, "or type new playlist name:")
+    else:
+        stdscr.addstr(current_line, 2, "No playlists found. Enter new playlist name:")
+        current_line += 1
+    
+    current_line += 1
+    stdscr.addstr(current_line, 2, "> ")
+    stdscr.refresh()
+    
+    # Get user input
+    curses.echo()
+    input_str = ""
+    try:
+        input_bytes = stdscr.getstr(current_line, 4, max_x - 6)
+        input_str = input_bytes.decode('utf-8').strip()
+    except:
+        input_str = ""
+    finally:
+        curses.noecho()
+        curses.curs_set(0)
+    
+    if not input_str:
+        return False
+    
+    # Check if it's a number (selecting existing playlist)
+    if input_str.isdigit() and playlists:
+        try:
+            playlist_index = int(input_str) - 1
+            if 0 <= playlist_index < len(playlists):
+                playlist_name = playlists[playlist_index]
+                return playlist_manager.add_song_to_playlist(playlist_name, song)
+        except:
+            pass
+    
+    # Treat as new playlist name
+    playlist_name = input_str
+    
+    # Create playlist if it doesn't exist
+    if playlist_name not in playlists:
+        if not playlist_manager.create_playlist(playlist_name):
+            return False
+    
+    # Add song to playlist
+    return playlist_manager.add_song_to_playlist(playlist_name, song)
 
 
 def display_player_status(title, is_paused):
@@ -208,7 +325,7 @@ def display_player_status(title, is_paused):
     status_line = f"{status}: {title}"
     
     # Controls text
-    controls = "space: play/pause, n: next song, b: previous song, l: lyrics, q: quit to search"
+    controls = "space: play/pause, n: next song, b: previous song, l: lyrics, a: add to playlist, q: quit to search"
     
     # Center the text
     print()  # Empty line
