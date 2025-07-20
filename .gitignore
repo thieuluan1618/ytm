@@ -77,3 +77,6 @@ config.ini.local
 headers_auth.json
 
 auth/*curl_command.txt
+
+# Local playlists (keep private)
+playlists/

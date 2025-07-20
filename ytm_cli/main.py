@@ -8,6 +8,7 @@ from .config import ytmusic, get_songs_to_display, auth_manager
 from .ui import selection_ui
 from .player import play_music_with_controls
 from .utils import setup_signal_handler
+from .playlists import playlist_manager
 
 
 def search_and_play(query=None):
@@ -311,37 +312,328 @@ def disable_auth_command():
     auth_manager.disable_auth()
 
 
+# Playlist Commands
+
+def playlist_list_command():
+    """List all playlists"""
+    playlists = playlist_manager.list_playlists()
+    
+    if not playlists:
+        print("[yellow]No playlists found.[/yellow]")
+        print("Create your first playlist: [cyan]python -m ytm_cli playlist create[/cyan]")
+        return
+    
+    print(f"\n[cyan]📁 Local Playlists ({len(playlists)} found)[/cyan]")
+    print("=" * 60)
+    
+    for i, playlist in enumerate(playlists, 1):
+        name = playlist['name']
+        song_count = playlist['song_count']
+        description = playlist['description']
+        created_at = playlist['created_at'][:10] if playlist['created_at'] else 'Unknown'
+        
+        print(f"\n[{i}] [yellow]{name}[/yellow]")
+        print(f"    Songs: {song_count}")
+        if description:
+            print(f"    Description: {description}")
+        print(f"    Created: {created_at}")
+    
+    print(f"\n[green]💡 Commands:[/green]")
+    print("• [cyan]python -m ytm_cli playlist show <name>[/cyan] - View playlist songs")
+    print("• [cyan]python -m ytm_cli playlist play <name>[/cyan] - Play a playlist")
+    print("• [cyan]python -m ytm_cli playlist delete <name>[/cyan] - Delete a playlist")
+
+
+def playlist_create_command(name, description=""):
+    """Create a new playlist"""
+    if not name:
+        name = input("Enter playlist name: ").strip()
+        if not name:
+            print("[red]Playlist name is required[/red]")
+            return
+    
+    if not description:
+        description = input("Enter description (optional): ").strip()
+    
+    playlist_manager.create_playlist(name, description)
+
+
+def playlist_show_command(name):
+    """Show songs in a playlist"""
+    if not name:
+        # List available playlists for selection
+        playlists = playlist_manager.get_playlist_names()
+        if not playlists:
+            print("[red]No playlists found[/red]")
+            return
+        
+        print("[cyan]Available playlists:[/cyan]")
+        for i, playlist_name in enumerate(playlists, 1):
+            print(f"[{i}] {playlist_name}")
+        
+        try:
+            choice = input("\nSelect playlist number or name: ").strip()
+            if choice.isdigit():
+                index = int(choice) - 1
+                if 0 <= index < len(playlists):
+                    name = playlists[index]
+                else:
+                    print("[red]Invalid selection[/red]")
+                    return
+            else:
+                name = choice
+        except (ValueError, KeyboardInterrupt):
+            return
+    
+    playlist = playlist_manager.get_playlist(name)
+    if not playlist:
+        print(f"[red]Playlist '{name}' not found[/red]")
+        return
+    
+    songs = playlist.get('songs', [])
+    
+    print(f"\n[cyan]🎵 Playlist: {playlist['name']}[/cyan]")
+    if playlist.get('description'):
+        print(f"Description: {playlist['description']}")
+    print(f"Songs: {len(songs)}")
+    print("=" * 60)
+    
+    if not songs:
+        print("[yellow]No songs in this playlist[/yellow]")
+        print("Add songs by searching and pressing 'a' during selection!")
+        return
+    
+    for i, song in enumerate(songs, 1):
+        title = song.get('title', 'Unknown')
+        artist = song.get('artist', 'Unknown Artist')
+        duration = song.get('duration', '')
+        added_at = song.get('added_at', '')[:10] if song.get('added_at') else ''
+        
+        print(f"[{i:2d}] {title} - {artist}")
+        if duration:
+            print(f"     Duration: {duration}")
+        if added_at:
+            print(f"     Added: {added_at}")
+        print()
+
+
+def playlist_play_command(name):
+    """Play a playlist"""
+    if not name:
+        # List available playlists for selection  
+        playlists = playlist_manager.get_playlist_names()
+        if not playlists:
+            print("[red]No playlists found[/red]")
+            return
+        
+        print("[cyan]Available playlists:[/cyan]")
+        for i, playlist_name in enumerate(playlists, 1):
+            print(f"[{i}] {playlist_name}")
+        
+        try:
+            choice = input("\nSelect playlist number or name: ").strip()
+            if choice.isdigit():
+                index = int(choice) - 1
+                if 0 <= index < len(playlists):
+                    name = playlists[index]
+                else:
+                    print("[red]Invalid selection[/red]")
+                    return
+            else:
+                name = choice
+        except (ValueError, KeyboardInterrupt):
+            return
+    
+    playlist = playlist_manager.get_playlist(name)
+    if not playlist:
+        print(f"[red]Playlist '{name}' not found[/red]")
+        return
+    
+    songs = playlist.get('songs', [])
+    if not songs:
+        print(f"[yellow]Playlist '{name}' is empty[/yellow]")
+        return
+    
+    print(f"[green]🎵 Playing playlist: {playlist['name']} ({len(songs)} songs)[/green]")
+    
+    # Convert playlist songs to format expected by player
+    playable_songs = []
+    for song in songs:
+        if song.get('videoId'):
+            # Create a song object compatible with ytmusicapi format
+            playable_song = {
+                'title': song.get('title', 'Unknown'),
+                'artists': [{'name': song.get('artist', 'Unknown Artist')}],
+                'videoId': song['videoId'],
+                'duration_seconds': song.get('duration', ''),
+                'album': {'name': song.get('album', '')} if song.get('album') else None
+            }
+            playable_songs.append(playable_song)
+    
+    if not playable_songs:
+        print("[red]No playable songs found in playlist[/red]")
+        return
+    
+    # Start playback
+    play_music_with_controls(playable_songs)
+
+
+def playlist_delete_command(name):
+    """Delete a playlist"""
+    if not name:
+        # List available playlists for selection
+        playlists = playlist_manager.get_playlist_names()
+        if not playlists:
+            print("[red]No playlists found[/red]")
+            return
+        
+        print("[cyan]Available playlists:[/cyan]")
+        for i, playlist_name in enumerate(playlists, 1):
+            print(f"[{i}] {playlist_name}")
+        
+        try:
+            choice = input("\nSelect playlist number or name to delete: ").strip()
+            if choice.isdigit():
+                index = int(choice) - 1
+                if 0 <= index < len(playlists):
+                    name = playlists[index]
+                else:
+                    print("[red]Invalid selection[/red]")
+                    return
+            else:
+                name = choice
+        except (ValueError, KeyboardInterrupt):
+            return
+    
+    # Confirm deletion
+    confirm = input(f"Delete playlist '{name}'? (y/N): ").strip().lower()
+    if confirm != 'y':
+        print("Deletion cancelled")
+        return
+    
+    playlist_manager.delete_playlist(name)
+
+
 def main():
     """Main CLI entry point"""
     setup_signal_handler()
     
-    parser = argparse.ArgumentParser(description="YouTube Music CLI 🎧")
+    # Handle backward compatibility first by checking command line arguments
+    import sys
+    if len(sys.argv) == 2 and not sys.argv[1].startswith('-') and sys.argv[1] not in ['search', 'auth', 'playlist']:
+        # This is likely a song query, handle it directly
+        search_and_play(sys.argv[1])
+        return
+    
+    parser = argparse.ArgumentParser(
+        description="YouTube Music CLI 🎧 - Search, play, and organize music from YouTube Music",
+        epilog="""
+Examples:
+  %(prog)s "bohemian rhapsody"           Search and play music
+  %(prog)s playlist list                 List all local playlists  
+  %(prog)s playlist create "Rock Hits"   Create a new playlist
+  %(prog)s auth setup-oauth              Setup OAuth authentication
+  
+During song selection:
+  • Enter: Play selected song with radio
+  • a: Add song to playlist  
+  • q: Quit to search
+  • ↑↓ or j/k: Navigate
+
+During music playback:
+  • space: Play/pause
+  • n: Next song, b: Previous song
+  • l: Show lyrics, a: Add to playlist
+  • q: Quit to search
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     
     # Create subcommands
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    subparsers = parser.add_subparsers(
+        dest='command', 
+        help='Available commands',
+        description='Main commands for the YouTube Music CLI'
+    )
     
-    # Search command (default)
-    search_parser = subparsers.add_parser('search', help='Search and play music (default)')
-    search_parser.add_argument("query", nargs="?", help="Song to search for")
+    # Search command (explicit)
+    search_parser = subparsers.add_parser(
+        'search', 
+        help='Search and play music',
+        description='Search YouTube Music and play songs with radio playlists'
+    )
+    search_parser.add_argument("search_query", nargs="?", help="Song, artist, or album to search for")
     
     # Auth commands
-    auth_parser = subparsers.add_parser('auth', help='Authentication management')
-    auth_subparsers = auth_parser.add_subparsers(dest='auth_command', help='Auth commands')
+    auth_parser = subparsers.add_parser(
+        'auth', 
+        help='Authentication management',
+        description='Manage YouTube Music authentication for personalized features'
+    )
+    auth_subparsers = auth_parser.add_subparsers(dest='auth_command', help='Authentication commands')
     
-    oauth_parser = auth_subparsers.add_parser('setup-oauth', help='Setup OAuth authentication')
+    oauth_parser = auth_subparsers.add_parser(
+        'setup-oauth', 
+        help='Setup OAuth authentication (recommended)',
+        description='Setup OAuth authentication using Google Cloud credentials'
+    )
     oauth_parser.add_argument('--no-browser', action='store_true', help='Don\'t open browser automatically')
     
-    browser_parser = auth_subparsers.add_parser('setup-browser', help='Setup browser authentication')
+    browser_parser = auth_subparsers.add_parser(
+        'setup-browser', 
+        help='Setup browser authentication (alternative)',
+        description='Setup authentication using browser headers (no Google verification needed)'
+    )
     browser_parser.add_argument('--no-browser', action='store_true', help='Don\'t open browser automatically')
     
-    auth_subparsers.add_parser('manual', help='Show OAuth setup manual')
-    auth_subparsers.add_parser('scan', help='Scan for credential files')
-    auth_subparsers.add_parser('troubleshoot', help='OAuth verification troubleshooting')
-    auth_subparsers.add_parser('status', help='Show authentication status')
-    auth_subparsers.add_parser('disable', help='Disable authentication')
+    auth_subparsers.add_parser('manual', help='Show detailed OAuth setup guide')
+    auth_subparsers.add_parser('scan', help='Scan for Google Cloud credential files')
+    auth_subparsers.add_parser('troubleshoot', help='OAuth verification troubleshooting guide')
+    auth_subparsers.add_parser('status', help='Show current authentication status')
+    auth_subparsers.add_parser('disable', help='Disable authentication and use guest access')
     
-    # For backward compatibility, also accept query as positional argument
-    parser.add_argument("query", nargs="?", help="Song to search for (optional)")
+    # Playlist commands
+    playlist_parser = subparsers.add_parser(
+        'playlist', 
+        help='Local playlist management',
+        description='Create and manage local playlists. Add songs during search by pressing "a".'
+    )
+    playlist_subparsers = playlist_parser.add_subparsers(dest='playlist_command', help='Playlist operations')
+    
+    playlist_subparsers.add_parser(
+        'list', 
+        help='List all local playlists',
+        description='Show all created playlists with song counts and metadata'
+    )
+    
+    create_parser = playlist_subparsers.add_parser(
+        'create', 
+        help='Create a new playlist',
+        description='Create a new local playlist with optional description'
+    )
+    create_parser.add_argument('name', nargs='?', help='Playlist name (prompted if not provided)')
+    create_parser.add_argument('-d', '--description', help='Optional playlist description')
+    
+    show_parser = playlist_subparsers.add_parser(
+        'show', 
+        help='Show songs in a playlist',
+        description='Display all songs in a playlist with details'
+    )
+    show_parser.add_argument('name', nargs='?', help='Playlist name (select from list if not provided)')
+    
+    play_parser = playlist_subparsers.add_parser(
+        'play', 
+        help='Play a playlist',
+        description='Start playback of all songs in a playlist'
+    )
+    play_parser.add_argument('name', nargs='?', help='Playlist name (select from list if not provided)')
+    
+    delete_parser = playlist_subparsers.add_parser(
+        'delete', 
+        help='Delete a playlist',
+        description='Permanently delete a playlist and all its songs'
+    )
+    delete_parser.add_argument('name', nargs='?', help='Playlist name (select from list if not provided)')
     
     args = parser.parse_args()
     
@@ -365,11 +657,24 @@ def main():
             disable_auth_command()
         else:
             print("Available auth commands: setup-oauth, setup-browser, manual, scan, troubleshoot, status, disable")
+    elif args.command == 'playlist':
+        if args.playlist_command == 'list':
+            playlist_list_command()
+        elif args.playlist_command == 'create':
+            playlist_create_command(args.name, args.description or "")
+        elif args.playlist_command == 'show':
+            playlist_show_command(args.name)
+        elif args.playlist_command == 'play':
+            playlist_play_command(args.name)
+        elif args.playlist_command == 'delete':
+            playlist_delete_command(args.name)
+        else:
+            print("Available playlist commands: list, create, show, play, delete")
     elif args.command == 'search':
-        search_and_play(args.query)
+        search_and_play(args.search_query)
     else:
-        # Default behavior for backward compatibility
-        search_and_play(args.query)
+        # Default behavior: if no command specified, prompt for search
+        search_and_play()
 
 
 if __name__ == "__main__":

@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Python-based YouTube Music CLI tool that provides an interactive terminal interface for searching, playing, and controlling music from YouTube Music. The application uses mpv as the media player backend and provides keyboard controls for playback.
 
+**Core Philosophy**: Keep it simple for the listener to enjoy music. Features should be intuitive, accessible during playback, and not interrupt the listening experience.
+
 ## Development Commands
 
 ### Environment Setup
@@ -23,10 +25,12 @@ pip install -r requirements.txt
 ### Running the Application
 ```bash
 # Interactive mode (search prompt)
-python ytm-cli.py
+python -m ytm_cli
 
 # Direct search from command line
-python ytm-cli.py "song name or artist"
+python -m ytm_cli "song name or artist"
+
+# Note: Legacy ytm-cli.py still works for backward compatibility
 ```
 
 ### Dependencies Management
@@ -39,7 +43,7 @@ pip freeze > requirements.txt
 
 ### Core Components
 
-- **Single-file architecture**: All functionality is contained in `ytm-cli.py`
+- **Modular architecture**: Organized into focused modules (main.py, player.py, ui.py, playlists.py, config.py)
 - **YTMusic Integration**: Uses `ytmusicapi` library for YouTube Music API access
 - **Media Player**: Integrates with mpv via subprocess and IPC socket communication
 - **Terminal UI**: Prioritizes `curses` for all text display and interactive interfaces, with `rich` as secondary for simple formatting
@@ -48,7 +52,7 @@ pip freeze > requirements.txt
 
 - `search_and_play()`: Main entry point for search and playback workflow
 - `selection_ui()`: Curses-based interactive song selection interface  
-- `play_music_with_controls()`: Media playback with keyboard controls (space=pause, n=next, b=previous, q=quit)
+- `play_music_with_controls()`: Media playback with keyboard controls (space=pause, n=next, b=previous, l=lyrics, a=add to playlist, q=quit)
 - `send_mpv_command()`: IPC communication with mpv player via Unix socket
 
 ### Configuration
@@ -75,7 +79,7 @@ Configuration is managed through `config.ini`:
 
 ## Version Management
 
-Version is defined as `__version__ = "0.2.0"` in the main script. Use `bump2version` for version updates as indicated in requirements.txt.
+Version is defined as `__version__ = "0.3.0"` in the main script. Use `bump2version` for version updates as indicated in requirements.txt.
 
 ## Authentication
 
@@ -103,3 +107,65 @@ python -m ytm_cli auth setup-browser   # Setup using browser headers
 python -m ytm_cli auth status          # Check auth status
 python -m ytm_cli auth disable         # Disable authentication
 ```
+
+## Local Playlists
+
+The application supports local playlist management for organizing favorite songs:
+
+### Playlist Management
+```bash
+python -m ytm_cli playlist list        # List all playlists
+python -m ytm_cli playlist create      # Create new playlist
+python -m ytm_cli playlist show <name> # View playlist contents
+python -m ytm_cli playlist play <name> # Play entire playlist
+python -m ytm_cli playlist delete <name> # Delete playlist
+```
+
+### Adding Songs to Playlists
+
+**During Search/Selection:**
+1. Search for music: `python -m ytm_cli "song name"`
+2. Navigate search results with ↑↓ or j/k keys
+3. Press `'a'` to add current song to a playlist
+4. Choose existing playlist or create new one
+
+**During Playback (New Feature):**
+1. While listening to any song, press `'a'` to add it to a playlist
+2. Interactive menu appears without stopping playback
+3. Select existing playlist or create new one
+4. Song added seamlessly, music continues
+
+This follows the app's philosophy of keeping music enjoyment simple and uninterrupted.
+
+### Playlist Storage
+- Local storage in `playlists/` directory (JSON format)
+- Cross-platform safe filenames
+- UTF-8 encoding for international characters
+- Metadata includes: title, artist, album, duration, timestamps
+- Added to `.gitignore` for privacy
+
+### Configuration
+Playlist settings in `config.ini`:
+```ini
+[playlists]
+directory = playlists      # Storage location
+max_playlists = 100       # Future limit (not enforced yet)
+auto_backup = false       # Future backup feature
+```
+
+## Design Principles
+
+When adding new features, follow these principles:
+
+1. **Simplicity First**: Features should be discoverable and intuitive. Single-key shortcuts during playback are preferred.
+2. **Non-Disruptive**: New functionality should not interrupt music playback or require complex workflows.
+3. **Consistent UI**: Use curses for interactive interfaces, maintain vim-like navigation (j/k keys).
+4. **Quick Access**: Important features should be accessible during playback with simple key presses.
+5. **Clear Feedback**: Provide immediate visual confirmation of actions without blocking the user.
+
+## Key Bindings Philosophy
+
+- **During Playback**: Single letter keys for immediate actions (space, n, b, l, a, q)
+- **During Selection**: Same vim-like navigation everywhere (j/k, ↑↓, Enter, q)
+- **Consistent**: Same keys do the same things across different screens
+- **Memorable**: Use logical letters (a=add, l=lyrics, q=quit, etc.)

@@ -14,6 +14,7 @@ import tempfile
 from ytm_cli.utils import goodbye_message
 
 from .config import get_mpv_flags, ytmusic
+from .playlists import playlist_manager
 
 
 def send_mpv_command(socket_path, command):
@@ -43,6 +44,119 @@ def get_mpv_time_position(socket_path):
     except Exception:
         pass
     return 0
+
+
+def add_song_to_playlist_interactive(song_data):
+    """Interactive playlist selection and song addition during playback"""
+    import sys
+    import termios
+    import tty
+    from curses import wrapper
+    
+    def playlist_selection_ui(stdscr, song_title):
+        """Curses UI for playlist selection"""
+        import curses
+        
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        
+        # Get existing playlists
+        playlists = playlist_manager.get_playlist_names()
+        
+        # Menu options
+        options = ["Create new playlist"]
+        options.extend(playlists)
+        
+        selected_index = 0
+        
+        while True:
+            stdscr.clear()
+            
+            # Title
+            title = f"Add '{song_title}' to playlist:"
+            stdscr.addstr(0, 0, title[:width-1], curses.A_BOLD)
+            stdscr.addstr(1, 0, "=" * min(len(title), width-1))
+            
+            # Instructions
+            stdscr.addstr(3, 0, "↑↓ or j/k: Navigate | Enter: Select | q: Cancel")
+            
+            # Menu options
+            start_row = 5
+            for i, option in enumerate(options):
+                if i >= height - start_row - 2:
+                    break
+                    
+                row = start_row + i
+                prefix = "→ " if i == selected_index else "  "
+                text = f"{prefix}{option}"
+                
+                if i == selected_index:
+                    stdscr.addstr(row, 0, text[:width-1], curses.A_REVERSE)
+                else:
+                    stdscr.addstr(row, 0, text[:width-1])
+            
+            stdscr.refresh()
+            
+            # Handle input
+            key = stdscr.getch()
+            
+            if key in [ord('q'), ord('Q'), 27]:  # q or ESC
+                return None
+            elif key in [ord('j'), curses.KEY_DOWN]:
+                selected_index = (selected_index + 1) % len(options)
+            elif key in [ord('k'), curses.KEY_UP]:
+                selected_index = (selected_index - 1) % len(options)
+            elif key in [10, 13, curses.KEY_ENTER]:  # Enter
+                if selected_index == 0:  # Create new playlist
+                    return "CREATE_NEW"
+                else:
+                    return options[selected_index]
+    
+    # Save terminal state
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    
+    try:
+        # Reset terminal to normal mode for curses
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        
+        # Run playlist selection UI
+        song_title = song_data.get('title', 'Unknown')
+        selected_playlist = wrapper(lambda stdscr: playlist_selection_ui(stdscr, song_title))
+        
+        if selected_playlist is None:
+            # User cancelled
+            print("\nCancelled adding song to playlist.")
+            time.sleep(1)
+            return False
+        
+        if selected_playlist == "CREATE_NEW":
+            # Create new playlist
+            print("\nCreate new playlist:")
+            playlist_name = input("Playlist name: ").strip()
+            if not playlist_name:
+                print("Cancelled - no name provided.")
+                time.sleep(1)
+                return False
+            
+            description = input("Description (optional): ").strip()
+            
+            # Create the playlist
+            if playlist_manager.create_playlist(playlist_name, description):
+                selected_playlist = playlist_name
+            else:
+                print("Failed to create playlist.")
+                time.sleep(1)
+                return False
+        
+        # Add song to selected playlist
+        success = playlist_manager.add_song_to_playlist(selected_playlist, song_data)
+        time.sleep(1.5)  # Give user time to see the message
+        return success
+        
+    finally:
+        # Restore raw terminal mode for player controls
+        tty.setraw(sys.stdin.fileno())
 
 
 def get_and_display_lyrics(video_id, title, socket_path=None):
@@ -147,6 +261,10 @@ def play_music_with_controls(playlist):
                         elif key == 'l':
                             # Show lyrics
                             get_and_display_lyrics(video_id, title, socket_path)
+                            update_display()
+                        elif key == 'a':
+                            # Add current song to playlist
+                            add_song_to_playlist_interactive(item)
                             update_display()
                         elif key == 'q' or key == '\x03':
                             cleanup()
