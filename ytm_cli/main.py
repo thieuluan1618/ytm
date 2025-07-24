@@ -9,6 +9,7 @@ from .ui import selection_ui
 from .player import play_music_with_controls
 from .utils import setup_signal_handler
 from .playlists import playlist_manager
+from .dislikes import dislike_manager
 
 
 def search_and_play(query=None):
@@ -21,6 +22,12 @@ def search_and_play(query=None):
     results = ytmusic.search(query, filter="songs")
     if not results:
         print("[red]No songs found.[/red]")
+        return
+
+    # Filter out disliked songs
+    results = dislike_manager.filter_disliked_songs(results)
+    if not results:
+        print("[red]No songs found after filtering dislikes.[/red]")
         return
 
     songs_to_display = get_songs_to_display()
@@ -38,7 +45,10 @@ def search_and_play(query=None):
     print("\n[yellow]🎶 Fetching Radio...[/yellow]")
     try:
         radio = ytmusic.get_watch_playlist(videoId=song['videoId'])
-        playlist.extend(radio['tracks'][1:])
+        radio_tracks = radio['tracks'][1:]  # Skip first track (the selected song)
+        # Filter out disliked songs from radio
+        filtered_radio = dislike_manager.filter_disliked_songs(radio_tracks)
+        playlist.extend(filtered_radio)
     except Exception as e:
         print(f"[red]Error fetching radio: {e}[/red]")
 
@@ -470,8 +480,11 @@ def playlist_play_command(name):
             }
             playable_songs.append(playable_song)
     
+    # Filter out disliked songs
+    playable_songs = dislike_manager.filter_disliked_songs(playable_songs)
+    
     if not playable_songs:
-        print("[red]No playable songs found in playlist[/red]")
+        print("[red]No playable songs found in playlist after filtering dislikes[/red]")
         return
     
     # Start playback
@@ -541,10 +554,10 @@ During song selection:
   • ↑↓ or j/k: Navigate
 
 During music playback:
-  • space: Play/pause
-  • n: Next song, b: Previous song
-  • l: Show lyrics, a: Add to playlist
-  • q: Quit to search
+  • ⏯️ space: Play/pause
+  • ⏭️ n: Next song, ⏮️ b: Previous song
+  • 📜 l: Show lyrics, ➕ a: Add to playlist, 👎 d: Dislike song
+  • 🚪 q: Quit to search
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )

@@ -325,7 +325,7 @@ def display_player_status(title, is_paused):
     status_line = f"{status}: {title}"
     
     # Controls text
-    controls = "space: play/pause, n: next song, b: previous song, l: lyrics, a: add to playlist, q: quit to search"
+    controls = "space: ⏯️    n: ⏭️    b: ⏮️    l: 📜   a: ➕    d: 👎    q: 🚪"
     
     # Center the text
     print()  # Empty line

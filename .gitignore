@@ -78,5 +78,6 @@ headers_auth.json
 
 auth/*curl_command.txt
 
-# Local playlists (keep private)
+# Local playlists and dislikes (keep private)
 playlists/
+dislikes.json

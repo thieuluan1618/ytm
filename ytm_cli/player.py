@@ -15,6 +15,7 @@ from ytm_cli.utils import goodbye_message
 
 from .config import get_mpv_flags, ytmusic
 from .playlists import playlist_manager
+from .dislikes import dislike_manager
 
 
 def send_mpv_command(socket_path, command):
@@ -266,6 +267,11 @@ def play_music_with_controls(playlist):
                             # Add current song to playlist
                             add_song_to_playlist_interactive(item)
                             update_display()
+                        elif key == 'd':
+                            # Dislike current song and skip to next
+                            dislike_manager.dislike_song(item)
+                            current_song_index += 1
+                            break
                         elif key == 'q' or key == '\x03':
                             cleanup()
                             goodbye_message(None, None)
