@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Dislike System**: Comprehensive song dislike functionality
+  - Press 'd' during playback to dislike current song and skip to next
+  - Persistent storage of disliked songs in `dislikes.json`
+  - Automatic filtering of disliked songs from:
+    - Search results
+    - Radio playlists  
+    - Local playlist playback
+  - Privacy-focused: `dislikes.json` added to `.gitignore`
+
+### Enhanced
+
+- **Playback Controls**: Added 'd' key for dislike functionality with immediate skip
+- **User Experience**: Fun emoji icons for all playback controls (space: ⏯️, n: ⏭️, b: ⏮️, l: 📜, a: ➕, d: 👎, q: 🚪)
+- **Smart Filtering**: Disliked songs are intelligently filtered across the entire application
+- **Documentation**: Updated help text and controls display to include new dislike functionality
+
+### Changed
+
+- Enhanced UI controls display with visual emoji indicators
+- Improved filtering system that works seamlessly across search, radio, and playlists
+
 ## [0.3.0] - 2025-07-20
 
 ### Added
