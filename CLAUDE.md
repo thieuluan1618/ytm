@@ -43,7 +43,7 @@ pip freeze > requirements.txt
 
 ### Core Components
 
-- **Modular architecture**: Organized into focused modules (main.py, player.py, ui.py, playlists.py, config.py)
+- **Modular architecture**: Organized into focused modules (main.py, player.py, ui.py, playlists.py, dislikes.py, config.py)
 - **YTMusic Integration**: Uses `ytmusicapi` library for YouTube Music API access
 - **Media Player**: Integrates with mpv via subprocess and IPC socket communication
 - **Terminal UI**: Prioritizes `curses` for all text display and interactive interfaces, with `rich` as secondary for simple formatting
@@ -52,7 +52,7 @@ pip freeze > requirements.txt
 
 - `search_and_play()`: Main entry point for search and playback workflow
 - `selection_ui()`: Curses-based interactive song selection interface  
-- `play_music_with_controls()`: Media playback with keyboard controls (space=pause, n=next, b=previous, l=lyrics, a=add to playlist, q=quit)
+- `play_music_with_controls()`: Media playback with keyboard controls (space=pause, n=next, b=previous, l=lyrics, a=add to playlist, d=dislike, q=quit)
 - `send_mpv_command()`: IPC communication with mpv player via Unix socket
 
 ### Configuration
@@ -153,6 +153,40 @@ max_playlists = 100       # Future limit (not enforced yet)
 auto_backup = false       # Future backup feature
 ```
 
+## Song Dislike System
+
+The application includes a comprehensive dislike system to filter out unwanted songs:
+
+### Dislike Functionality
+
+**During Playback:**
+1. While listening to any song, press `'d'` to dislike it
+2. Song is immediately skipped to next track
+3. Disliked song is permanently filtered from future searches and playlists
+
+**Smart Filtering:**
+- Disliked songs are automatically filtered from:
+  - Search results
+  - Radio playlist generation
+  - Local playlist playback
+- Real-time feedback shows "Filtered out X disliked song(s)" when applicable
+
+### Dislike Storage
+
+- **File Location**: `dislikes.json` in project root
+- **Format**: JSON with metadata (title, artist, videoId, album, timestamp)
+- **Privacy**: File added to `.gitignore` to keep personal preferences private
+- **Persistence**: Dislikes persist across application restarts and updates
+
+### Key Features
+
+- **Immediate Action**: Press 'd' during playback for instant dislike + skip
+- **Comprehensive Filtering**: Works across all song discovery methods
+- **Non-Disruptive**: Follows app philosophy of simple, uninterrupted music enjoyment
+- **Visual Feedback**: Clear confirmation with emoji indicators (👎)
+
+This system allows users to gradually curate their music experience by permanently removing unwanted songs.
+
 ## Design Principles
 
 When adding new features, follow these principles:
@@ -165,7 +199,7 @@ When adding new features, follow these principles:
 
 ## Key Bindings Philosophy
 
-- **During Playback**: Single letter keys for immediate actions (space, n, b, l, a, q)
+- **During Playback**: Single letter keys for immediate actions (space, n, b, l, a, d, q)
 - **During Selection**: Same vim-like navigation everywhere (j/k, ↑↓, Enter, q)
 - **Consistent**: Same keys do the same things across different screens
-- **Memorable**: Use logical letters (a=add, l=lyrics, q=quit, etc.)
+- **Memorable**: Use logical letters (a=add, d=dislike, l=lyrics, q=quit, etc.)
