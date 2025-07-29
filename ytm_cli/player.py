@@ -1,21 +1,21 @@
 """MPV player functionality for YTM CLI"""
 
-import subprocess
-import time
-import sys
-import tty
-import termios
+import json
 import os
 import select
-import json
 import socket
+import subprocess
+import sys
 import tempfile
+import termios
+import time
+import tty
 
 from ytm_cli.utils import goodbye_message
 
 from .config import get_mpv_flags, ytmusic
-from .playlists import playlist_manager
 from .dislikes import dislike_manager
+from .playlists import playlist_manager
 
 
 def send_mpv_command(socket_path, command):

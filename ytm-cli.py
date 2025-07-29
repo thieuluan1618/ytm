@@ -6,7 +6,6 @@ For new development, work on the modular version in the ytm_cli/ directory.
 """
 
 from ytm_cli.main import main
-from ytm_cli import __version__
 
 if __name__ == "__main__":
     main()

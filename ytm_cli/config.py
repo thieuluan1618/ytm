@@ -1,6 +1,7 @@
 """Configuration management for YTM CLI"""
 
 import configparser
+
 from .auth import AuthManager
 
 config = configparser.ConfigParser()
