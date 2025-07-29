@@ -16,6 +16,7 @@ from ytm_cli.utils import goodbye_message
 from .config import get_mpv_flags, ytmusic
 from .dislikes import dislike_manager
 from .playlists import playlist_manager
+from .ui import display_lyrics_with_curses
 
 
 def send_mpv_command(socket_path, command):
@@ -25,7 +26,7 @@ def send_mpv_command(socket_path, command):
         sock.connect(socket_path)
         sock.send((json.dumps(command) + "\n").encode())
         sock.close()
-    except Exception:
+    except (socket.error, json.JSONEncodeError):
         pass  # Ignore errors if mpv isn't ready yet
 
 
@@ -182,9 +183,9 @@ def add_song_to_playlist_interactive(song_data):
         tty.setraw(sys.stdin.fileno())
 
 
-def get_and_display_lyrics(video_id, title, socket_path=None):
+def get_and_display_lyrics(video_id, title, socket_path=None, display_lyrics_with_curses_func=None):
     """Get and display lyrics for a song"""
-    from .ui import display_lyrics_with_curses
+    
 
     try:
         # Use get_watch_playlist to get lyrics browseId (correct method)
@@ -193,7 +194,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
         if watch_playlist and "lyrics" in watch_playlist and watch_playlist["lyrics"]:
             lyrics_data = ytmusic.get_lyrics(watch_playlist["lyrics"])
             if lyrics_data and "lyrics" in lyrics_data:
-                display_lyrics_with_curses(lyrics_data["lyrics"], title, socket_path)
+                display_lyrics_with_curses(lyrics_data["lyrics"], title, socket_path, get_mpv_time_position)
                 return True
             else:
                 print("No lyrics content found.")
@@ -300,7 +301,7 @@ def play_music_with_controls(playlist):
                         break
                     elif key == "l":
                         # Show lyrics
-                        get_and_display_lyrics(video_id, title, socket_path)
+                        get_and_display_lyrics(video_id, title, socket_path, display_lyrics_with_curses)
                         update_display()
                     elif key == "a":
                         # Add current song to playlist
@@ -313,7 +314,7 @@ def play_music_with_controls(playlist):
                         break
                     elif key == "q" or key == "\x03":
                         cleanup()
-                        goodbye_message(None, None)
+                        goodbye_message()
                         return
 
     finally:

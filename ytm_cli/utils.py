@@ -7,7 +7,7 @@ import termios
 import tty
 
 
-def goodbye_message(signum, frame):
+def goodbye_message():
     """Handle Ctrl+C gracefully with a goodbye message"""
     print("\n👋 Goodbye! Thanks for using YTM CLI! 💩 💩 💩")
     sys.exit(0)
@@ -15,7 +15,7 @@ def goodbye_message(signum, frame):
 
 def setup_signal_handler():
     """Register the signal handler for graceful exit"""
-    signal.signal(signal.SIGINT, goodbye_message)
+    signal.signal(signal.SIGINT, lambda signum, frame: goodbye_message())
 
 
 def clear_screen():

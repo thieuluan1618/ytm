@@ -5,10 +5,11 @@ import os
 import time
 from curses import wrapper
 
-from .player import get_mpv_time_position
+
+from .playlists import playlist_manager
 
 
-def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
+def display_lyrics_with_curses(lyrics_text, title, socket_path=None, get_mpv_time_position_func=None):
     """Display lyrics using curses with live highlighting"""
 
     def lyrics_ui(stdscr):
@@ -24,10 +25,10 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
             5, curses.COLOR_BLACK, curses.COLOR_YELLOW
         )  # Current line highlight
 
-        HEADER_COLOR = curses.color_pair(1)
-        TEXT_COLOR = curses.color_pair(2)
-        FOOTER_COLOR = curses.color_pair(3)
-        CURRENT_LINE_COLOR = curses.color_pair(5)
+        header_color = curses.color_pair(1)
+        text_color = curses.color_pair(2)
+        footer_color = curses.color_pair(3)
+        current_line_color = curses.color_pair(5)
 
         # Prepare lyrics lines
         lines = [line.strip() for line in lyrics_text.split("\n")]
@@ -64,8 +65,8 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
 
             # Calculate current highlighted line based on playback time
             current_highlighted_line = -1
-            if socket_path:
-                current_time = get_mpv_time_position(socket_path)
+            if socket_path and get_mpv_time_position_func:
+                current_time = get_mpv_time_position_func(socket_path)
                 if current_time > 0 and non_empty_lines:
                     # Estimate which line should be highlighted
                     estimated_line_index = int(current_time / line_duration)
@@ -77,25 +78,23 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
                 if current_highlighted_line < scroll_pos:
                     scroll_pos = max(0, current_highlighted_line - 2)
                 elif current_highlighted_line >= scroll_pos + content_height:
-                    scroll_pos = min(
+                    scroll_pos = max(0, min(
                         current_highlighted_line - content_height + 3,
                         len(lines) - content_height,
-                    )
-                    if scroll_pos < 0:
-                        scroll_pos = 0
+                    ))
 
             # Header
             header_text = f"🎵 {title}"
             border = "═" * (max_x - 2)
 
-            stdscr.addstr(0, 0, border[: max_x - 1], HEADER_COLOR)
+            stdscr.addstr(0, 0, border[: max_x - 1], header_color)
             if len(header_text) < max_x - 1:
                 stdscr.addstr(
-                    1, (max_x - len(header_text)) // 2, header_text, HEADER_COLOR
+                    1, (max_x - len(header_text)) // 2, header_text, header_color
                 )
             else:
-                stdscr.addstr(1, 0, header_text[: max_x - 1], HEADER_COLOR)
-            stdscr.addstr(2, 0, border[: max_x - 1], HEADER_COLOR)
+                stdscr.addstr(1, 0, header_text[: max_x - 1], header_color)
+            stdscr.addstr(2, 0, border[: max_x - 1], header_color)
 
             # Display lyrics content
             for i in range(content_height):
@@ -106,10 +105,10 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
                         # Highlight the current line
                         if line_idx == current_highlighted_line:
                             stdscr.addstr(
-                                3 + i, 2, f"♪ {line[: max_x - 5]}", CURRENT_LINE_COLOR
+                                3 + i, 2, f"♪ {line[: max_x - 5]}", current_line_color
                             )
                         else:
-                            stdscr.addstr(3 + i, 2, line[: max_x - 3], TEXT_COLOR)
+                            stdscr.addstr(3 + i, 2, line[: max_x - 3], text_color)
                     # Empty lines create natural spacing
 
             # Footer with instructions
@@ -121,16 +120,18 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
                 progress = f"[{scroll_pos + 1}-{min(scroll_pos + content_height, total_lines)}/{total_lines}]"
                 time_info = ""
                 if socket_path:
-                    current_time = get_mpv_time_position(socket_path)
+                    current_time = get_mpv_time_position_func(socket_path)
                     time_info = (
                         f" | {int(current_time // 60)}:{int(current_time % 60):02d}"
                     )
-                instructions = f"j/k: scroll | q: back{time_info} | {progress}"
+                instructions = (
+                    f"j/k: scroll | q: back{time_info} | {progress}"
+                )
             else:
                 instructions = "q: back to player"
 
             if len(instructions) < max_x - 1:
-                stdscr.addstr(footer_y, 0, instructions[: max_x - 1], FOOTER_COLOR)
+                stdscr.addstr(footer_y, 0, instructions[: max_x - 1], footer_color)
 
             stdscr.refresh()
 
@@ -146,12 +147,11 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
             elif key == ord("k") or key == curses.KEY_UP:
                 if scroll_pos > 0:
                     scroll_pos -= 1
-            elif key == curses.KEY_NPAGE:  # Page Down
+            if key == curses.KEY_NPAGE:  # Page Down
                 scroll_pos = min(
                     scroll_pos + content_height, len(lines) - content_height
                 )
-                if scroll_pos < 0:
-                    scroll_pos = 0
+                scroll_pos = max(0, scroll_pos)
             elif key == curses.KEY_PPAGE:  # Page Up
                 scroll_pos = max(scroll_pos - content_height, 0)
             elif key == curses.KEY_HOME:  # Home - go to top
@@ -172,9 +172,9 @@ def selection_ui(stdscr, results, query, songs_to_display):
     curses.init_pair(1, curses.COLOR_YELLOW, -1)  # Selected item
     curses.init_pair(2, curses.COLOR_CYAN, -1)  # Instructions
     curses.init_pair(3, curses.COLOR_GREEN, -1)  # Success messages
-    YELLOW = curses.color_pair(1)
-    CYAN = curses.color_pair(2)
-    GREEN = curses.color_pair(3)
+    yellow = curses.color_pair(1)
+    cyan = curses.color_pair(2)
+    green = curses.color_pair(3)
 
     current_selection = 0
     status_message = ""
@@ -189,7 +189,7 @@ def selection_ui(stdscr, results, query, songs_to_display):
 
         # Instructions
         instructions = "Enter: play | a: add to playlist | q: quit | ↑↓/jk: navigate"
-        stdscr.addstr(1, 0, instructions[: max_x - 1], CYAN)
+        stdscr.addstr(1, 0, instructions[: max_x - 1], cyan)
         stdscr.addstr(2, 0, "")  # Empty line
 
         # Song list
@@ -203,14 +203,14 @@ def selection_ui(stdscr, results, query, songs_to_display):
                 line = line[: max_x - 6] + "..."
 
             if i == current_selection:
-                stdscr.addstr(i + 3, 0, f"> {line}", YELLOW)
+                stdscr.addstr(i + 3, 0, f"> {line}", yellow)
             else:
                 stdscr.addstr(i + 3, 0, f"  {line}")
 
         # Status message (temporary feedback)
         if status_message and time.time() - status_timer < 3:
             status_y = min(songs_to_display + 4, max_y - 1)
-            stdscr.addstr(status_y, 0, status_message[: max_x - 1], GREEN)
+            stdscr.addstr(status_y, 0, status_message[: max_x - 1], green)
         elif time.time() - status_timer >= 3:
             status_message = ""
 
@@ -239,13 +239,12 @@ def selection_ui(stdscr, results, query, songs_to_display):
 
 def add_song_to_playlist_ui(stdscr, song):
     """UI for adding a song to a playlist"""
-    from .playlists import playlist_manager
 
     # Get available playlists
     playlists = playlist_manager.get_playlist_names()
 
     curses.curs_set(1)  # Show cursor for input
-    max_y, max_x = stdscr.getmaxyx()
+    _, max_x = stdscr.getmaxyx()
 
     # Clear and draw dialog
     stdscr.erase()

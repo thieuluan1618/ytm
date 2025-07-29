@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -44,7 +45,7 @@ class PlaylistManager:
             print(f"[green]✅ Created playlist: {name}[/green]")
             return True
 
-        except Exception as e:
+        except (IOError, OSError) as e:
             print(f"[red]Error creating playlist: {e}[/red]")
             return False
 
@@ -100,7 +101,7 @@ class PlaylistManager:
             )
             return True
 
-        except Exception as e:
+        except (IOError, OSError, json.JSONDecodeError) as e:
             print(f"[red]Error adding song to playlist: {e}[/red]")
             return False
 
@@ -129,7 +130,7 @@ class PlaylistManager:
                                 "filename": filename,
                             }
                         )
-                    except Exception as e:
+                    except (IOError, OSError, json.JSONDecodeError) as e:
                         print(
                             f"[yellow]Warning: Could not load playlist {filename}: {e}[/yellow]"
                         )
@@ -139,7 +140,7 @@ class PlaylistManager:
             playlists.sort(key=lambda x: x.get("created_at", ""), reverse=True)
             return playlists
 
-        except Exception as e:
+        except (IOError, OSError) as e:
             print(f"[red]Error listing playlists: {e}[/red]")
             return []
 
@@ -153,7 +154,7 @@ class PlaylistManager:
             with open(playlist_path, "r", encoding="utf-8") as f:
                 return json.load(f)
 
-        except Exception as e:
+        except (IOError, OSError, json.JSONDecodeError) as e:
             print(f"[red]Error loading playlist: {e}[/red]")
             return None
 
@@ -169,7 +170,7 @@ class PlaylistManager:
             print(f"[green]✅ Deleted playlist: {playlist_name}[/green]")
             return True
 
-        except Exception as e:
+        except (IOError, OSError) as e:
             print(f"[red]Error deleting playlist: {e}[/red]")
             return False
 
@@ -200,7 +201,7 @@ class PlaylistManager:
             )
             return True
 
-        except Exception as e:
+        except (IOError, OSError, json.JSONDecodeError) as e:
             print(f"[red]Error removing song from playlist: {e}[/red]")
             return False
 
@@ -211,8 +212,6 @@ class PlaylistManager:
 
     def _safe_filename(self, name: str) -> str:
         """Convert playlist name to safe filename"""
-        import re
-
         # Remove or replace problematic characters
         safe_name = re.sub(r'[<>:"/\\|?*]', "_", name)
         safe_name = safe_name.strip(". ")  # Remove leading/trailing dots and spaces
@@ -239,7 +238,7 @@ class PlaylistManager:
                             return filepath
                     except (json.JSONDecodeError, FileNotFoundError):
                         continue
-        except Exception:
+        except (IOError, OSError):
             pass
 
         return None
