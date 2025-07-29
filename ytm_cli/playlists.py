@@ -1,10 +1,10 @@
 """Local playlist management for YTM CLI"""
 
-import os
 import json
-import time
+import os
 from datetime import datetime
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
 from rich import print
 
 
@@ -237,9 +237,9 @@ class PlaylistManager:
                             data = json.load(f)
                         if data.get("name", "").lower() == playlist_name.lower():
                             return filepath
-                    except:
+                    except (json.JSONDecodeError, FileNotFoundError):
                         continue
-        except:
+        except Exception:
             pass
 
         return None

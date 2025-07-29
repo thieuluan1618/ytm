@@ -2,14 +2,15 @@
 
 import argparse
 from curses import wrapper
+
 from rich import print
 
-from .config import ytmusic, get_songs_to_display, auth_manager
-from .ui import selection_ui
-from .player import play_music_with_controls
-from .utils import setup_signal_handler
-from .playlists import playlist_manager
+from .config import auth_manager, get_songs_to_display, ytmusic
 from .dislikes import dislike_manager
+from .player import play_music_with_controls
+from .playlists import playlist_manager
+from .ui import selection_ui
+from .utils import setup_signal_handler
 
 
 def search_and_play(query=None):
@@ -374,7 +375,7 @@ def playlist_list_command():
             print(f"    Description: {description}")
         print(f"    Created: {created_at}")
 
-    print(f"\n[green]💡 Commands:[/green]")
+    print("\n[green]💡 Commands:[/green]")
     print("• [cyan]python -m ytm_cli playlist show <name>[/cyan] - View playlist songs")
     print("• [cyan]python -m ytm_cli playlist play <name>[/cyan] - Play a playlist")
     print("• [cyan]python -m ytm_cli playlist delete <name>[/cyan] - Delete a playlist")

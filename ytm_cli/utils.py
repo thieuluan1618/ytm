@@ -1,10 +1,10 @@
 """Utility functions for YTM CLI"""
 
 import os
-import sys
-import tty
-import termios
 import signal
+import sys
+import termios
+import tty
 
 
 def goodbye_message(signum, frame):

@@ -1,10 +1,9 @@
 """User interface components for YTM CLI"""
 
 import curses
-from curses import wrapper
-import time
-import json
 import os
+import time
+from curses import wrapper
 
 from .player import get_mpv_time_position
 
@@ -28,7 +27,6 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
         HEADER_COLOR = curses.color_pair(1)
         TEXT_COLOR = curses.color_pair(2)
         FOOTER_COLOR = curses.color_pair(3)
-        HIGHLIGHT_COLOR = curses.color_pair(4)
         CURRENT_LINE_COLOR = curses.color_pair(5)
 
         # Prepare lyrics lines
@@ -56,7 +54,6 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
         lines = wrapped_lines
         scroll_pos = 0
         content_height = max_y - 4  # Reserve space for header and footer
-        start_time = time.time()
 
         # Estimate line timing (rough approximation)
         non_empty_lines = [i for i, line in enumerate(lines) if line.strip()]
@@ -109,7 +106,7 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
                         # Highlight the current line
                         if line_idx == current_highlighted_line:
                             stdscr.addstr(
-                                3 + i, 2, f"♪ {line[:max_x-5]}", CURRENT_LINE_COLOR
+                                3 + i, 2, f"♪ {line[: max_x - 5]}", CURRENT_LINE_COLOR
                             )
                         else:
                             stdscr.addstr(3 + i, 2, line[: max_x - 3], TEXT_COLOR)
@@ -125,7 +122,9 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
                 time_info = ""
                 if socket_path:
                     current_time = get_mpv_time_position(socket_path)
-                    time_info = f" | {int(current_time//60)}:{int(current_time%60):02d}"
+                    time_info = (
+                        f" | {int(current_time // 60)}:{int(current_time % 60):02d}"
+                    )
                 instructions = f"j/k: scroll | q: back{time_info} | {progress}"
             else:
                 instructions = "q: back to player"
@@ -165,7 +164,6 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None):
 
 def selection_ui(stdscr, results, query, songs_to_display):
     """Interactive song selection UI using curses"""
-    from .playlists import playlist_manager
 
     curses.curs_set(0)
     curses.use_default_colors()
@@ -198,7 +196,7 @@ def selection_ui(stdscr, results, query, songs_to_display):
         for i, song in enumerate(results[:songs_to_display]):
             title = song["title"]
             artist = song["artists"][0]["name"]
-            line = f"[{i+1}] {title} - {artist}"
+            line = f"[{i + 1}] {title} - {artist}"
 
             # Truncate if too long
             if len(line) > max_x - 3:
@@ -270,7 +268,7 @@ def add_song_to_playlist_ui(stdscr, song):
             display_name = playlist_name
             if len(display_name) > max_x - 10:
                 display_name = display_name[: max_x - 13] + "..."
-            stdscr.addstr(current_line, 4, f"[{i+1}] {display_name}")
+            stdscr.addstr(current_line, 4, f"[{i + 1}] {display_name}")
             current_line += 1
 
         current_line += 1
@@ -291,7 +289,7 @@ def add_song_to_playlist_ui(stdscr, song):
     try:
         input_bytes = stdscr.getstr(current_line, 4, max_x - 6)
         input_str = input_bytes.decode("utf-8").strip()
-    except:
+    except (curses.error, UnicodeDecodeError):
         input_str = ""
     finally:
         curses.noecho()
@@ -307,7 +305,7 @@ def add_song_to_playlist_ui(stdscr, song):
             if 0 <= playlist_index < len(playlists):
                 playlist_name = playlists[playlist_index]
                 return playlist_manager.add_song_to_playlist(playlist_name, song)
-        except:
+        except (ValueError, IndexError):
             pass
 
     # Treat as new playlist name

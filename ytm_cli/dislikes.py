@@ -1,9 +1,10 @@
 """Dislike management for YTM CLI - tracks and filters disliked songs"""
 
-import os
 import json
+import os
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List
+
 from rich import print
 
 
@@ -62,7 +63,7 @@ class DislikeManager:
                     with open(self.dislikes_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         existing_songs = data.get("songs", [])
-                except:
+                except (json.JSONDecodeError, FileNotFoundError):
                     pass
 
             # Create dislike entry

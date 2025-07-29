@@ -1,14 +1,15 @@
 """Authentication management for YTM CLI"""
 
-import os
-import json
 import configparser
-import webbrowser
 import glob
-from typing import Optional, Dict, Any, List, Tuple
+import json
+import os
+import webbrowser
+from typing import Any, Dict, List, Optional, Tuple
+
+from rich import print
 from ytmusicapi import YTMusic
 from ytmusicapi.setup import setup_oauth
-from rich import print
 
 #
 try:
@@ -106,7 +107,7 @@ class AuthManager:
 
             return None
 
-        except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
+        except (json.JSONDecodeError, FileNotFoundError, KeyError):
             return None
 
     def select_credential_file(
@@ -374,19 +375,19 @@ class AuthManager:
         """Setup browser auth from file with enhanced guidance"""
         file_path = "curl_command.txt"
 
-        print(f"\n[yellow]📁 File Method for Large cURL Commands[/yellow]")
+        print("\n[yellow]📁 File Method for Large cURL Commands[/yellow]")
         print("This method handles large (~5000 character) cURL commands safely.")
 
-        print(f"\n[cyan]Instructions:[/cyan]")
-        print(f"1. Copy your FULL cURL command")
+        print("\n[cyan]Instructions:[/cyan]")
+        print("1. Copy your FULL cURL command")
         print(f"2. Save it to: [cyan]{file_path}[/cyan]")
-        print(f"3. Come back here and press Enter")
+        print("3. Come back here and press Enter")
 
-        print(f"\n[yellow]💡 Pro tip:[/yellow] You can use any text editor:")
+        print("\n[yellow]💡 Pro tip:[/yellow] You can use any text editor:")
         print(f"• nano {file_path}")
         print(f"• vim {file_path}")
         print(f"• code {file_path}")
-        print(f"• Or copy-paste in your favorite editor")
+        print("• Or copy-paste in your favorite editor")
 
         input(f"\nPress Enter when you've saved the cURL command to {file_path}...")
 
@@ -442,9 +443,9 @@ class AuthManager:
     def _setup_browser_from_file(self) -> bool:
         """Setup browser auth from file"""
         file_path = "headers.txt"
-        print(f"\n[yellow]File Method Selected[/yellow]")
+        print("\n[yellow]File Method Selected[/yellow]")
         print(f"1. Save your cURL command or headers to: [cyan]{file_path}[/cyan]")
-        print(f"2. Press Enter when ready")
+        print("2. Press Enter when ready")
 
         input("Press Enter when you've saved the file...")
 
@@ -470,8 +471,8 @@ class AuthManager:
                 try:
                     os.remove(file_path)
                     print(f"[yellow]Deleted {file_path}[/yellow]")
-                except:
-                    pass
+                except Exception as e:
+                    print(f"[yellow]Could not delete {file_path}: {e}[/yellow]")
 
             return success
 
