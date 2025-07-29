@@ -11,9 +11,10 @@ This is a Python-based YouTube Music CLI tool that provides an interactive termi
 ## Development Commands
 
 ### Environment Setup
+
 ```bash
 # Create and activate virtual environment
-python -m venv venv
+python -m vena vena
 source venv/bin/activate  # macOS/Linux
 # .\venv\Scripts\activate  # Windows PowerShell
 # venv\Scripts\activate.bat # Windows Command Prompt
@@ -23,6 +24,7 @@ pip install -r requirements.txt
 ```
 
 ### Running the Application
+
 ```bash
 # Interactive mode (search prompt)
 python -m ytm_cli
@@ -34,6 +36,7 @@ python -m ytm_cli "song name or artist"
 ```
 
 ### Dependencies Management
+
 ```bash
 # Update requirements.txt after adding new dependencies
 pip freeze > requirements.txt
@@ -51,14 +54,15 @@ pip freeze > requirements.txt
 ### Key Functions
 
 - `search_and_play()`: Main entry point for search and playback workflow
-- `selection_ui()`: Curses-based interactive song selection interface  
+- `selection_ui()`: Curses-based interactive song selection interface
 - `play_music_with_controls()`: Media playback with keyboard controls (space=pause, n=next, b=previous, l=lyrics, a=add to playlist, d=dislike, q=quit)
 - `send_mpv_command()`: IPC communication with mpv player via Unix socket
 
 ### Configuration
 
 Configuration is managed through `config.ini`:
-- `[general]`: Display settings (songs_to_display, show_* flags)
+
+- `[general]`: Display settings (songs*to_display, show*\* flags)
 - `[mpv]`: MPV player flags (e.g., --no-video for audio-only playback)
 
 ### Control Flow
@@ -86,6 +90,7 @@ Version is defined as `__version__ = "0.3.0"` in the main script. Use `bump2vers
 This project follows **conventional commits** format for consistency and automated tooling:
 
 ### Format
+
 ```
 <type>[optional scope]: <description>
 
@@ -95,6 +100,7 @@ This project follows **conventional commits** format for consistency and automat
 ```
 
 ### Types
+
 - **feat**: New feature for the user
 - **fix**: Bug fix for the user
 - **docs**: Documentation changes
@@ -105,6 +111,7 @@ This project follows **conventional commits** format for consistency and automat
 - **style**: Code style changes (formatting, missing semi-colons, etc.)
 
 ### Examples
+
 ```
 feat: add comprehensive dislike functionality with emoji controls
 fix: update bumpversion config to use correct version file
@@ -114,6 +121,7 @@ chore: add curl_command.txt to .gitignore
 ```
 
 ### Scope (Optional)
+
 - **ui**: User interface changes
 - **auth**: Authentication system
 - **player**: Media player functionality
@@ -121,6 +129,7 @@ chore: add curl_command.txt to .gitignore
 - **config**: Configuration system
 
 ### Special Cases
+
 - **Version bumps**: Use `chore: bump version X.Y.Z → A.B.C`
 - **Breaking changes**: Add `BREAKING CHANGE:` in footer
 - **Issue references**: Add `Closes #123` in footer
@@ -130,6 +139,7 @@ chore: add curl_command.txt to .gitignore
 The application supports optional authentication via OAuth or browser method:
 
 ### OAuth Authentication (Recommended)
+
 ```bash
 python -m ytm_cli auth setup-oauth    # Interactive OAuth setup
 python -m ytm_cli auth scan            # Scan for credential files
@@ -137,16 +147,19 @@ python -m ytm_cli auth manual          # Show setup manual
 ```
 
 **Note**: New OAuth apps may encounter "Google verification process" errors. This is normal and can be resolved by:
+
 1. Adding test users to the OAuth consent screen
 2. Using browser authentication as alternative
 3. Run `python -m ytm_cli auth troubleshoot` for detailed solutions
 
 ### Browser Authentication (Alternative)
+
 ```bash
 python -m ytm_cli auth setup-browser   # Setup using browser headers
 ```
 
 ### Authentication Management
+
 ```bash
 python -m ytm_cli auth status          # Check auth status
 python -m ytm_cli auth disable         # Disable authentication
@@ -157,6 +170,7 @@ python -m ytm_cli auth disable         # Disable authentication
 The application supports local playlist management for organizing favorite songs:
 
 ### Playlist Management
+
 ```bash
 python -m ytm_cli playlist list        # List all playlists
 python -m ytm_cli playlist create      # Create new playlist
@@ -168,12 +182,14 @@ python -m ytm_cli playlist delete <name> # Delete playlist
 ### Adding Songs to Playlists
 
 **During Search/Selection:**
+
 1. Search for music: `python -m ytm_cli "song name"`
 2. Navigate search results with ↑↓ or j/k keys
 3. Press `'a'` to add current song to a playlist
 4. Choose existing playlist or create new one
 
 **During Playback (New Feature):**
+
 1. While listening to any song, press `'a'` to add it to a playlist
 2. Interactive menu appears without stopping playback
 3. Select existing playlist or create new one
@@ -182,6 +198,7 @@ python -m ytm_cli playlist delete <name> # Delete playlist
 This follows the app's philosophy of keeping music enjoyment simple and uninterrupted.
 
 ### Playlist Storage
+
 - Local storage in `playlists/` directory (JSON format)
 - Cross-platform safe filenames
 - UTF-8 encoding for international characters
@@ -189,7 +206,9 @@ This follows the app's philosophy of keeping music enjoyment simple and uninterr
 - Added to `.gitignore` for privacy
 
 ### Configuration
+
 Playlist settings in `config.ini`:
+
 ```ini
 [playlists]
 directory = playlists      # Storage location
@@ -204,11 +223,13 @@ The application includes a comprehensive dislike system to filter out unwanted s
 ### Dislike Functionality
 
 **During Playback:**
+
 1. While listening to any song, press `'d'` to dislike it
 2. Song is immediately skipped to next track
 3. Disliked song is permanently filtered from future searches and playlists
 
 **Smart Filtering:**
+
 - Disliked songs are automatically filtered from:
   - Search results
   - Radio playlist generation

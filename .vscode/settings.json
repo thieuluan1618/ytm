@@ -1,14 +1,19 @@
 {
     "cSpell.words": [
         "addstr",
+        "bumpversion",
         "getch",
         "getmaxyx",
+        "getstr",
+        "noecho",
         "NPAGE",
         "PPAGE",
+        "pyperclip",
         "stdscr",
         "tcgetattr",
         "TCSADRAIN",
         "tcsetattr",
+        "venv",
         "ytmusic",
         "ytmusicapi"
     ],
