@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Player UI Sync**: Play/pause status now syncs with mpv player UI controls
+  - Status display updates when pause/play is controlled via mpv UI clicks
+  - Status display updates when using mpv keyboard shortcuts (e.g., 'p' key)
+  - Implemented throttled IPC polling (every 0.5 seconds) for performance
+  - Maintains responsive CLI controls while adding UI sync capability
+
 ## [0.4.0] - 2025-07-24
 
 ### Added

@@ -47,6 +47,24 @@ def get_mpv_time_position(socket_path):
     return 0
 
 
+def get_mpv_pause_state(socket_path):
+    """Get current pause state from MPV"""
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(socket_path)
+        sock.send(json.dumps({"command": ["get_property", "pause"]}).encode() + b"\n")
+        sock.settimeout(0.1)
+        response = sock.recv(1024).decode()
+        sock.close()
+        
+        response_data = json.loads(response)
+        if response_data.get("error") == "success":
+            return response_data.get("data", False)
+    except Exception:
+        pass
+    return False
+
+
 def add_song_to_playlist_interactive(song_data):
     """Interactive playlist selection and song addition during playback"""
     import sys
@@ -193,6 +211,7 @@ def play_music_with_controls(playlist):
     mpv_process = None
     socket_path = None
     is_paused = False
+    last_pause_check = 0
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -236,6 +255,7 @@ def play_music_with_controls(playlist):
 
             mpv_process = subprocess.Popen(["mpv", url] + mpv_flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             is_paused = False
+            last_pause_check = 0  # Reset pause check timer for new song
 
             # Give mpv a moment to start and create the socket
             time.sleep(0.1)
@@ -244,6 +264,16 @@ def play_music_with_controls(playlist):
                     if mpv_process.poll() is not None:
                         current_song_index += 1
                         break
+
+                    # Check if mpv pause state has changed (sync with player UI)
+                    # Only check every 0.5 seconds to avoid excessive IPC calls
+                    current_time = time.time()
+                    if current_time - last_pause_check > 0.5:
+                        mpv_pause_state = get_mpv_pause_state(socket_path)
+                        if mpv_pause_state != is_paused:
+                            is_paused = mpv_pause_state
+                            update_display()
+                        last_pause_check = current_time
 
                     rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
                     if rlist:
