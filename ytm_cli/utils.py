@@ -20,7 +20,7 @@ def setup_signal_handler():
 
 def clear_screen():
     """Clear the terminal screen in a cross-platform way"""
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system("cls" if os.name == "nt" else "clear")
 
 
 def getch():
