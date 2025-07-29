@@ -81,6 +81,50 @@ Configuration is managed through `config.ini`:
 
 Version is defined as `__version__ = "0.3.0"` in the main script. Use `bump2version` for version updates as indicated in requirements.txt.
 
+## Commit Message Standards
+
+This project follows **conventional commits** format for consistency and automated tooling:
+
+### Format
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+- **feat**: New feature for the user
+- **fix**: Bug fix for the user
+- **docs**: Documentation changes
+- **refactor**: Code change that neither fixes a bug nor adds a feature
+- **test**: Adding or modifying tests
+- **chore**: Changes to build process, dependencies, or tooling
+- **perf**: Performance improvements
+- **style**: Code style changes (formatting, missing semi-colons, etc.)
+
+### Examples
+```
+feat: add comprehensive dislike functionality with emoji controls
+fix: update bumpversion config to use correct version file
+docs: update CLAUDE.md with commit message guidelines
+refactor: split ytm-cli.py into modular package structure
+chore: add curl_command.txt to .gitignore
+```
+
+### Scope (Optional)
+- **ui**: User interface changes
+- **auth**: Authentication system
+- **player**: Media player functionality
+- **playlist**: Playlist management
+- **config**: Configuration system
+
+### Special Cases
+- **Version bumps**: Use `chore: bump version X.Y.Z → A.B.C`
+- **Breaking changes**: Add `BREAKING CHANGE:` in footer
+- **Issue references**: Add `Closes #123` in footer
+
 ## Authentication
 
 The application supports optional authentication via OAuth or browser method:
