@@ -404,23 +404,28 @@ def playlist_show_command(name):
             print("[red]No playlists found[/red]")
             return
 
-        print("[cyan]Available playlists:[/cyan]")
-        for i, playlist_name in enumerate(playlists, 1):
-            print(f"[{i}] {playlist_name}")
+        # If only one playlist exists, auto-select it (keep music simple!)
+        if len(playlists) == 1:
+            name = playlists[0]
+            print(f"[cyan]Showing playlist: {name}[/cyan]")
+        else:
+            print("[cyan]Available playlists:[/cyan]")
+            for i, playlist_name in enumerate(playlists, 1):
+                print(f"[{i}] {playlist_name}")
 
-        try:
-            choice = input("\nSelect playlist number or name: ").strip()
-            if choice.isdigit():
-                index = int(choice) - 1
-                if 0 <= index < len(playlists):
-                    name = playlists[index]
+            try:
+                choice = input("\nSelect playlist number or name: ").strip()
+                if choice.isdigit():
+                    index = int(choice) - 1
+                    if 0 <= index < len(playlists):
+                        name = playlists[index]
+                    else:
+                        print("[red]Invalid selection[/red]")
+                        return
                 else:
-                    print("[red]Invalid selection[/red]")
-                    return
-            else:
-                name = choice
-        except (ValueError, KeyboardInterrupt):
-            return
+                    name = choice
+            except (ValueError, KeyboardInterrupt):
+                return
 
     playlist = playlist_manager.get_playlist(name)
     if not playlist:
@@ -463,23 +468,28 @@ def playlist_play_command(name):
             print("[red]No playlists found[/red]")
             return
 
-        print("[cyan]Available playlists:[/cyan]")
-        for i, playlist_name in enumerate(playlists, 1):
-            print(f"[{i}] {playlist_name}")
+        # If only one playlist exists, auto-select it (keep music simple!)
+        if len(playlists) == 1:
+            name = playlists[0]
+            print(f"[cyan]Playing playlist: {name}[/cyan]")
+        else:
+            print("[cyan]Available playlists:[/cyan]")
+            for i, playlist_name in enumerate(playlists, 1):
+                print(f"[{i}] {playlist_name}")
 
-        try:
-            choice = input("\nSelect playlist number or name: ").strip()
-            if choice.isdigit():
-                index = int(choice) - 1
-                if 0 <= index < len(playlists):
-                    name = playlists[index]
+            try:
+                choice = input("\nSelect playlist number or name: ").strip()
+                if choice.isdigit():
+                    index = int(choice) - 1
+                    if 0 <= index < len(playlists):
+                        name = playlists[index]
+                    else:
+                        print("[red]Invalid selection[/red]")
+                        return
                 else:
-                    print("[red]Invalid selection[/red]")
-                    return
-            else:
-                name = choice
-        except (ValueError, KeyboardInterrupt):
-            return
+                    name = choice
+            except (ValueError, KeyboardInterrupt):
+                return
 
     playlist = playlist_manager.get_playlist(name)
     if not playlist:
@@ -516,8 +526,8 @@ def playlist_play_command(name):
         print("[red]No playable songs found in playlist after filtering dislikes[/red]")
         return
 
-    # Start playback
-    play_music_with_controls(playable_songs)
+    # Start playback with playlist context
+    play_music_with_controls(playable_songs, playlist_name=name)
 
 
 def playlist_delete_command(name):
@@ -529,23 +539,29 @@ def playlist_delete_command(name):
             print("[red]No playlists found[/red]")
             return
 
-        print("[cyan]Available playlists:[/cyan]")
-        for i, playlist_name in enumerate(playlists, 1):
-            print(f"[{i}] {playlist_name}")
+        # For deletion, still show selection even with one playlist (safety)
+        # but make it clearer if there's only one option
+        if len(playlists) == 1:
+            print(f"[cyan]Only playlist available: {playlists[0]}[/cyan]")
+            name = playlists[0]
+        else:
+            print("[cyan]Available playlists:[/cyan]")
+            for i, playlist_name in enumerate(playlists, 1):
+                print(f"[{i}] {playlist_name}")
 
-        try:
-            choice = input("\nSelect playlist number or name to delete: ").strip()
-            if choice.isdigit():
-                index = int(choice) - 1
-                if 0 <= index < len(playlists):
-                    name = playlists[index]
+            try:
+                choice = input("\nSelect playlist number or name to delete: ").strip()
+                if choice.isdigit():
+                    index = int(choice) - 1
+                    if 0 <= index < len(playlists):
+                        name = playlists[index]
+                    else:
+                        print("[red]Invalid selection[/red]")
+                        return
                 else:
-                    print("[red]Invalid selection[/red]")
-                    return
-            else:
-                name = choice
-        except (ValueError, KeyboardInterrupt):
-            return
+                    name = choice
+            except (ValueError, KeyboardInterrupt):
+                return
 
     # Confirm deletion
     confirm = input(f"Delete playlist '{name}'? (y/N): ").strip().lower()
@@ -590,7 +606,7 @@ During song selection:
 During music playback:
   • ⏯️ space: Play/pause
   • ⏭️ n: Next song, ⏮️ b: Previous song
-  • 📜 l: Show lyrics, ➕ a: Add to playlist, 👎 d: Dislike song
+  • 📜 l: Show lyrics, ➕ a: Add to playlist, 👎 d: Dislike (playlist: remove first, then global)
   • 🚪 q: Quit to search
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,

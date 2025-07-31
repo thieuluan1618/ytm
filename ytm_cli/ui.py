@@ -243,6 +243,11 @@ def add_song_to_playlist_ui(stdscr, song):
     # Get available playlists
     playlists = playlist_manager.get_playlist_names()
 
+    # If only one playlist exists, auto-select it (keep music simple!)
+    if len(playlists) == 1:
+        playlist_name = playlists[0]
+        return playlist_manager.add_song_to_playlist(playlist_name, song)
+
     curses.curs_set(1)  # Show cursor for input
     _, max_x = stdscr.getmaxyx()
 

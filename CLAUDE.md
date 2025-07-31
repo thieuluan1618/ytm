@@ -222,11 +222,15 @@ The application includes a comprehensive dislike system to filter out unwanted s
 
 ### Dislike Functionality
 
-**During Playback:**
+**Two-Step Dislike System:**
 
-1. While listening to any song, press `'d'` to dislike it
-2. Song is immediately skipped to next track
-3. Disliked song is permanently filtered from future searches and playlists
+When playing from a **user playlist**:
+1. First press `'d'`: Removes song from current playlist only
+2. Second press `'d'`: Adds song to global dislikes (permanent filtering)
+3. Visual feedback guides user through the process
+
+When playing from **search/radio**:
+1. Press `'d'`: Directly adds to global dislikes and skips song
 
 **Smart Filtering:**
 
@@ -235,6 +239,7 @@ The application includes a comprehensive dislike system to filter out unwanted s
   - Radio playlist generation
   - Local playlist playback
 - Real-time feedback shows "Filtered out X disliked song(s)" when applicable
+- Two-step process prevents accidental permanent dislikes from playlists
 
 ### Dislike Storage
 
@@ -245,12 +250,13 @@ The application includes a comprehensive dislike system to filter out unwanted s
 
 ### Key Features
 
-- **Immediate Action**: Press 'd' during playback for instant dislike + skip
+- **Smart Two-Step Process**: Context-aware dislike behavior (playlist vs. search/radio)
+- **Playlist Protection**: First removes from playlist, requires confirmation for global dislike
 - **Comprehensive Filtering**: Works across all song discovery methods
 - **Non-Disruptive**: Follows app philosophy of simple, uninterrupted music enjoyment
-- **Visual Feedback**: Clear confirmation with emoji indicators (👎)
+- **Visual Feedback**: Clear confirmation with emoji indicators (📝 for playlist removal, 👎 for global dislike)
 
-This system allows users to gradually curate their music experience by permanently removing unwanted songs.
+This system allows users to gradually curate their music experience while protecting against accidental permanent dislikes from playlists.
 
 ## Design Principles
 
