@@ -85,6 +85,10 @@ def add_song_to_playlist_interactive(song_data):
         # Get existing playlists
         playlists = playlist_manager.get_playlist_names()
 
+        # If only one playlist exists, auto-select it (keep music simple!)
+        if len(playlists) == 1:
+            return playlists[0]
+
         # Menu options
         options = ["Create new playlist"]
         options.extend(playlists)
@@ -210,8 +214,13 @@ def get_and_display_lyrics(video_id, title, socket_path=None, display_lyrics_wit
         return False
 
 
-def play_music_with_controls(playlist):
-    """Play music with keyboard controls"""
+def play_music_with_controls(playlist, playlist_name=None):
+    """Play music with keyboard controls
+    
+    Args:
+        playlist: List of songs to play
+        playlist_name: Name of user playlist (if playing from a user playlist)
+    """
     current_song_index = 0
     mpv_process = None
     socket_path = None
@@ -308,9 +317,34 @@ def play_music_with_controls(playlist):
                         add_song_to_playlist_interactive(item)
                         update_display()
                     elif key == "d":
-                        # Dislike current song and skip to next
-                        dislike_manager.dislike_song(item)
+                        # Smart two-step dislike system
+                        video_id = item.get("videoId")
+                        song_title = item.get("title", "Unknown")
+                        
+                        if playlist_name and video_id:
+                            # Playing from a user playlist - two-step process
+                            from .playlists import playlist_manager
+                            
+                            # Check if song is already globally disliked
+                            if dislike_manager.is_disliked(video_id):
+                                print(f"⏭️  '{song_title}' already disliked globally, skipping...")
+                            else:
+                                # Try to remove from playlist first
+                                if playlist_manager.remove_song_from_playlist_by_id(playlist_name, video_id):
+                                    print(f"📝 Removed '{song_title}' from playlist '{playlist_name}'")
+                                    print("   💡 Press 'd' again to add to global dislikes")
+                                    time.sleep(1.5)  # Give user time to read and potentially press 'd' again
+                                else:
+                                    # Song not in playlist anymore or couldn't remove, add to global dislikes
+                                    dislike_manager.dislike_song(item)
+                                    print(f"👎 Added '{song_title}' to global dislikes")
+                        else:
+                            # Not from a user playlist, directly add to global dislikes
+                            dislike_manager.dislike_song(item)
+                            print(f"👎 Disliked '{song_title}'")
+                        
                         current_song_index += 1
+                        time.sleep(0.8)  # Brief pause to show message
                         break
                     elif key == "q" or key == "\x03":
                         cleanup()
