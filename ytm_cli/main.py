@@ -1,6 +1,7 @@
 """Main entry point and search functionality for YTM CLI"""
 
 import argparse
+import curses
 from curses import wrapper
 
 from rich import print
@@ -36,7 +37,28 @@ def search_and_play(query=None):
     def ui_wrapper(stdscr):
         return selection_ui(stdscr, results, query, songs_to_display)
 
-    selected_index = wrapper(ui_wrapper)
+    try:
+        selected_index = wrapper(ui_wrapper)
+    except curses.error as e:
+        print(f"[red]Terminal error: {e}[/red]")
+        print("[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]")
+        # Fallback to simple numbered selection
+        print(f"\n[cyan]Search Results for: {query}[/cyan]")
+        for i, song in enumerate(results[:songs_to_display]):
+            title = song["title"]
+            artist = song["artists"][0]["name"]
+            print(f"[{i + 1}] {title} - {artist}")
+        
+        try:
+            choice = input("\nEnter song number (or 'q' to quit): ").strip()
+            if choice.lower() == 'q':
+                return
+            selected_index = int(choice) - 1
+            if selected_index < 0 or selected_index >= len(results[:songs_to_display]):
+                print("[red]Invalid selection.[/red]")
+                return
+        except (ValueError, KeyboardInterrupt):
+            return
     if selected_index is None:
         return
 
