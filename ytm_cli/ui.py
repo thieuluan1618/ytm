@@ -9,7 +9,9 @@ from curses import wrapper
 from .playlists import playlist_manager
 
 
-def display_lyrics_with_curses(lyrics_text, title, socket_path=None, get_mpv_time_position_func=None):
+def display_lyrics_with_curses(
+    lyrics_text, title, socket_path=None, get_mpv_time_position_func=None
+):
     """Display lyrics using curses with live highlighting"""
 
     def lyrics_ui(stdscr):
@@ -78,10 +80,13 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None, get_mpv_tim
                 if current_highlighted_line < scroll_pos:
                     scroll_pos = max(0, current_highlighted_line - 2)
                 elif current_highlighted_line >= scroll_pos + content_height:
-                    scroll_pos = max(0, min(
-                        current_highlighted_line - content_height + 3,
-                        len(lines) - content_height,
-                    ))
+                    scroll_pos = max(
+                        0,
+                        min(
+                            current_highlighted_line - content_height + 3,
+                            len(lines) - content_height,
+                        ),
+                    )
 
             # Header
             header_text = f"🎵 {title}"
@@ -124,9 +129,7 @@ def display_lyrics_with_curses(lyrics_text, title, socket_path=None, get_mpv_tim
                     time_info = (
                         f" | {int(current_time // 60)}:{int(current_time % 60):02d}"
                     )
-                instructions = (
-                    f"j/k: scroll | q: back{time_info} | {progress}"
-                )
+                instructions = f"j/k: scroll | q: back{time_info} | {progress}"
             else:
                 instructions = "q: back to player"
 
@@ -202,10 +205,18 @@ def selection_ui(stdscr, results, query, songs_to_display):
             if len(line) > max_x - 3:
                 line = line[: max_x - 6] + "..."
 
-            if i == current_selection:
-                stdscr.addstr(i + 3, 0, f"> {line}", yellow)
-            else:
-                stdscr.addstr(i + 3, 0, f"  {line}")
+            try:
+                if i == current_selection:
+                    stdscr.addstr(i + 3, 0, f"> {line}", yellow)
+                else:
+                    stdscr.addstr(i + 3, 0, f"  {line}")
+            except curses.error:
+                # Handle Unicode or display issues by encoding to ASCII with error handling
+                safe_line = line.encode("ascii", "replace").decode("ascii")
+                if i == current_selection:
+                    stdscr.addstr(i + 3, 0, f"> {safe_line}", yellow)
+                else:
+                    stdscr.addstr(i + 3, 0, f"  {safe_line}")
 
         # Status message (temporary feedback)
         if status_message and time.time() - status_timer < 3:
@@ -341,7 +352,7 @@ def display_player_status(title, is_paused):
     status_line = f"{status}: {title}"
 
     # Controls text
-    controls = "space: ⏯️    n: ⏭️    b: ⏮️    l: 📜   a: ➕    d: 👎    q: 🚪"
+    controls = "  ⏮️ (b)  ⏯️ (space)  ⏭️ (n)  📜 (l)  ❤️ (a)    👎 (d)    🚪 (q)"
 
     # Center the text
     print()  # Empty line
