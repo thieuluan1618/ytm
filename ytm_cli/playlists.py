@@ -205,7 +205,9 @@ class PlaylistManager:
             print(f"[red]Error removing song from playlist: {e}[/red]")
             return False
 
-    def remove_song_from_playlist_by_id(self, playlist_name: str, video_id: str) -> bool:
+    def remove_song_from_playlist_by_id(
+        self, playlist_name: str, video_id: str
+    ) -> bool:
         """Remove a song from playlist by video ID"""
         try:
             playlist_path = self._get_playlist_path(playlist_name)
@@ -217,18 +219,17 @@ class PlaylistManager:
 
             songs = playlist_data.get("songs", [])
             original_count = len(songs)
-            
+
             # Remove songs with matching video ID
             playlist_data["songs"] = [
-                song for song in songs 
-                if song.get("videoId") != video_id
+                song for song in songs if song.get("videoId") != video_id
             ]
-            
+
             # Check if any songs were removed
             if len(playlist_data["songs"]) == original_count:
                 # No songs were removed (song not in playlist)
                 return False
-            
+
             playlist_data["updated_at"] = datetime.now().isoformat()
 
             with open(playlist_path, "w", encoding="utf-8") as f:

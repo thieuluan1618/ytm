@@ -41,17 +41,19 @@ def search_and_play(query=None):
         selected_index = wrapper(ui_wrapper)
     except curses.error as e:
         print(f"[red]Terminal error: {e}[/red]")
-        print("[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]")
+        print(
+            "[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]"
+        )
         # Fallback to simple numbered selection
         print(f"\n[cyan]Search Results for: {query}[/cyan]")
         for i, song in enumerate(results[:songs_to_display]):
             title = song["title"]
             artist = song["artists"][0]["name"]
             print(f"[{i + 1}] {title} - {artist}")
-        
+
         try:
             choice = input("\nEnter song number (or 'q' to quit): ").strip()
-            if choice.lower() == 'q':
+            if choice.lower() == "q":
                 return
             selected_index = int(choice) - 1
             if selected_index < 0 or selected_index >= len(results[:songs_to_display]):

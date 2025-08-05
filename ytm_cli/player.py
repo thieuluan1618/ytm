@@ -187,18 +187,52 @@ def add_song_to_playlist_interactive(song_data):
         tty.setraw(sys.stdin.fileno())
 
 
-def get_and_display_lyrics(video_id, title, socket_path=None, display_lyrics_with_curses_func=None):
+def get_and_display_lyrics(video_id, title, socket_path=None):
     """Get and display lyrics for a song"""
-    
+    from .lyrics_service import get_timestamped_lyrics
 
     try:
+        # First try to get timestamped lyrics from LRCLIB
+        # We need to construct a song item to match the expected format
+        song_item = {
+            "title": title.split(" - ")[0] if " - " in title else title,
+            "videoId": video_id,
+        }
+
+        # Extract artist from title if present
+        if " - " in title:
+            artist_name = title.split(" - ", 1)[1]
+            song_item["artists"] = [{"name": artist_name}]
+
+        timestamped_lyrics = get_timestamped_lyrics(song_item)
+
+        if timestamped_lyrics and (
+            timestamped_lyrics.get("synced_lyrics")
+            or timestamped_lyrics.get("plain_lyrics")
+        ):
+            display_lyrics_with_curses(
+                timestamped_lyrics, title, socket_path, get_mpv_time_position
+            )
+            return True
+
+        # Fallback to YouTube Music lyrics if timestamped lyrics unavailable
+        print("📡 Trying YouTube Music lyrics...")
+        time.sleep(0.5)
+
         # Use get_watch_playlist to get lyrics browseId (correct method)
         watch_playlist = ytmusic.get_watch_playlist(videoId=video_id)
 
         if watch_playlist and "lyrics" in watch_playlist and watch_playlist["lyrics"]:
             lyrics_data = ytmusic.get_lyrics(watch_playlist["lyrics"])
             if lyrics_data and "lyrics" in lyrics_data:
-                display_lyrics_with_curses(lyrics_data["lyrics"], title, socket_path, get_mpv_time_position)
+                # Format as plain text with source info for consistency
+                fallback_lyrics = {
+                    "plain_lyrics": lyrics_data["lyrics"],
+                    "source": "YouTube Music",
+                }
+                display_lyrics_with_curses(
+                    fallback_lyrics, title, socket_path, get_mpv_time_position
+                )
                 return True
             else:
                 print("No lyrics content found.")
@@ -216,7 +250,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None, display_lyrics_wit
 
 def play_music_with_controls(playlist, playlist_name=None):
     """Play music with keyboard controls
-    
+
     Args:
         playlist: List of songs to play
         playlist_name: Name of user playlist (if playing from a user playlist)
@@ -310,7 +344,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                         break
                     elif key == "l":
                         # Show lyrics
-                        get_and_display_lyrics(video_id, title, socket_path, display_lyrics_with_curses)
+                        get_and_display_lyrics(video_id, title, socket_path)
                         update_display()
                     elif key == "a":
                         # Add current song to playlist
@@ -320,20 +354,30 @@ def play_music_with_controls(playlist, playlist_name=None):
                         # Smart two-step dislike system
                         video_id = item.get("videoId")
                         song_title = item.get("title", "Unknown")
-                        
+
                         if playlist_name and video_id:
                             # Playing from a user playlist - two-step process
                             from .playlists import playlist_manager
-                            
+
                             # Check if song is already globally disliked
                             if dislike_manager.is_disliked(video_id):
-                                print(f"⏭️  '{song_title}' already disliked globally, skipping...")
+                                print(
+                                    f"⏭️  '{song_title}' already disliked globally, skipping..."
+                                )
                             else:
                                 # Try to remove from playlist first
-                                if playlist_manager.remove_song_from_playlist_by_id(playlist_name, video_id):
-                                    print(f"📝 Removed '{song_title}' from playlist '{playlist_name}'")
-                                    print("   💡 Press 'd' again to add to global dislikes")
-                                    time.sleep(1.5)  # Give user time to read and potentially press 'd' again
+                                if playlist_manager.remove_song_from_playlist_by_id(
+                                    playlist_name, video_id
+                                ):
+                                    print(
+                                        f"📝 Removed '{song_title}' from playlist '{playlist_name}'"
+                                    )
+                                    print(
+                                        "   💡 Press 'd' again to add to global dislikes"
+                                    )
+                                    time.sleep(
+                                        1.5
+                                    )  # Give user time to read and potentially press 'd' again
                                 else:
                                     # Song not in playlist anymore or couldn't remove, add to global dislikes
                                     dislike_manager.dislike_song(item)
@@ -342,7 +386,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                             # Not from a user playlist, directly add to global dislikes
                             dislike_manager.dislike_song(item)
                             print(f"👎 Disliked '{song_title}'")
-                        
+
                         current_song_index += 1
                         time.sleep(0.8)  # Brief pause to show message
                         break
