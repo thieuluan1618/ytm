@@ -20,13 +20,13 @@ class DislikeManager:
         """Load disliked song IDs from file"""
         try:
             if os.path.exists(self.dislikes_file):
-                with open(self.dislikes_file, "r", encoding="utf-8") as f:
+                with open(self.dislikes_file, encoding="utf-8") as f:
                     data = json.load(f)
-                    self._disliked_ids = set(
+                    self._disliked_ids = {
                         song.get("videoId", "")
                         for song in data.get("songs", [])
                         if song.get("videoId")
-                    )
+                    }
         except Exception as e:
             print(f"[yellow]Warning: Could not load dislikes: {e}[/yellow]")
             self._disliked_ids = set()
@@ -60,7 +60,7 @@ class DislikeManager:
             existing_songs = []
             if os.path.exists(self.dislikes_file):
                 try:
-                    with open(self.dislikes_file, "r", encoding="utf-8") as f:
+                    with open(self.dislikes_file, encoding="utf-8") as f:
                         data = json.load(f)
                         existing_songs = data.get("songs", [])
                 except (json.JSONDecodeError, FileNotFoundError):
@@ -131,7 +131,7 @@ class DislikeManager:
             if not os.path.exists(self.dislikes_file):
                 return []
 
-            with open(self.dislikes_file, "r", encoding="utf-8") as f:
+            with open(self.dislikes_file, encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("songs", [])
         except Exception as e:

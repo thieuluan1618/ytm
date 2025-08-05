@@ -41,9 +41,7 @@ def search_and_play(query=None):
         selected_index = wrapper(ui_wrapper)
     except curses.error as e:
         print(f"[red]Terminal error: {e}[/red]")
-        print(
-            "[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]"
-        )
+        print("[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]")
         # Fallback to simple numbered selection
         print(f"\n[cyan]Search Results for: {query}[/cyan]")
         for i, song in enumerate(results[:songs_to_display]):
@@ -137,22 +135,14 @@ def show_oauth_manual():
     print("• 'Access blocked' error: Check OAuth consent screen config")
     print("• 'Invalid client' error: Verify Client ID/Secret are correct")
     print("• 'Quota exceeded' error: Check API quotas in Cloud Console")
-    print(
-        "• 'Google verification process' error: Add test users (see troubleshoot command)"
-    )
-    print(
-        "• App verification required: https://support.google.com/cloud/answer/7454865"
-    )
-    print(
-        "• Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for verification help"
-    )
+    print("• 'Google verification process' error: Add test users (see troubleshoot command)")
+    print("• App verification required: https://support.google.com/cloud/answer/7454865")
+    print("• Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for verification help")
 
     print("\n[yellow]📚 Additional Resources:[/yellow]")
     print("• YouTube Data API docs: https://developers.google.com/youtube/v3")
     print("• OAuth 2.0 guide: https://developers.google.com/identity/protocols/oauth2")
-    print(
-        "• ytmusicapi docs: https://ytmusicapi.readthedocs.io/en/stable/setup/oauth.html"
-    )
+    print("• ytmusicapi docs: https://ytmusicapi.readthedocs.io/en/stable/setup/oauth.html")
 
     print("\n[green]✅ Ready to continue with OAuth setup![/green]")
     print("After getting your credentials, run:")
@@ -208,9 +198,7 @@ def setup_oauth_command(open_browser=True):
         print("Or use the manual above for detailed instructions.\n")
 
         if open_browser:
-            response = (
-                input("Open Google Cloud Console in browser? (Y/n): ").strip().lower()
-            )
+            response = input("Open Google Cloud Console in browser? (Y/n): ").strip().lower()
             if response != "n":
                 try:
                     import webbrowser
@@ -220,9 +208,7 @@ def setup_oauth_command(open_browser=True):
                     print("[green]Browser opened![/green]")
                 except Exception as e:
                     print(f"[red]Could not open browser: {e}[/red]")
-                    print(
-                        "Please manually open: https://console.cloud.google.com/apis/credentials"
-                    )
+                    print("Please manually open: https://console.cloud.google.com/apis/credentials")
 
         print("\n[yellow]Enter your OAuth credentials:[/yellow]")
         client_id = input("Client ID: ").strip()
@@ -264,9 +250,10 @@ def auth_status_command():
     print(f"Method: [yellow]{status['method']}[/yellow]")
 
     if status["method"] == "oauth":
-        print(
-            f"OAuth file: {'[green]Found[/green]' if status['oauth_file_exists'] else '[red]Missing[/red]'}"
+        oauth_status = (
+            "[green]Found[/green]" if status["oauth_file_exists"] else "[red]Missing[/red]"
         )
+        print(f"OAuth file: {oauth_status}")
     elif status["method"] == "browser":
         print(
             f"Browser file: {'[green]Found[/green]' if status['browser_file_exists'] else '[red]Missing[/red]'}"
@@ -289,9 +276,7 @@ def scan_credentials_command():
         print("• auth/client_secret*.json")
         print("• credentials/client_secret*.json")
         print("• *client_secret*.json")
-        print(
-            "\n[yellow]💡 Download your credentials from Google Cloud Console[/yellow]"
-        )
+        print("\n[yellow]💡 Download your credentials from Google Cloud Console[/yellow]")
         print("and save as 'client_secret_*.json' in your project directory.")
     else:
         print(f"[green]Found {len(credential_files)} credential file(s):[/green]\n")
@@ -377,9 +362,7 @@ def playlist_list_command():
 
     if not playlists:
         print("[yellow]No playlists found.[/yellow]")
-        print(
-            "Create your first playlist: [cyan]python -m ytm_cli playlist create[/cyan]"
-        )
+        print("Create your first playlist: [cyan]python -m ytm_cli playlist create[/cyan]")
         return
 
     print(f"\n[cyan]📁 Local Playlists ({len(playlists)} found)[/cyan]")
@@ -389,9 +372,7 @@ def playlist_list_command():
         name = playlist["name"]
         song_count = playlist["song_count"]
         description = playlist["description"]
-        created_at = (
-            playlist["created_at"][:10] if playlist["created_at"] else "Unknown"
-        )
+        created_at = playlist["created_at"][:10] if playlist["created_at"] else "Unknown"
 
         print(f"\n[{i}] [yellow]{name}[/yellow]")
         print(f"    Songs: {song_count}")
@@ -525,9 +506,7 @@ def playlist_play_command(name):
         print(f"[yellow]Playlist '{name}' is empty[/yellow]")
         return
 
-    print(
-        f"[green]🎵 Playing playlist: {playlist['name']} ({len(songs)} songs)[/green]"
-    )
+    print(f"[green]🎵 Playing playlist: {playlist['name']} ({len(songs)} songs)[/green]")
 
     # Convert playlist songs to format expected by player
     playable_songs = []
@@ -617,13 +596,13 @@ def main():
         epilog="""
 Examples:
   %(prog)s "bohemian rhapsody"           Search and play music
-  %(prog)s playlist list                 List all local playlists  
+  %(prog)s playlist list                 List all local playlists
   %(prog)s playlist create "Rock Hits"   Create a new playlist
   %(prog)s auth setup-oauth              Setup OAuth authentication
-  
+
 During song selection:
   • Enter: Play selected song with radio
-  • a: Add song to playlist  
+  • a: Add song to playlist
   • q: Quit to search
   • ↑↓ or j/k: Navigate
 
@@ -683,13 +662,9 @@ During music playback:
 
     auth_subparsers.add_parser("manual", help="Show detailed OAuth setup guide")
     auth_subparsers.add_parser("scan", help="Scan for Google Cloud credential files")
-    auth_subparsers.add_parser(
-        "troubleshoot", help="OAuth verification troubleshooting guide"
-    )
+    auth_subparsers.add_parser("troubleshoot", help="OAuth verification troubleshooting guide")
     auth_subparsers.add_parser("status", help="Show current authentication status")
-    auth_subparsers.add_parser(
-        "disable", help="Disable authentication and use guest access"
-    )
+    auth_subparsers.add_parser("disable", help="Disable authentication and use guest access")
 
     # Playlist commands
     playlist_parser = subparsers.add_parser(
@@ -712,12 +687,8 @@ During music playback:
         help="Create a new playlist",
         description="Create a new local playlist with optional description",
     )
-    create_parser.add_argument(
-        "name", nargs="?", help="Playlist name (prompted if not provided)"
-    )
-    create_parser.add_argument(
-        "-d", "--description", help="Optional playlist description"
-    )
+    create_parser.add_argument("name", nargs="?", help="Playlist name (prompted if not provided)")
+    create_parser.add_argument("-d", "--description", help="Optional playlist description")
 
     show_parser = playlist_subparsers.add_parser(
         "show",

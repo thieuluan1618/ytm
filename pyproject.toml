@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ytm-cli"
+version = "0.3.0"
+description = "YouTube Music CLI tool with interactive terminal interface"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "ytmusicapi",
+    "rich",
+    "mpv",
+    "requests",
+    "pyperclip",
+]
+
+[tool.ruff]
+# Set line length to match pylint (100 characters)
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+# Enable flake8 rules and other important checks
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+
+# Ignore specific rules that conflict with project style
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B008",  # Do not perform function calls in argument defaults
+]
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Use 4 spaces for indentation
+indent-style = "space"
+# Keep existing line endings
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+# Group imports properly
+known-first-party = ["ytm_cli"]

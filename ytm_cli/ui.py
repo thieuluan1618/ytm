@@ -5,7 +5,6 @@ import os
 import time
 from curses import wrapper
 
-
 from .playlists import playlist_manager
 
 

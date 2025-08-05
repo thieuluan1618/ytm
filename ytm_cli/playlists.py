@@ -45,7 +45,7 @@ class PlaylistManager:
             print(f"[green]✅ Created playlist: {name}[/green]")
             return True
 
-        except (IOError, OSError) as e:
+        except OSError as e:
             print(f"[red]Error creating playlist: {e}[/red]")
             return False
 
@@ -58,7 +58,7 @@ class PlaylistManager:
                 return False
 
             # Load existing playlist
-            with open(playlist_path, "r", encoding="utf-8") as f:
+            with open(playlist_path, encoding="utf-8") as f:
                 playlist_data = json.load(f)
 
             # Create song entry with essential info
@@ -101,7 +101,7 @@ class PlaylistManager:
             )
             return True
 
-        except (IOError, OSError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             print(f"[red]Error adding song to playlist: {e}[/red]")
             return False
 
@@ -117,7 +117,7 @@ class PlaylistManager:
                 if filename.endswith(".json"):
                     playlist_path = os.path.join(self.playlists_dir, filename)
                     try:
-                        with open(playlist_path, "r", encoding="utf-8") as f:
+                        with open(playlist_path, encoding="utf-8") as f:
                             playlist_data = json.load(f)
 
                         playlists.append(
@@ -130,7 +130,7 @@ class PlaylistManager:
                                 "filename": filename,
                             }
                         )
-                    except (IOError, OSError, json.JSONDecodeError) as e:
+                    except (OSError, json.JSONDecodeError) as e:
                         print(
                             f"[yellow]Warning: Could not load playlist {filename}: {e}[/yellow]"
                         )
@@ -140,7 +140,7 @@ class PlaylistManager:
             playlists.sort(key=lambda x: x.get("created_at", ""), reverse=True)
             return playlists
 
-        except (IOError, OSError) as e:
+        except OSError as e:
             print(f"[red]Error listing playlists: {e}[/red]")
             return []
 
@@ -151,10 +151,10 @@ class PlaylistManager:
             if not playlist_path:
                 return None
 
-            with open(playlist_path, "r", encoding="utf-8") as f:
+            with open(playlist_path, encoding="utf-8") as f:
                 return json.load(f)
 
-        except (IOError, OSError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             print(f"[red]Error loading playlist: {e}[/red]")
             return None
 
@@ -170,7 +170,7 @@ class PlaylistManager:
             print(f"[green]✅ Deleted playlist: {playlist_name}[/green]")
             return True
 
-        except (IOError, OSError) as e:
+        except OSError as e:
             print(f"[red]Error deleting playlist: {e}[/red]")
             return False
 
@@ -182,7 +182,7 @@ class PlaylistManager:
                 print(f"[red]Playlist '{playlist_name}' not found[/red]")
                 return False
 
-            with open(playlist_path, "r", encoding="utf-8") as f:
+            with open(playlist_path, encoding="utf-8") as f:
                 playlist_data = json.load(f)
 
             songs = playlist_data.get("songs", [])
@@ -201,7 +201,7 @@ class PlaylistManager:
             )
             return True
 
-        except (IOError, OSError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             print(f"[red]Error removing song from playlist: {e}[/red]")
             return False
 
@@ -214,7 +214,7 @@ class PlaylistManager:
             if not playlist_path:
                 return False
 
-            with open(playlist_path, "r", encoding="utf-8") as f:
+            with open(playlist_path, encoding="utf-8") as f:
                 playlist_data = json.load(f)
 
             songs = playlist_data.get("songs", [])
@@ -237,7 +237,7 @@ class PlaylistManager:
 
             return True
 
-        except (IOError, OSError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             print(f"[red]Error removing song from playlist: {e}[/red]")
             return False
 
@@ -268,13 +268,13 @@ class PlaylistManager:
                 if filename.endswith(".json"):
                     filepath = os.path.join(self.playlists_dir, filename)
                     try:
-                        with open(filepath, "r", encoding="utf-8") as f:
+                        with open(filepath, encoding="utf-8") as f:
                             data = json.load(f)
                         if data.get("name", "").lower() == playlist_name.lower():
                             return filepath
                     except (json.JSONDecodeError, FileNotFoundError):
                         continue
-        except (IOError, OSError):
+        except OSError:
             pass
 
         return None
