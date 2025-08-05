@@ -67,25 +67,17 @@ class PlaylistManager:
                 "artist": song.get("artists", [{}])[0].get("name", "Unknown Artist"),
                 "videoId": song.get("videoId", ""),
                 "duration": song.get("duration_seconds", song.get("duration", "")),
-                "album": (
-                    song.get("album", {}).get("name", "") if song.get("album") else ""
-                ),
+                "album": (song.get("album", {}).get("name", "") if song.get("album") else ""),
                 "added_at": datetime.now().isoformat(),
             }
 
             # Check if song already exists (by videoId)
             existing_song = next(
-                (
-                    s
-                    for s in playlist_data["songs"]
-                    if s.get("videoId") == song_entry["videoId"]
-                ),
+                (s for s in playlist_data["songs"] if s.get("videoId") == song_entry["videoId"]),
                 None,
             )
             if existing_song:
-                print(
-                    f"[yellow]Song already in playlist: {song_entry['title']}[/yellow]"
-                )
+                print(f"[yellow]Song already in playlist: {song_entry['title']}[/yellow]")
                 return False
 
             # Add song and update timestamp
@@ -96,9 +88,7 @@ class PlaylistManager:
             with open(playlist_path, "w", encoding="utf-8") as f:
                 json.dump(playlist_data, f, indent=2, ensure_ascii=False)
 
-            print(
-                f"[green]✅ Added '{song_entry['title']}' to '{playlist_name}'[/green]"
-            )
+            print(f"[green]✅ Added '{song_entry['title']}' to '{playlist_name}'[/green]")
             return True
 
         except (OSError, json.JSONDecodeError) as e:
@@ -131,9 +121,7 @@ class PlaylistManager:
                             }
                         )
                     except (OSError, json.JSONDecodeError) as e:
-                        print(
-                            f"[yellow]Warning: Could not load playlist {filename}: {e}[/yellow]"
-                        )
+                        print(f"[yellow]Warning: Could not load playlist {filename}: {e}[/yellow]")
                         continue
 
             # Sort by creation date (newest first)
@@ -196,18 +184,14 @@ class PlaylistManager:
             with open(playlist_path, "w", encoding="utf-8") as f:
                 json.dump(playlist_data, f, indent=2, ensure_ascii=False)
 
-            print(
-                f"[green]✅ Removed '{removed_song['title']}' from '{playlist_name}'[/green]"
-            )
+            print(f"[green]✅ Removed '{removed_song['title']}' from '{playlist_name}'[/green]")
             return True
 
         except (OSError, json.JSONDecodeError) as e:
             print(f"[red]Error removing song from playlist: {e}[/red]")
             return False
 
-    def remove_song_from_playlist_by_id(
-        self, playlist_name: str, video_id: str
-    ) -> bool:
+    def remove_song_from_playlist_by_id(self, playlist_name: str, video_id: str) -> bool:
         """Remove a song from playlist by video ID"""
         try:
             playlist_path = self._get_playlist_path(playlist_name)
@@ -221,9 +205,7 @@ class PlaylistManager:
             original_count = len(songs)
 
             # Remove songs with matching video ID
-            playlist_data["songs"] = [
-                song for song in songs if song.get("videoId") != video_id
-            ]
+            playlist_data["songs"] = [song for song in songs if song.get("videoId") != video_id]
 
             # Check if any songs were removed
             if len(playlist_data["songs"]) == original_count:

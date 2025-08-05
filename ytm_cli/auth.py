@@ -96,9 +96,7 @@ class AuthManager:
 
             if client_id and client_secret:
                 # Try to get project_id from different locations
-                project_id = (
-                    data.get("project_id") or client_info.get("project_id") or "Unknown"
-                )
+                project_id = data.get("project_id") or client_info.get("project_id") or "Unknown"
                 return {
                     "client_id": client_id,
                     "client_secret": client_secret,
@@ -177,9 +175,7 @@ class AuthManager:
                 print(f"[red]OAuth verification error: {e}[/red]")
                 print("\n[yellow]🚨 This is a Google verification issue![/yellow]")
                 print("Your OAuth app needs to add test users or be verified.")
-                print(
-                    "Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for solutions"
-                )
+                print("Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for solutions")
                 print("Quick fix: [cyan]python -m ytm_cli auth setup-browser[/cyan]")
                 return False
             else:
@@ -261,9 +257,7 @@ class AuthManager:
     def _setup_browser_from_clipboard(self) -> bool:
         """Setup browser auth from clipboard - simple and clean"""
         if not CLIPBOARD_AVAILABLE:
-            print(
-                "[red]Clipboard not available. Install pyperclip: pip install pyperclip[/red]"
-            )
+            print("[red]Clipboard not available. Install pyperclip: pip install pyperclip[/red]")
             print("Falling back to file method...")
             return self._setup_browser_from_file_with_guidance()
 
@@ -291,18 +285,14 @@ class AuthManager:
             print(f"[green]✓ Found cURL command ({length} characters)[/green]")
 
             if length > 3000:
-                print(
-                    "[green]✓ Large command detected - perfect for clipboard method![/green]"
-                )
+                print("[green]✓ Large command detected - perfect for clipboard method![/green]")
 
             print("[yellow]Processing headers silently...[/yellow]")
             success = self.setup_browser_auth(clipboard_content)
 
             if success:
                 print("[green]✓ Browser authentication setup complete![/green]")
-                print(
-                    "[dim]Clipboard content was processed securely without display[/dim]"
-                )
+                print("[dim]Clipboard content was processed securely without display[/dim]")
 
             return success
 
@@ -325,9 +315,7 @@ class AuthManager:
         print("   [cyan]-H 'x-youtube-client-name: 67'[/cyan]")
         print("   [cyan]-H 'x-youtube-client-version: 1.20241...'[/cyan]")
 
-        print(
-            "\n[green]✅ Enter headers one by one (press Enter twice when done):[/green]"
-        )
+        print("\n[green]✅ Enter headers one by one (press Enter twice when done):[/green]")
 
         headers_lines = []
         empty_count = 0
@@ -394,9 +382,7 @@ class AuthManager:
         try:
             if not os.path.exists(file_path):
                 print(f"[red]File {file_path} not found[/red]")
-                print(
-                    f"Make sure you saved the cURL command to: [cyan]{file_path}[/cyan]"
-                )
+                print(f"Make sure you saved the cURL command to: [cyan]{file_path}[/cyan]")
                 return False
 
             with open(file_path) as f:
@@ -407,9 +393,7 @@ class AuthManager:
                 return False
 
             if len(curl_content) > 1000:
-                print(
-                    f"[green]✓ Large command detected ({len(curl_content)} characters)[/green]"
-                )
+                print(f"[green]✓ Large command detected ({len(curl_content)} characters)[/green]")
             else:
                 print(
                     f"[yellow]⚠️  Small command ({len(curl_content)} characters) - verify it's complete[/yellow]"
@@ -421,9 +405,7 @@ class AuthManager:
             if success:
                 # Ask if user wants to delete the file for security
                 response = (
-                    input(
-                        f"\n[yellow]Delete {file_path} for security? (Y/n): [/yellow]"
-                    )
+                    input(f"\n[yellow]Delete {file_path} for security? (Y/n): [/yellow]")
                     .strip()
                     .lower()
                 )
@@ -528,9 +510,7 @@ class AuthManager:
                 except EOFError:
                     # Ctrl+D pressed - natural end
                     if headers_input:
-                        print(
-                            f"\n[green]Input completed ({len(headers_input)} lines)[/green]"
-                        )
+                        print(f"\n[green]Input completed ({len(headers_input)} lines)[/green]")
                     break
                 except KeyboardInterrupt:
                     print("\n[yellow]Setup cancelled[/yellow]")
