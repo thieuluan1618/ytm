@@ -10,9 +10,16 @@ from .playlists import playlist_manager
 
 
 def display_lyrics_with_curses(
-    lyrics_text, title, socket_path=None, get_mpv_time_position_func=None
+    lyrics_data, title, socket_path=None, get_mpv_time_position_func=None
 ):
-    """Display lyrics using curses with live highlighting"""
+    """Display lyrics using curses with live highlighting
+
+    Args:
+        lyrics_data: Either string (plain lyrics) or dict with timestamped lyrics
+        title: Song title
+        socket_path: MPV IPC socket path
+        get_mpv_time_position_func: Function to get current playback time
+    """
 
     def lyrics_ui(stdscr):
         curses.curs_set(0)  # Hide cursor
@@ -32,15 +39,47 @@ def display_lyrics_with_curses(
         footer_color = curses.color_pair(3)
         current_line_color = curses.color_pair(5)
 
+        # Handle both plain text and timestamped lyrics
+        timestamped_lyrics = []
+        lyrics_source = ""
+
+        if isinstance(lyrics_data, dict):
+            # Timestamped lyrics data
+            if lyrics_data.get("parsed_lyrics"):
+                timestamped_lyrics = lyrics_data["parsed_lyrics"]
+                lyrics_text = lyrics_data.get("synced_lyrics", "") or lyrics_data.get(
+                    "plain_lyrics", ""
+                )
+                lyrics_source = f" ({lyrics_data.get('source', 'Unknown')})"
+            else:
+                lyrics_text = lyrics_data.get("plain_lyrics", "") or lyrics_data.get(
+                    "synced_lyrics", ""
+                )
+        else:
+            # Plain text lyrics
+            lyrics_text = lyrics_data or ""
+
         # Prepare lyrics lines
-        lines = [line.strip() for line in lyrics_text.split("\n")]
+        if timestamped_lyrics:
+            # Use timestamped lyrics directly (already parsed)
+            lines = [text for _, text in timestamped_lyrics]
+        else:
+            # Split plain text into lines
+            lines = [line.strip() for line in lyrics_text.split("\n")]
+
         max_y, max_x = stdscr.getmaxyx()
 
         # Wrap long lines to fit terminal width
         wrapped_lines = []
-        for line in lines:
+        timestamp_map = {}  # Map wrapped line index to original timestamp
+
+        for orig_idx, line in enumerate(lines):
             if len(line) <= max_x - 4:  # Leave margin
                 wrapped_lines.append(line)
+                if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
+                    timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[
+                        orig_idx
+                    ][0]
             else:
                 # Simple word wrapping
                 words = line.split()
@@ -50,17 +89,21 @@ def display_lyrics_with_curses(
                         current_line += " " + word if current_line else word
                     else:
                         wrapped_lines.append(current_line)
+                        if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
+                            timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[
+                                orig_idx
+                            ][0]
                         current_line = word
                 if current_line:
                     wrapped_lines.append(current_line)
+                    if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
+                        timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[
+                            orig_idx
+                        ][0]
 
         lines = wrapped_lines
         scroll_pos = 0
         content_height = max_y - 4  # Reserve space for header and footer
-
-        # Estimate line timing (rough approximation)
-        non_empty_lines = [i for i, line in enumerate(lines) if line.strip()]
-        line_duration = 3.0  # Assume 3 seconds per line on average
 
         while True:
             stdscr.erase()
@@ -69,11 +112,26 @@ def display_lyrics_with_curses(
             current_highlighted_line = -1
             if socket_path and get_mpv_time_position_func:
                 current_time = get_mpv_time_position_func(socket_path)
-                if current_time > 0 and non_empty_lines:
-                    # Estimate which line should be highlighted
-                    estimated_line_index = int(current_time / line_duration)
-                    if estimated_line_index < len(non_empty_lines):
-                        current_highlighted_line = non_empty_lines[estimated_line_index]
+
+                if timestamped_lyrics and current_time > 0:
+                    # Use precise timestamps for highlighting
+                    for line_idx, timestamp in timestamp_map.items():
+                        if current_time >= timestamp:
+                            current_highlighted_line = line_idx
+                        else:
+                            break
+                elif current_time > 0:
+                    # Fallback to estimation for plain text lyrics
+                    non_empty_lines = [
+                        i for i, line in enumerate(lines) if line.strip()
+                    ]
+                    line_duration = 3.0  # Assume 3 seconds per line on average
+                    if non_empty_lines:
+                        estimated_line_index = int(current_time / line_duration)
+                        if estimated_line_index < len(non_empty_lines):
+                            current_highlighted_line = non_empty_lines[
+                                estimated_line_index
+                            ]
 
             # Auto-scroll to follow highlighted line
             if current_highlighted_line >= 0:
@@ -89,7 +147,7 @@ def display_lyrics_with_curses(
                     )
 
             # Header
-            header_text = f"🎵 {title}"
+            header_text = f"🎵 {title}{lyrics_source}"
             border = "═" * (max_x - 2)
 
             stdscr.addstr(0, 0, border[: max_x - 1], header_color)

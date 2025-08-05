@@ -3,3 +3,4 @@ rich
 mpv
 bump2version
 pyperclip
+requests
