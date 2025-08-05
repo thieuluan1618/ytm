@@ -35,9 +35,7 @@ def get_mpv_time_position(socket_path):
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(socket_path)
-        sock.send(
-            json.dumps({"command": ["get_property", "time-pos"]}).encode() + b"\n"
-        )
+        sock.send(json.dumps({"command": ["get_property", "time-pos"]}).encode() + b"\n")
         sock.settimeout(0.1)
         response = sock.recv(1024).decode()
         sock.close()
@@ -148,9 +146,7 @@ def add_song_to_playlist_interactive(song_data):
 
         # Run playlist selection UI
         song_title = song_data.get("title", "Unknown")
-        selected_playlist = wrapper(
-            lambda stdscr: playlist_selection_ui(stdscr, song_title)
-        )
+        selected_playlist = wrapper(lambda stdscr: playlist_selection_ui(stdscr, song_title))
 
         if selected_playlist is None:
             # User cancelled
@@ -207,8 +203,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
         timestamped_lyrics = get_timestamped_lyrics(song_item)
 
         if timestamped_lyrics and (
-            timestamped_lyrics.get("synced_lyrics")
-            or timestamped_lyrics.get("plain_lyrics")
+            timestamped_lyrics.get("synced_lyrics") or timestamped_lyrics.get("plain_lyrics")
         ):
             display_lyrics_with_curses(
                 timestamped_lyrics, title, socket_path, get_mpv_time_position
@@ -361,9 +356,7 @@ def play_music_with_controls(playlist, playlist_name=None):
 
                             # Check if song is already globally disliked
                             if dislike_manager.is_disliked(video_id):
-                                print(
-                                    f"⏭️  '{song_title}' already disliked globally, skipping..."
-                                )
+                                print(f"⏭️  '{song_title}' already disliked globally, skipping...")
                             else:
                                 # Try to remove from playlist first
                                 if playlist_manager.remove_song_from_playlist_by_id(
@@ -372,9 +365,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                                     print(
                                         f"📝 Removed '{song_title}' from playlist '{playlist_name}'"
                                     )
-                                    print(
-                                        "   💡 Press 'd' again to add to global dislikes"
-                                    )
+                                    print("   💡 Press 'd' again to add to global dislikes")
                                     time.sleep(
                                         1.5
                                     )  # Give user time to read and potentially press 'd' again
