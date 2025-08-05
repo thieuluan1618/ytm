@@ -76,7 +76,7 @@ class AuthManager:
     def parse_credential_file(self, file_path: str) -> Optional[Dict[str, str]]:
         """Parse Google Cloud credential JSON file"""
         try:
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 data = json.load(f)
 
             # Handle different credential file formats
@@ -399,7 +399,7 @@ class AuthManager:
                 )
                 return False
 
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 curl_content = f.read().strip()
 
             if not curl_content:
@@ -454,7 +454,7 @@ class AuthManager:
                 print(f"[red]File {file_path} not found[/red]")
                 return False
 
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 headers_raw = f.read().strip()
 
             if not headers_raw:

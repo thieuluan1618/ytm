@@ -2,9 +2,10 @@
 Lyrics service module for fetching timestamped lyrics from LRCLIB API
 """
 
-import requests
 import re
 from typing import Dict, List, Optional, Tuple
+
+import requests
 
 
 class LyricsService:
