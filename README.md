@@ -20,18 +20,21 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 ## 🚀 Quick Start
 
 ### Requirements
+
 - Python 3.7+
 - [mpv media player](https://mpv.io/installation/) (must be installed system-wide)
 
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/yourusername/ytm.git
    cd ytm
    ```
 
 2. **Set up virtual environment**
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -45,12 +48,14 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 ### Basic Usage
 
 **Interactive search:**
+
 ```bash
 python -m ytm_cli
 # Enter search query when prompted
 ```
 
 **Direct search:**
+
 ```bash
 python -m ytm_cli "your favorite song"
 ```
@@ -58,11 +63,13 @@ python -m ytm_cli "your favorite song"
 ## 🎮 Controls
 
 ### During Song Selection
+
 - `↑/↓` or `j/k` - Navigate through results
 - `Enter` - Select and play song
 - `q` - Quit
 
 ### During Playback
+
 - `Space` - Play/pause
 - `n` - Next song
 - `b` - Previous song
@@ -74,6 +81,7 @@ python -m ytm_cli "your favorite song"
 ## 📋 Playlist Management
 
 **Create and manage playlists:**
+
 ```bash
 python -m ytm_cli playlist list              # List all playlists
 python -m ytm_cli playlist create            # Create new playlist
@@ -83,6 +91,7 @@ python -m ytm_cli playlist delete "My Songs" # Delete playlist
 ```
 
 **Add songs to playlists:**
+
 - Press `a` during song selection or playback
 - Choose existing playlist or create new one
 - Song added without interrupting playback
@@ -91,18 +100,21 @@ python -m ytm_cli playlist delete "My Songs" # Delete playlist
 
 Enhanced features with YouTube Music account access:
 
-**OAuth setup (recommended):**
+**OAuth setup (Developing):**
+
 ```bash
 python -m ytm_cli auth setup-oauth    # Interactive OAuth setup
 python -m ytm_cli auth status          # Check authentication status
 ```
 
 **Browser authentication:**
+
 ```bash
 python -m ytm_cli auth setup-browser  # Alternative method
 ```
 
 **Troubleshooting:**
+
 ```bash
 python -m ytm_cli auth troubleshoot    # Detailed help for auth issues
 ```
@@ -127,8 +139,9 @@ directory = playlists
 ## 🎯 Philosophy
 
 **Keep it simple for the listener to enjoy music.** Features are designed to be:
+
 - **Intuitive**: Single-key shortcuts during playback
-- **Non-disruptive**: Actions don't interrupt your listening experience  
+- **Non-disruptive**: Actions don't interrupt your listening experience
 - **Consistent**: Same navigation patterns across all screens
 - **Quick**: Important features accessible with simple key presses
 

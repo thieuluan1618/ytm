@@ -320,7 +320,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                     mpv_pause_state = get_mpv_pause_state(socket_path)
                     if mpv_pause_state != is_paused:
                         is_paused = mpv_pause_state
-                        update_display()
+                        update_display(title)
                     last_pause_check = current_time
 
                 rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
@@ -329,7 +329,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                     if key == " ":  # Space bar for play/pause
                         is_paused = not is_paused
                         send_mpv_command(socket_path, {"command": ["cycle", "pause"]})
-                        update_display()
+                        update_display(title)
                     elif key == "n":
                         current_song_index += 1
                         break
@@ -340,11 +340,11 @@ def play_music_with_controls(playlist, playlist_name=None):
                     elif key == "l":
                         # Show lyrics
                         get_and_display_lyrics(video_id, title, socket_path)
-                        update_display()
+                        update_display(title)
                     elif key == "a":
                         # Add current song to playlist
                         add_song_to_playlist_interactive(item)
-                        update_display()
+                        update_display(title)
                     elif key == "d":
                         # Smart two-step dislike system
                         video_id = item.get("videoId")
