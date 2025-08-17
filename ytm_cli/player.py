@@ -65,6 +65,40 @@ def get_mpv_pause_state(socket_path):
         pass
     return False
 
+def get_mpv_playlist_position(socket_path):
+    """Get current playlist position from MPV"""
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(socket_path)
+        sock.send(json.dumps({"command": ["get_property", "playlist-pos"]}).encode() + b"\n")
+        sock.settimeout(0.1)
+        response = sock.recv(1024).decode()
+        sock.close()
+        
+        response_data = json.loads(response)
+        if response_data.get("error") == "success":
+            return response_data.get("data", -1)
+    except Exception:
+        pass
+    return -1
+
+def get_mpv_eof_reached(socket_path):
+    """Check if MPV has reached end of file"""
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(socket_path)
+        sock.send(json.dumps({"command": ["get_property", "eof-reached"]}).encode() + b"\n")
+        sock.settimeout(0.1)
+        response = sock.recv(1024).decode()
+        sock.close()
+        
+        response_data = json.loads(response)
+        if response_data.get("error") == "success":
+            return response_data.get("data", False)
+    except Exception:
+        pass
+    return False
+
 
 def add_song_to_playlist_interactive(song_data):
     """Interactive playlist selection and song addition during playback"""
@@ -244,7 +278,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
 
 
 def play_music_with_controls(playlist, playlist_name=None):
-    """Play music with keyboard controls
+    """Play music with keyboard controls using mpv playlist for system media controls
 
     Args:
         playlist: List of songs to play
@@ -255,98 +289,113 @@ def play_music_with_controls(playlist, playlist_name=None):
     socket_path = None
     is_paused = False
     last_pause_check = 0
+    last_playlist_pos = -1
+
+    # Create URLs for entire playlist
+    playlist_urls = []
+    for item in playlist:
+        video_id = item["videoId"]
+        url = f"https://music.youtube.com/watch?v={video_id}"
+        playlist_urls.append(url)
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(sys.stdin.fileno())
-        while 0 <= current_song_index < len(playlist):
-            if mpv_process:
-                mpv_process.terminate()
-                mpv_process.wait()
+    
+    def cleanup():
+        if mpv_process:
+            mpv_process.terminate()
+            mpv_process.wait()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        if socket_path and os.path.exists(socket_path):
+            os.unlink(socket_path)
 
-            if socket_path and os.path.exists(socket_path):
-                os.unlink(socket_path)
-
+    def get_current_song_info():
+        if 0 <= current_song_index < len(playlist):
             item = playlist[current_song_index]
-            video_id = item["videoId"]
-
             title = item.get("title", "Unknown Title")
-
             if "artists" in item and item["artists"] and item["artists"][0].get("name"):
                 title = f"{title} - {item['artists'][0]['name']}"
+            return item, title
+        return None, "Unknown"
 
-            url = f"https://music.youtube.com/watch?v={video_id}"
+    def update_display(song_title, is_paused=is_paused):
+        from .ui import display_player_status
+        display_player_status(song_title, is_paused)
 
-            # Create a temporary socket for mpv IPC
-            socket_path = tempfile.mktemp(suffix=".sock")
+    try:
+        tty.setraw(sys.stdin.fileno())
+        
+        # Create a temporary socket for mpv IPC
+        socket_path = tempfile.mktemp(suffix=".sock")
+        
+        # Start mpv with entire playlist
+        mpv_flags = get_mpv_flags()
+        mpv_flags.extend([
+            f"--input-ipc-server={socket_path}",
+            "--playlist-start=0",  # Start at first song
+        ])
+        
+        mpv_process = subprocess.Popen(
+            ["mpv"] + playlist_urls + mpv_flags,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        
+        # Give mpv a moment to start and create the socket
+        time.sleep(0.5)
+        
+        item, title = get_current_song_info()
+        update_display(title)
 
-            def cleanup(mpv_proc=mpv_process):
-                if mpv_proc:
-                    mpv_proc.terminate()
-                    mpv_proc.wait()
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        while mpv_process.poll() is None:
+            current_time = time.time()
+            if current_time - last_pause_check > 0.5:
+                # Check pause state sync
+                mpv_pause_state = get_mpv_pause_state(socket_path)
+                if mpv_pause_state != is_paused:
+                    is_paused = mpv_pause_state
+                    item, title = get_current_song_info()
+                    update_display(title)
+                
+                # Check playlist position sync (for system media controls)
+                mpv_playlist_pos = get_mpv_playlist_position(socket_path)
+                if mpv_playlist_pos != last_playlist_pos and mpv_playlist_pos >= 0:
+                    current_song_index = mpv_playlist_pos
+                    item, title = get_current_song_info()
+                    update_display(title)
+                    last_playlist_pos = mpv_playlist_pos
+                
+                last_pause_check = current_time
 
-            def update_display(song_title, is_paused=is_paused):
-                from .ui import display_player_status
-
-                display_player_status(song_title, is_paused)
-
-            update_display(title)
-
-            mpv_flags = get_mpv_flags()
-            mpv_flags.extend([f"--input-ipc-server={socket_path}"])
-
-            mpv_process = subprocess.Popen(
-                ["mpv", url] + mpv_flags,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            is_paused = False
-            last_pause_check = 0  # Reset pause check timer for new song
-
-            # Give mpv a moment to start and create the socket
-            time.sleep(0.1)
-
-            while True:
-                if mpv_process.poll() is not None:
-                    current_song_index += 1
-                    break
-
-                # Check if mpv pause state has changed (sync with player UI)
-                # Only check every 0.5 seconds to avoid excessive IPC calls
-                current_time = time.time()
-                if current_time - last_pause_check > 0.5:
-                    mpv_pause_state = get_mpv_pause_state(socket_path)
-                    if mpv_pause_state != is_paused:
-                        is_paused = mpv_pause_state
-                        update_display(title)
-                    last_pause_check = current_time
-
-                rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
-                if rlist:
-                    key = sys.stdin.read(1)
-                    if key == " ":  # Space bar for play/pause
-                        is_paused = not is_paused
-                        send_mpv_command(socket_path, {"command": ["cycle", "pause"]})
-                        update_display(title)
-                    elif key == "n":
-                        current_song_index += 1
-                        break
-                    elif key == "b":
-                        if current_song_index > 0:
-                            current_song_index -= 1
-                        break
-                    elif key == "l":
-                        # Show lyrics
+            rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
+            if rlist:
+                key = sys.stdin.read(1)
+                if key == " ":  # Space bar for play/pause
+                    is_paused = not is_paused
+                    send_mpv_command(socket_path, {"command": ["cycle", "pause"]})
+                    item, title = get_current_song_info()
+                    update_display(title)
+                elif key == "n":
+                    send_mpv_command(socket_path, {"command": ["playlist-next"]})
+                elif key == "b":
+                    send_mpv_command(socket_path, {"command": ["playlist-prev"]})
+                elif key == "l":
+                    # Show lyrics
+                    item, title = get_current_song_info()
+                    if item:
+                        video_id = item["videoId"]
                         get_and_display_lyrics(video_id, title, socket_path)
                         update_display(title)
-                    elif key == "a":
-                        # Add current song to playlist
+                elif key == "a":
+                    # Add current song to playlist
+                    item, title = get_current_song_info()
+                    if item:
                         add_song_to_playlist_interactive(item)
                         update_display(title)
-                    elif key == "d":
-                        # Smart two-step dislike system
+                elif key == "d":
+                    # Smart two-step dislike system
+                    item, title = get_current_song_info()
+                    if item:
                         video_id = item.get("videoId")
                         song_title = item.get("title", "Unknown")
 
@@ -357,6 +406,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                             # Check if song is already globally disliked
                             if dislike_manager.is_disliked(video_id):
                                 print(f"⏭️  '{song_title}' already disliked globally, skipping...")
+                                send_mpv_command(socket_path, {"command": ["playlist-next"]})
                             else:
                                 # Try to remove from playlist first
                                 if playlist_manager.remove_song_from_playlist_by_id(
@@ -378,18 +428,12 @@ def play_music_with_controls(playlist, playlist_name=None):
                             dislike_manager.dislike_song(item)
                             print(f"👎 Disliked '{song_title}'")
 
-                        current_song_index += 1
+                        send_mpv_command(socket_path, {"command": ["playlist-next"]})
                         time.sleep(0.8)  # Brief pause to show message
-                        break
-                    elif key == "q" or key == "\x03":
-                        cleanup()
-                        goodbye_message()
-                        return
+                elif key == "q" or key == "\x03":
+                    cleanup()
+                    goodbye_message()
+                    return
 
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        if mpv_process:
-            mpv_process.terminate()
-            mpv_process.wait()
-        if socket_path and os.path.exists(socket_path):
-            os.unlink(socket_path)
+        cleanup()
