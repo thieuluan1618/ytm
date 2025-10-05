@@ -8,7 +8,9 @@ import pytest
 
 # We need to mock the imports before importing the config module
 # since it initializes global objects on import
-with patch("ytm_cli.config.AuthManager"), patch("ytm_cli.config.configparser.ConfigParser"):
+with patch("ytm_cli.config.AuthManager"), patch(
+    "ytm_cli.config.configparser.ConfigParser"
+):
     from ytm_cli.config import get_mpv_flags, get_songs_to_display
 
 
@@ -24,7 +26,9 @@ class TestGetSongsToDisplay:
             result = get_songs_to_display()
 
             assert result == 10
-            mock_config.get.assert_called_once_with("general", "songs_to_display", fallback="5")
+            mock_config.get.assert_called_once_with(
+                "general", "songs_to_display", fallback="5"
+            )
 
     def test_get_songs_to_display_fallback(self):
         """Test fallback value when config is missing"""
@@ -127,7 +131,9 @@ class TestGetMpvFlags:
         """Test with multiple flags"""
         mock_config = Mock()
         mock_config.__contains__ = Mock(return_value=True)
-        mock_config.__getitem__ = Mock(return_value={"flags": "--no-video --volume=75 --loop"})
+        mock_config.__getitem__ = Mock(
+            return_value={"flags": "--no-video --volume=75 --loop"}
+        )
 
         with patch("ytm_cli.config.config", mock_config):
             result = get_mpv_flags()
@@ -140,9 +146,9 @@ class TestConfigModule:
 
     def test_config_reads_file(self):
         """Test that config reads from config.ini file"""
-        with patch("ytm_cli.config.configparser.ConfigParser") as mock_parser_class, patch(
-            "ytm_cli.config.AuthManager"
-        ) as mock_auth_manager:
+        with patch(
+            "ytm_cli.config.configparser.ConfigParser"
+        ) as mock_parser_class, patch("ytm_cli.config.AuthManager"):
             mock_parser = Mock()
             mock_parser_class.return_value = mock_parser
 
