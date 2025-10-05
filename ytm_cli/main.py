@@ -2,6 +2,7 @@
 
 import argparse
 import curses
+import sys
 from curses import wrapper
 
 from rich import print
@@ -13,69 +14,119 @@ from .playlists import playlist_manager
 from .ui import selection_ui
 from .utils import setup_signal_handler
 
+# Global verbose flag
+_VERBOSE = False
 
-def search_and_play(query=None):
-    """Search for music and start playback"""
+
+def verbose_print(*args, **kwargs):
+    """Print only if verbose mode is enabled"""
+    if _VERBOSE:
+        print(*args, **kwargs)
+
+
+def search_and_play(query=None, auto_select=None):
+    """Search for music and start playback
+
+    Args:
+        query: Search query string
+        auto_select: If set, auto-select this song number (1-based) without UI
+    """
     if query is None:
         query = input("🎵 Search for a song: ")
     else:
         print(f"🎵 Searching for: {query}")
 
+    verbose_print(f"[dim]Sending search query to YouTube Music API...[/dim]")
     results = ytmusic.search(query, filter="songs")
     if not results:
         print("[red]No songs found.[/red]")
         return
 
+    verbose_print(f"[dim]Found {len(results)} results[/dim]")
+
     # Filter out disliked songs
+    original_count = len(results)
     results = dislike_manager.filter_disliked_songs(results)
+    filtered_count = original_count - len(results)
+    if filtered_count > 0:
+        verbose_print(f"[dim]Filtered out {filtered_count} disliked song(s)[/dim]")
+
     if not results:
         print("[red]No songs found after filtering dislikes.[/red]")
         return
 
     songs_to_display = get_songs_to_display()
 
-    def ui_wrapper(stdscr):
-        return selection_ui(stdscr, results, query, songs_to_display)
+    # Non-interactive mode: auto-select specified song
+    if auto_select is not None:
+        verbose_print(f"[dim]Auto-selecting song #{auto_select}[/dim]")
+        selected_index = auto_select - 1  # Convert to 0-based index
 
-    try:
-        selected_index = wrapper(ui_wrapper)
-    except curses.error as e:
-        print(f"[red]Terminal error: {e}[/red]")
-        print(
-            "[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]"
-        )
-        # Fallback to simple numbered selection
-        print(f"\n[cyan]Search Results for: {query}[/cyan]")
-        for i, song in enumerate(results[:songs_to_display]):
-            title = song["title"]
-            artist = song["artists"][0]["name"]
-            print(f"[{i + 1}] {title} - {artist}")
+        if selected_index < 0 or selected_index >= len(results):
+            print(f"[red]Invalid selection {auto_select}. Valid range: 1-{len(results)}[/red]")
+            return
+
+        song = results[selected_index]
+        title = song["title"]
+        artist = song["artists"][0]["name"] if song.get("artists") else "Unknown Artist"
+        print(f"[green]✓ Selected:[/green] {title} - {artist}")
+
+    else:
+        # Interactive mode: use curses UI
+        def ui_wrapper(stdscr):
+            return selection_ui(stdscr, results, query, songs_to_display)
 
         try:
-            choice = input("\nEnter song number (or 'q' to quit): ").strip()
-            if choice.lower() == "q":
+            selected_index = wrapper(ui_wrapper)
+        except curses.error as e:
+            print(f"[red]Terminal error: {e}[/red]")
+            print(
+                "[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]"
+            )
+            # Fallback to simple numbered selection
+            print(f"\n[cyan]Search Results for: {query}[/cyan]")
+            for i, song in enumerate(results[:songs_to_display]):
+                title = song["title"]
+                artist = song["artists"][0]["name"]
+                print(f"[{i + 1}] {title} - {artist}")
+
+            try:
+                choice = input("\nEnter song number (or 'q' to quit): ").strip()
+                if choice.lower() == "q":
+                    return
+                selected_index = int(choice) - 1
+                if selected_index < 0 or selected_index >= len(results[:songs_to_display]):
+                    print("[red]Invalid selection.[/red]")
+                    return
+            except (ValueError, KeyboardInterrupt):
                 return
-            selected_index = int(choice) - 1
-            if selected_index < 0 or selected_index >= len(results[:songs_to_display]):
-                print("[red]Invalid selection.[/red]")
-                return
-        except (ValueError, KeyboardInterrupt):
+
+        if selected_index is None:
             return
-    if selected_index is None:
-        return
 
     song = results[selected_index]
     playlist = [song]
 
     print("\n[yellow]🎶 Fetching Radio...[/yellow]")
+    verbose_print(f"[dim]Fetching radio playlist for videoId: {song['videoId']}[/dim]")
     try:
         radio = ytmusic.get_watch_playlist(videoId=song["videoId"])
         radio_tracks = radio["tracks"][1:]  # Skip first track (the selected song)
+        verbose_print(f"[dim]Radio returned {len(radio_tracks)} tracks[/dim]")
+
         # Filter out disliked songs from radio
+        original_radio_count = len(radio_tracks)
         filtered_radio = dislike_manager.filter_disliked_songs(radio_tracks)
+        filtered_radio_count = original_radio_count - len(filtered_radio)
+
+        if filtered_radio_count > 0:
+            verbose_print(f"[dim]Filtered out {filtered_radio_count} disliked song(s) from radio[/dim]")
+
         playlist.extend(filtered_radio)
+        verbose_print(f"[dim]Final playlist: {len(playlist)} tracks[/dim]")
     except Exception as e:
         print(f"[red]Error fetching radio: {e}[/red]")
+        verbose_print(f"[dim]Exception details: {str(e)}[/dim]")
 
     play_music_with_controls(playlist)
 
@@ -598,17 +649,19 @@ def playlist_delete_command(name):
 
 def main():
     """Main CLI entry point"""
+    global _VERBOSE
     setup_signal_handler()
 
     # Handle backward compatibility first by checking command line arguments
-    import sys
-
+    # But we need to check for flags first
     if (
-        len(sys.argv) == 2
+        len(sys.argv) >= 2
         and not sys.argv[1].startswith("-")
         and sys.argv[1] not in ["search", "auth", "playlist"]
+        and "--verbose" not in sys.argv
+        and "--select" not in sys.argv
     ):
-        # This is likely a song query, handle it directly
+        # This is likely a song query, handle it directly (backward compatible mode)
         search_and_play(sys.argv[1])
         return
 
@@ -616,14 +669,16 @@ def main():
         description="YouTube Music CLI 🎧 - Search, play, and organize music from YouTube Music",
         epilog="""
 Examples:
-  %(prog)s "bohemian rhapsody"           Search and play music
-  %(prog)s playlist list                 List all local playlists  
-  %(prog)s playlist create "Rock Hits"   Create a new playlist
-  %(prog)s auth setup-oauth              Setup OAuth authentication
-  
+  %(prog)s "bohemian rhapsody"                    Search and play music
+  %(prog)s "phung khanh linh" --select 1          Auto-select first result
+  %(prog)s "beatles" --select 2 --verbose         Auto-select with detailed logging
+  %(prog)s playlist list                          List all local playlists
+  %(prog)s playlist create "Rock Hits"            Create a new playlist
+  %(prog)s auth setup-oauth                       Setup OAuth authentication
+
 During song selection:
   • Enter: Play selected song with radio
-  • a: Add song to playlist  
+  • a: Add song to playlist
   • q: Quit to search
   • ↑↓ or j/k: Navigate
 
@@ -634,6 +689,13 @@ During music playback:
   • 🚪 q: Quit to search
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Global options (available for all commands)
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose output with detailed logging"
     )
 
     # Create subcommands
@@ -651,6 +713,17 @@ During music playback:
     )
     search_parser.add_argument(
         "search_query", nargs="?", help="Song, artist, or album to search for"
+    )
+    search_parser.add_argument(
+        "--select", "-s",
+        type=int,
+        metavar="N",
+        help="Auto-select song number N (1-based, non-interactive mode)"
+    )
+    search_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose output with detailed logging"
     )
 
     # Auth commands
@@ -748,6 +821,9 @@ During music playback:
 
     args = parser.parse_args()
 
+    # Set verbose mode globally
+    _VERBOSE = getattr(args, "verbose", False)
+
     # Handle auth commands
     if args.command == "auth":
         if args.auth_command == "setup-oauth":
@@ -784,7 +860,8 @@ During music playback:
         else:
             print("Available playlist commands: list, create, show, play, delete")
     elif args.command == "search":
-        search_and_play(args.search_query)
+        auto_select = getattr(args, "select", None)
+        search_and_play(args.search_query, auto_select=auto_select)
     else:
         # Default behavior: if no command specified, prompt for search
         search_and_play()
