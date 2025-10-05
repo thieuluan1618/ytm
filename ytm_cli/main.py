@@ -9,19 +9,32 @@ from rich import print
 
 from .config import auth_manager, get_songs_to_display, ytmusic
 from .dislikes import dislike_manager
-from .player import play_music_with_controls
+from .player import play_music_with_controls, set_verbose as set_player_verbose
 from .playlists import playlist_manager
 from .ui import selection_ui
 from .utils import setup_signal_handler
 
 # Global verbose flag
 _VERBOSE = False
+_VERBOSE_FILE = None
 
 
 def verbose_print(*args, **kwargs):
     """Print only if verbose mode is enabled"""
     if _VERBOSE:
-        print(*args, **kwargs)
+        import time
+
+        message = " ".join(str(arg) for arg in args)
+        print(message, **kwargs)
+
+        # Write to file if specified
+        if _VERBOSE_FILE:
+            try:
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                with open(_VERBOSE_FILE, "a") as f:
+                    f.write(f"[{timestamp}] {message}\n")
+            except Exception:
+                pass  # Silently ignore file write errors
 
 
 def search_and_play(query=None, auto_select=None):
@@ -725,6 +738,11 @@ During music playback:
         action="store_true",
         help="Enable verbose output with detailed logging"
     )
+    search_parser.add_argument(
+        "--log-file",
+        metavar="FILE",
+        help="Write verbose logs to FILE (requires --verbose)"
+    )
 
     # Auth commands
     auth_parser = subparsers.add_parser(
@@ -822,7 +840,24 @@ During music playback:
     args = parser.parse_args()
 
     # Set verbose mode globally
+    global _VERBOSE, _VERBOSE_FILE
     _VERBOSE = getattr(args, "verbose", False)
+    _VERBOSE_FILE = getattr(args, "log_file", None)
+
+    # Pass verbose settings to player module
+    set_player_verbose(_VERBOSE, _VERBOSE_FILE)
+
+    # Initialize log file if specified
+    if _VERBOSE_FILE and _VERBOSE:
+        try:
+            import time
+            with open(_VERBOSE_FILE, "w") as f:
+                f.write(f"=== YTM CLI Verbose Log ===\n")
+                f.write(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"=" * 50 + "\n\n")
+            verbose_print(f"[green]Logging to: {_VERBOSE_FILE}[/green]")
+        except Exception as e:
+            print(f"[red]Could not create log file: {e}[/red]")
 
     # Handle auth commands
     if args.command == "auth":
