@@ -1,9 +1,7 @@
 """Pytest configuration and fixtures for YTM CLI tests"""
 
-import json
 import os
 import tempfile
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -61,7 +59,7 @@ def sample_songs():
             "duration": "3:30"
         },
         {
-            "videoId": "song2", 
+            "videoId": "song2",
             "title": "Song Two",
             "artists": [{"name": "Artist Two"}],
             "album": {"name": "Album Two"},
@@ -69,7 +67,7 @@ def sample_songs():
         },
         {
             "videoId": "song3",
-            "title": "Song Three", 
+            "title": "Song Three",
             "artists": [{"name": "Artist Three"}],
             "album": {"name": "Album Three"},
             "duration": "2:45"
@@ -108,7 +106,7 @@ def sample_dislikes_data():
                 "disliked_at": "2024-01-01T12:00:00"
             },
             {
-                "videoId": "disliked_song_2", 
+                "videoId": "disliked_song_2",
                 "title": "Disliked Song 2",
                 "artist": "Artist 2",
                 "disliked_at": "2024-01-01T13:00:00"

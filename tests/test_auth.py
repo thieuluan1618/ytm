@@ -291,7 +291,7 @@ class TestSetupOauthAuth:
 
         with patch("ytmusicapi.setup.setup_oauth", return_value=mock_oauth_data), patch(
             "builtins.print"
-        ) as mock_print:
+        ):
             result = manager.setup_oauth_auth("client_id", "client_secret")
 
             assert result is True
@@ -355,7 +355,7 @@ class TestSetupBrowserAuth:
 
         with patch("ytmusicapi.YTMusic.setup", return_value=mock_browser_data), patch(
             "builtins.print"
-        ) as mock_print:
+        ):
             result = manager.setup_browser_auth()
 
             assert result is True

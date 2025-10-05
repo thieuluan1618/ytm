@@ -142,7 +142,7 @@ class TestConfigModule:
         """Test that config reads from config.ini file"""
         with patch("ytm_cli.config.configparser.ConfigParser") as mock_parser_class, patch(
             "ytm_cli.config.AuthManager"
-        ) as mock_auth_manager:
+        ):
             mock_parser = Mock()
             mock_parser_class.return_value = mock_parser
 
