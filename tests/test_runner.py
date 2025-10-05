@@ -8,24 +8,24 @@ from pathlib import Path
 def run_tests(test_type="all", coverage=True, verbose=True):
     """
     Run tests with various options
-    
+
     Args:
         test_type: "all", "unit", "integration", or specific test file
         coverage: Whether to run with coverage reporting
         verbose: Whether to run in verbose mode
     """
-    
+
     # Base pytest command
     cmd = ["python", "-m", "pytest"]
-    
+
     # Add coverage if requested
     if coverage:
         cmd.extend(["--cov=ytm_cli", "--cov-report=html", "--cov-report=term-missing"])
-    
+
     # Add verbosity
     if verbose:
         cmd.append("-v")
-    
+
     # Add test selection
     if test_type == "unit":
         cmd.extend(["-m", "unit"])
@@ -36,7 +36,7 @@ def run_tests(test_type="all", coverage=True, verbose=True):
     elif test_type != "all":
         # Assume it's a specific test file or pattern
         cmd.append(test_type)
-    
+
     # Run the command
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=Path(__file__).parent.parent)
@@ -78,5 +78,5 @@ if __name__ == "__main__":
             exit_code = run_tests(test_type)
     else:
         exit_code = run_full_tests()
-    
+
     sys.exit(exit_code)

@@ -55,7 +55,7 @@ def send_mpv_command(socket_path, command):
         sock.connect(socket_path)
         sock.send((json.dumps(command) + "\n").encode())
         sock.close()
-    except (socket.error, json.JSONEncodeError):
+    except (OSError, json.JSONEncodeError):
         pass  # Ignore errors if mpv isn't ready yet
 
 
@@ -328,13 +328,13 @@ def play_music_with_controls(playlist, playlist_name=None):
             socket_path = tempfile.mktemp(suffix=".sock")
             verbose_log(f"IPC socket path: {socket_path}")
 
-            def cleanup():
+            def cleanup(mpv_process=mpv_process):
                 if mpv_process:
                     mpv_process.terminate()
                     mpv_process.wait()
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
-            def update_display():
+            def update_display(title=title, is_paused=is_paused):
                 from .ui import display_player_status
 
                 display_player_status(title, is_paused)

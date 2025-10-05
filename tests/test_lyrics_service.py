@@ -486,11 +486,6 @@ class TestLyricsServiceIntegration:
             assert "trackName" in result[0]
             assert "artistName" in result[0]
 
-        assert track_name == "Test Song"
-        assert artist_name == "Test Artist"
-        assert album_name == "Test Album"
-        assert duration is None
-
     def test_get_song_metadata_missing_title(self, sample_song):
         """Test extracting metadata when title is missing"""
         song_without_title = sample_song.copy()

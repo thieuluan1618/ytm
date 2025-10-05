@@ -269,7 +269,7 @@ class TestPlaylistCommands:
         """Test successful playlist creation command"""
         with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
             "builtins.print"
-        ) as mock_print:
+        ):
             mock_playlist_manager.create_playlist.return_value = True
 
             playlist_create_command("New Playlist", "A test playlist")
