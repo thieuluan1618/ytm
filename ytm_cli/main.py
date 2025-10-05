@@ -9,7 +9,8 @@ from rich import print
 
 from .config import auth_manager, get_songs_to_display, ytmusic
 from .dislikes import dislike_manager
-from .player import play_music_with_controls, set_verbose as set_player_verbose
+from .player import play_music_with_controls
+from .player import set_verbose as set_player_verbose
 from .playlists import playlist_manager
 from .ui import selection_ui
 from .utils import setup_signal_handler
