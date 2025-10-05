@@ -29,8 +29,17 @@ pip install -r requirements.txt
 # Interactive mode (search prompt)
 python -m ytm_cli
 
-# Direct search from command line
+# Direct search from command line (backward compatible)
 python -m ytm_cli "song name or artist"
+
+# Non-interactive mode: auto-select first result
+python -m ytm_cli search "song name" --select 1
+
+# Non-interactive mode with verbose logging
+python -m ytm_cli search "artist name" --select 1 --verbose
+
+# Short form flags also work
+python -m ytm_cli search "song" -s 1 -v
 
 # Note: Legacy ytm-cli.py still works for backward compatibility
 ```
@@ -41,6 +50,39 @@ python -m ytm_cli "song name or artist"
 # Update requirements.txt after adding new dependencies
 pip freeze > requirements.txt
 ```
+
+## Usage Modes
+
+### Interactive Mode (Default)
+
+The default mode presents a curses-based UI for browsing and selecting songs:
+
+- Search results displayed in a scrollable list
+- Navigate with arrow keys (↑↓) or vim-style (j/k)
+- Press Enter to play selected song with auto-generated radio
+- Press 'a' to add song to playlist
+- Press 'q' to quit
+
+### Non-Interactive Mode
+
+For automation, scripting, or quick playback without manual selection:
+
+```bash
+python -m ytm_cli search "query" --select N
+```
+
+**Features:**
+- **--select N** or **-s N**: Auto-select song number N (1-based index) from search results
+- **--verbose** or **-v**: Enable detailed logging showing API calls, filtering, and playlist generation
+- Bypasses curses UI entirely
+- Perfect for scripts, cron jobs, or testing
+- Still supports all playback controls once music starts
+
+**Use Cases:**
+- Quick testing: `python -m ytm_cli search "test song" -s 1 -v`
+- Scripting: Auto-play first result without user interaction
+- CI/CD: Automated testing of playback functionality
+- Debugging: Verbose mode shows internal state and API responses
 
 ## Architecture
 
