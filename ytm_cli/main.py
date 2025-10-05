@@ -2,78 +2,150 @@
 
 import argparse
 import curses
+import sys
 from curses import wrapper
 
 from rich import print
 
 from .config import auth_manager, get_songs_to_display, ytmusic
 from .dislikes import dislike_manager
-from .player import play_music_with_controls
+from .player import play_music_with_controls, set_verbose as set_player_verbose
 from .playlists import playlist_manager
 from .ui import selection_ui
 from .utils import setup_signal_handler
 
+# Global verbose flag
+_VERBOSE = False
+_VERBOSE_FILE = None
 
-def search_and_play(query=None):
-    """Search for music and start playback"""
+
+def verbose_print(*args, **kwargs):
+    """Print only if verbose mode is enabled"""
+    if _VERBOSE:
+        import time
+
+        message = " ".join(str(arg) for arg in args)
+        print(message, **kwargs)
+
+        # Write to file if specified
+        if _VERBOSE_FILE:
+            try:
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                with open(_VERBOSE_FILE, "a") as f:
+                    f.write(f"[{timestamp}] {message}\n")
+            except Exception:
+                pass  # Silently ignore file write errors
+
+
+def search_and_play(query=None, auto_select=None):
+    """Search for music and start playback
+
+    Args:
+        query: Search query string
+        auto_select: If set, auto-select this song number (1-based) without UI
+    """
     if query is None:
         query = input("🎵 Search for a song: ")
     else:
         print(f"🎵 Searching for: {query}")
 
+    verbose_print("[dim]Sending search query to YouTube Music API...[/dim]")
     results = ytmusic.search(query, filter="songs")
     if not results:
         print("[red]No songs found.[/red]")
         return
 
+    verbose_print(f"[dim]Found {len(results)} results[/dim]")
+
     # Filter out disliked songs
+    original_count = len(results)
     results = dislike_manager.filter_disliked_songs(results)
+    filtered_count = original_count - len(results)
+    if filtered_count > 0:
+        verbose_print(f"[dim]Filtered out {filtered_count} disliked song(s)[/dim]")
+
     if not results:
         print("[red]No songs found after filtering dislikes.[/red]")
         return
 
     songs_to_display = get_songs_to_display()
 
-    def ui_wrapper(stdscr):
-        return selection_ui(stdscr, results, query, songs_to_display)
+    # Non-interactive mode: auto-select specified song
+    if auto_select is not None:
+        verbose_print(f"[dim]Auto-selecting song #{auto_select}[/dim]")
+        selected_index = auto_select - 1  # Convert to 0-based index
 
-    try:
-        selected_index = wrapper(ui_wrapper)
-    except curses.error as e:
-        print(f"[red]Terminal error: {e}[/red]")
-        print("[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]")
-        # Fallback to simple numbered selection
-        print(f"\n[cyan]Search Results for: {query}[/cyan]")
-        for i, song in enumerate(results[:songs_to_display]):
-            title = song["title"]
-            artist = song["artists"][0]["name"]
-            print(f"[{i + 1}] {title} - {artist}")
+        if selected_index < 0 or selected_index >= len(results):
+            print(
+                f"[red]Invalid selection {auto_select}. Valid range: 1-{len(results)}[/red]"
+            )
+            return
+
+        song = results[selected_index]
+        title = song["title"]
+        artist = song["artists"][0]["name"] if song.get("artists") else "Unknown Artist"
+        print(f"[green]✓ Selected:[/green] {title} - {artist}")
+
+    else:
+        # Interactive mode: use curses UI
+        def ui_wrapper(stdscr):
+            return selection_ui(stdscr, results, query, songs_to_display)
 
         try:
-            choice = input("\nEnter song number (or 'q' to quit): ").strip()
-            if choice.lower() == "q":
+            selected_index = wrapper(ui_wrapper)
+        except curses.error as e:
+            print(f"[red]Terminal error: {e}[/red]")
+            print(
+                "[yellow]Try resizing your terminal or using a different terminal emulator.[/yellow]"
+            )
+            # Fallback to simple numbered selection
+            print(f"\n[cyan]Search Results for: {query}[/cyan]")
+            for i, song in enumerate(results[:songs_to_display]):
+                title = song["title"]
+                artist = song["artists"][0]["name"]
+                print(f"[{i + 1}] {title} - {artist}")
+
+            try:
+                choice = input("\nEnter song number (or 'q' to quit): ").strip()
+                if choice.lower() == "q":
+                    return
+                selected_index = int(choice) - 1
+                if selected_index < 0 or selected_index >= len(
+                    results[:songs_to_display]
+                ):
+                    print("[red]Invalid selection.[/red]")
+                    return
+            except (ValueError, KeyboardInterrupt):
                 return
-            selected_index = int(choice) - 1
-            if selected_index < 0 or selected_index >= len(results[:songs_to_display]):
-                print("[red]Invalid selection.[/red]")
-                return
-        except (ValueError, KeyboardInterrupt):
+
+        if selected_index is None:
             return
-    if selected_index is None:
-        return
 
     song = results[selected_index]
     playlist = [song]
 
     print("\n[yellow]🎶 Fetching Radio...[/yellow]")
+    verbose_print(f"[dim]Fetching radio playlist for videoId: {song['videoId']}[/dim]")
     try:
         radio = ytmusic.get_watch_playlist(videoId=song["videoId"])
         radio_tracks = radio["tracks"][1:]  # Skip first track (the selected song)
+        verbose_print(f"[dim]Radio returned {len(radio_tracks)} tracks[/dim]")
+
         # Filter out disliked songs from radio
+        original_radio_count = len(radio_tracks)
         filtered_radio = dislike_manager.filter_disliked_songs(radio_tracks)
+        filtered_radio_count = original_radio_count - len(filtered_radio)
+
+        if filtered_radio_count > 0:
+            verbose_print(
+                f"[dim]Filtered out {filtered_radio_count} disliked song(s) from radio[/dim]"
+            )
+
         playlist.extend(filtered_radio)
+        verbose_print(f"[dim]Final playlist: {len(playlist)} tracks[/dim]")
     except Exception as e:
         print(f"[red]Error fetching radio: {e}[/red]")
+        verbose_print(f"[dim]Exception details: {str(e)}[/dim]")
 
     play_music_with_controls(playlist)
 
@@ -135,14 +207,22 @@ def show_oauth_manual():
     print("• 'Access blocked' error: Check OAuth consent screen config")
     print("• 'Invalid client' error: Verify Client ID/Secret are correct")
     print("• 'Quota exceeded' error: Check API quotas in Cloud Console")
-    print("• 'Google verification process' error: Add test users (see troubleshoot command)")
-    print("• App verification required: https://support.google.com/cloud/answer/7454865")
-    print("• Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for verification help")
+    print(
+        "• 'Google verification process' error: Add test users (see troubleshoot command)"
+    )
+    print(
+        "• App verification required: https://support.google.com/cloud/answer/7454865"
+    )
+    print(
+        "• Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for verification help"
+    )
 
     print("\n[yellow]📚 Additional Resources:[/yellow]")
     print("• YouTube Data API docs: https://developers.google.com/youtube/v3")
     print("• OAuth 2.0 guide: https://developers.google.com/identity/protocols/oauth2")
-    print("• ytmusicapi docs: https://ytmusicapi.readthedocs.io/en/stable/setup/oauth.html")
+    print(
+        "• ytmusicapi docs: https://ytmusicapi.readthedocs.io/en/stable/setup/oauth.html"
+    )
 
     print("\n[green]✅ Ready to continue with OAuth setup![/green]")
     print("After getting your credentials, run:")
@@ -198,7 +278,9 @@ def setup_oauth_command(open_browser=True):
         print("Or use the manual above for detailed instructions.\n")
 
         if open_browser:
-            response = input("Open Google Cloud Console in browser? (Y/n): ").strip().lower()
+            response = (
+                input("Open Google Cloud Console in browser? (Y/n): ").strip().lower()
+            )
             if response != "n":
                 try:
                     import webbrowser
@@ -208,7 +290,9 @@ def setup_oauth_command(open_browser=True):
                     print("[green]Browser opened![/green]")
                 except Exception as e:
                     print(f"[red]Could not open browser: {e}[/red]")
-                    print("Please manually open: https://console.cloud.google.com/apis/credentials")
+                    print(
+                        "Please manually open: https://console.cloud.google.com/apis/credentials"
+                    )
 
         print("\n[yellow]Enter your OAuth credentials:[/yellow]")
         client_id = input("Client ID: ").strip()
@@ -250,10 +334,9 @@ def auth_status_command():
     print(f"Method: [yellow]{status['method']}[/yellow]")
 
     if status["method"] == "oauth":
-        oauth_status = (
-            "[green]Found[/green]" if status["oauth_file_exists"] else "[red]Missing[/red]"
+        print(
+            f"OAuth file: {'[green]Found[/green]' if status['oauth_file_exists'] else '[red]Missing[/red]'}"
         )
-        print(f"OAuth file: {oauth_status}")
     elif status["method"] == "browser":
         print(
             f"Browser file: {'[green]Found[/green]' if status['browser_file_exists'] else '[red]Missing[/red]'}"
@@ -276,7 +359,9 @@ def scan_credentials_command():
         print("• auth/client_secret*.json")
         print("• credentials/client_secret*.json")
         print("• *client_secret*.json")
-        print("\n[yellow]💡 Download your credentials from Google Cloud Console[/yellow]")
+        print(
+            "\n[yellow]💡 Download your credentials from Google Cloud Console[/yellow]"
+        )
         print("and save as 'client_secret_*.json' in your project directory.")
     else:
         print(f"[green]Found {len(credential_files)} credential file(s):[/green]\n")
@@ -362,7 +447,9 @@ def playlist_list_command():
 
     if not playlists:
         print("[yellow]No playlists found.[/yellow]")
-        print("Create your first playlist: [cyan]python -m ytm_cli playlist create[/cyan]")
+        print(
+            "Create your first playlist: [cyan]python -m ytm_cli playlist create[/cyan]"
+        )
         return
 
     print(f"\n[cyan]📁 Local Playlists ({len(playlists)} found)[/cyan]")
@@ -372,7 +459,9 @@ def playlist_list_command():
         name = playlist["name"]
         song_count = playlist["song_count"]
         description = playlist["description"]
-        created_at = playlist["created_at"][:10] if playlist["created_at"] else "Unknown"
+        created_at = (
+            playlist["created_at"][:10] if playlist["created_at"] else "Unknown"
+        )
 
         print(f"\n[{i}] [yellow]{name}[/yellow]")
         print(f"    Songs: {song_count}")
@@ -506,7 +595,9 @@ def playlist_play_command(name):
         print(f"[yellow]Playlist '{name}' is empty[/yellow]")
         return
 
-    print(f"[green]🎵 Playing playlist: {playlist['name']} ({len(songs)} songs)[/green]")
+    print(
+        f"[green]🎵 Playing playlist: {playlist['name']} ({len(songs)} songs)[/green]"
+    )
 
     # Convert playlist songs to format expected by player
     playable_songs = []
@@ -577,17 +668,19 @@ def playlist_delete_command(name):
 
 def main():
     """Main CLI entry point"""
+    global _VERBOSE
     setup_signal_handler()
 
     # Handle backward compatibility first by checking command line arguments
-    import sys
-
+    # But we need to check for flags first
     if (
-        len(sys.argv) == 2
+        len(sys.argv) >= 2
         and not sys.argv[1].startswith("-")
         and sys.argv[1] not in ["search", "auth", "playlist"]
+        and "--verbose" not in sys.argv
+        and "--select" not in sys.argv
     ):
-        # This is likely a song query, handle it directly
+        # This is likely a song query, handle it directly (backward compatible mode)
         search_and_play(sys.argv[1])
         return
 
@@ -595,10 +688,12 @@ def main():
         description="YouTube Music CLI 🎧 - Search, play, and organize music from YouTube Music",
         epilog="""
 Examples:
-  %(prog)s "bohemian rhapsody"           Search and play music
-  %(prog)s playlist list                 List all local playlists
-  %(prog)s playlist create "Rock Hits"   Create a new playlist
-  %(prog)s auth setup-oauth              Setup OAuth authentication
+  %(prog)s "bohemian rhapsody"                    Search and play music
+  %(prog)s "phung khanh linh" --select 1          Auto-select first result
+  %(prog)s "beatles" --select 2 --verbose         Auto-select with detailed logging
+  %(prog)s playlist list                          List all local playlists
+  %(prog)s playlist create "Rock Hits"            Create a new playlist
+  %(prog)s auth setup-oauth                       Setup OAuth authentication
 
 During song selection:
   • Enter: Play selected song with radio
@@ -613,6 +708,14 @@ During music playback:
   • 🚪 q: Quit to search
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Global options (available for all commands)
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose output with detailed logging",
     )
 
     # Create subcommands
@@ -630,6 +733,24 @@ During music playback:
     )
     search_parser.add_argument(
         "search_query", nargs="?", help="Song, artist, or album to search for"
+    )
+    search_parser.add_argument(
+        "--select",
+        "-s",
+        type=int,
+        metavar="N",
+        help="Auto-select song number N (1-based, non-interactive mode)",
+    )
+    search_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose output with detailed logging",
+    )
+    search_parser.add_argument(
+        "--log-file",
+        metavar="FILE",
+        help="Write verbose logs to FILE (requires --verbose)",
     )
 
     # Auth commands
@@ -662,9 +783,13 @@ During music playback:
 
     auth_subparsers.add_parser("manual", help="Show detailed OAuth setup guide")
     auth_subparsers.add_parser("scan", help="Scan for Google Cloud credential files")
-    auth_subparsers.add_parser("troubleshoot", help="OAuth verification troubleshooting guide")
+    auth_subparsers.add_parser(
+        "troubleshoot", help="OAuth verification troubleshooting guide"
+    )
     auth_subparsers.add_parser("status", help="Show current authentication status")
-    auth_subparsers.add_parser("disable", help="Disable authentication and use guest access")
+    auth_subparsers.add_parser(
+        "disable", help="Disable authentication and use guest access"
+    )
 
     # Playlist commands
     playlist_parser = subparsers.add_parser(
@@ -687,8 +812,12 @@ During music playback:
         help="Create a new playlist",
         description="Create a new local playlist with optional description",
     )
-    create_parser.add_argument("name", nargs="?", help="Playlist name (prompted if not provided)")
-    create_parser.add_argument("-d", "--description", help="Optional playlist description")
+    create_parser.add_argument(
+        "name", nargs="?", help="Playlist name (prompted if not provided)"
+    )
+    create_parser.add_argument(
+        "-d", "--description", help="Optional playlist description"
+    )
 
     show_parser = playlist_subparsers.add_parser(
         "show",
@@ -718,6 +847,27 @@ During music playback:
     )
 
     args = parser.parse_args()
+
+    # Set verbose mode globally
+    global _VERBOSE, _VERBOSE_FILE
+    _VERBOSE = getattr(args, "verbose", False)
+    _VERBOSE_FILE = getattr(args, "log_file", None)
+
+    # Pass verbose settings to player module
+    set_player_verbose(_VERBOSE, _VERBOSE_FILE)
+
+    # Initialize log file if specified
+    if _VERBOSE_FILE and _VERBOSE:
+        try:
+            import time
+
+            with open(_VERBOSE_FILE, "w") as f:
+                f.write("=== YTM CLI Verbose Log ===\n")
+                f.write(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("=" * 50 + "\n\n")
+            verbose_print(f"[green]Logging to: {_VERBOSE_FILE}[/green]")
+        except Exception as e:
+            print(f"[red]Could not create log file: {e}[/red]")
 
     # Handle auth commands
     if args.command == "auth":
@@ -755,7 +905,8 @@ During music playback:
         else:
             print("Available playlist commands: list, create, show, play, delete")
     elif args.command == "search":
-        search_and_play(args.search_query)
+        auto_select = getattr(args, "select", None)
+        search_and_play(args.search_query, auto_select=auto_select)
     else:
         # Default behavior: if no command specified, prompt for search
         search_and_play()
