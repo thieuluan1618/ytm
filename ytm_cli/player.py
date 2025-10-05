@@ -300,7 +300,7 @@ def play_music_with_controls(playlist, playlist_name=None):
         tty.setraw(sys.stdin.fileno())
         while 0 <= current_song_index < len(playlist):
             if mpv_process:
-                verbose_log(f"Terminating previous mpv process")
+                verbose_log("Terminating previous mpv process")
                 mpv_process.terminate()
                 mpv_process.wait()
 
@@ -318,7 +318,9 @@ def play_music_with_controls(playlist, playlist_name=None):
 
             url = f"https://music.youtube.com/watch?v={video_id}"
 
-            verbose_log(f"Now playing [{current_song_index + 1}/{len(playlist)}]: {title}")
+            verbose_log(
+                f"Now playing [{current_song_index + 1}/{len(playlist)}]: {title}"
+            )
             verbose_log(f"Video ID: {video_id}")
             verbose_log(f"URL: {url}")
 
@@ -369,15 +371,19 @@ def play_music_with_controls(playlist, playlist_name=None):
                     exit_code = mpv_process.returncode
                     verbose_log(f"MPV process exited with code: {exit_code}")
                     if exit_code != 0:
-                        verbose_log(f"MPV error detected, skipping to next song")
+                        verbose_log("MPV error detected, skipping to next song")
                         # Capture error output in verbose mode
                         if _VERBOSE and mpv_process.stderr:
                             try:
-                                stderr_output = mpv_process.stderr.read().decode('utf-8', errors='replace')
+                                stderr_output = mpv_process.stderr.read().decode(
+                                    "utf-8", errors="replace"
+                                )
                                 if stderr_output:
                                     # Log last few lines of error
-                                    error_lines = stderr_output.strip().split('\n')[-10:]
-                                    verbose_log(f"MPV stderr (last 10 lines):")
+                                    error_lines = stderr_output.strip().split("\n")[
+                                        -10:
+                                    ]
+                                    verbose_log("MPV stderr (last 10 lines):")
                                     for line in error_lines:
                                         verbose_log(f"  {line}")
                             except Exception:

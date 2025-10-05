@@ -49,7 +49,7 @@ def search_and_play(query=None, auto_select=None):
     else:
         print(f"🎵 Searching for: {query}")
 
-    verbose_print(f"[dim]Sending search query to YouTube Music API...[/dim]")
+    verbose_print("[dim]Sending search query to YouTube Music API...[/dim]")
     results = ytmusic.search(query, filter="songs")
     if not results:
         print("[red]No songs found.[/red]")
@@ -76,7 +76,9 @@ def search_and_play(query=None, auto_select=None):
         selected_index = auto_select - 1  # Convert to 0-based index
 
         if selected_index < 0 or selected_index >= len(results):
-            print(f"[red]Invalid selection {auto_select}. Valid range: 1-{len(results)}[/red]")
+            print(
+                f"[red]Invalid selection {auto_select}. Valid range: 1-{len(results)}[/red]"
+            )
             return
 
         song = results[selected_index]
@@ -108,7 +110,9 @@ def search_and_play(query=None, auto_select=None):
                 if choice.lower() == "q":
                     return
                 selected_index = int(choice) - 1
-                if selected_index < 0 or selected_index >= len(results[:songs_to_display]):
+                if selected_index < 0 or selected_index >= len(
+                    results[:songs_to_display]
+                ):
                     print("[red]Invalid selection.[/red]")
                     return
             except (ValueError, KeyboardInterrupt):
@@ -133,7 +137,9 @@ def search_and_play(query=None, auto_select=None):
         filtered_radio_count = original_radio_count - len(filtered_radio)
 
         if filtered_radio_count > 0:
-            verbose_print(f"[dim]Filtered out {filtered_radio_count} disliked song(s) from radio[/dim]")
+            verbose_print(
+                f"[dim]Filtered out {filtered_radio_count} disliked song(s) from radio[/dim]"
+            )
 
         playlist.extend(filtered_radio)
         verbose_print(f"[dim]Final playlist: {len(playlist)} tracks[/dim]")
@@ -706,9 +712,10 @@ During music playback:
 
     # Global options (available for all commands)
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Enable verbose output with detailed logging"
+        help="Enable verbose output with detailed logging",
     )
 
     # Create subcommands
@@ -728,20 +735,22 @@ During music playback:
         "search_query", nargs="?", help="Song, artist, or album to search for"
     )
     search_parser.add_argument(
-        "--select", "-s",
+        "--select",
+        "-s",
         type=int,
         metavar="N",
-        help="Auto-select song number N (1-based, non-interactive mode)"
+        help="Auto-select song number N (1-based, non-interactive mode)",
     )
     search_parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Enable verbose output with detailed logging"
+        help="Enable verbose output with detailed logging",
     )
     search_parser.add_argument(
         "--log-file",
         metavar="FILE",
-        help="Write verbose logs to FILE (requires --verbose)"
+        help="Write verbose logs to FILE (requires --verbose)",
     )
 
     # Auth commands
@@ -851,10 +860,11 @@ During music playback:
     if _VERBOSE_FILE and _VERBOSE:
         try:
             import time
+
             with open(_VERBOSE_FILE, "w") as f:
-                f.write(f"=== YTM CLI Verbose Log ===\n")
+                f.write("=== YTM CLI Verbose Log ===\n")
                 f.write(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"=" * 50 + "\n\n")
+                f.write("=" * 50 + "\n\n")
             verbose_print(f"[green]Logging to: {_VERBOSE_FILE}[/green]")
         except Exception as e:
             print(f"[red]Could not create log file: {e}[/red]")
