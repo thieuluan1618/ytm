@@ -81,3 +81,5 @@ auth/*curl_command.txt
 # Local playlists and dislikes (keep private)
 playlists/
 dislikes.json
+ytm_debug.log
+*.log

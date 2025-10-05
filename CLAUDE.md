@@ -38,6 +38,9 @@ python -m ytm_cli search "song name" --select 1
 # Non-interactive mode with verbose logging
 python -m ytm_cli search "artist name" --select 1 --verbose
 
+# Verbose logging to file (for debugging playback issues)
+python -m ytm_cli search "song" --select 1 --verbose --log-file debug.log
+
 # Short form flags also work
 python -m ytm_cli search "song" -s 1 -v
 
@@ -74,15 +77,26 @@ python -m ytm_cli search "query" --select N
 **Features:**
 - **--select N** or **-s N**: Auto-select song number N (1-based index) from search results
 - **--verbose** or **-v**: Enable detailed logging showing API calls, filtering, and playlist generation
+- **--log-file FILE**: Write verbose logs to file for debugging (requires --verbose)
 - Bypasses curses UI entirely
 - Perfect for scripts, cron jobs, or testing
 - Still supports all playback controls once music starts
+
+**Verbose Logging Details:**
+When enabled, shows:
+- Search API queries and result counts
+- Disliked song filtering statistics
+- Radio playlist generation info
+- MPV process lifecycle (PID, exit codes, errors)
+- Song playback progression with timestamps
+- Logs written to both stdout and file (if --log-file specified)
 
 **Use Cases:**
 - Quick testing: `python -m ytm_cli search "test song" -s 1 -v`
 - Scripting: Auto-play first result without user interaction
 - CI/CD: Automated testing of playback functionality
-- Debugging: Verbose mode shows internal state and API responses
+- Debugging playback issues: `python -m ytm_cli search "song" -s 1 -v --log-file debug.log`
+- Troubleshooting skipping songs: Check log file for MPV exit codes and errors
 
 ## Architecture
 
