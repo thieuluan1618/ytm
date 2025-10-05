@@ -55,6 +55,13 @@ python -m ytm_cli
 python -m ytm_cli "your favorite song"
 ```
 
+**Non-interactive mode (automation/scripting):**
+```bash
+python -m ytm_cli search "song name" --select 1           # Auto-select first result
+python -m ytm_cli search "song" -s 1 -v                   # With verbose output
+python -m ytm_cli search "song" -s 1 -v --log-file debug.log  # Save debug logs
+```
+
 ## 🎮 Controls
 
 ### During Song Selection
@@ -128,9 +135,29 @@ directory = playlists
 
 **Keep it simple for the listener to enjoy music.** Features are designed to be:
 - **Intuitive**: Single-key shortcuts during playback
-- **Non-disruptive**: Actions don't interrupt your listening experience  
+- **Non-disruptive**: Actions don't interrupt your listening experience
 - **Consistent**: Same navigation patterns across all screens
 - **Quick**: Important features accessible with simple key presses
+
+## 🐛 Troubleshooting
+
+Having issues? Check out the [**Troubleshooting Guide**](TROUBLESHOOTING.md) for solutions to common problems:
+
+- 🔧 [Songs Skipping Continuously](TROUBLESHOOTING.md#songs-skipping-continuously)
+- 📦 [MPV Not Found](TROUBLESHOOTING.md#mpv-not-found)
+- 🔐 [Authentication Issues](TROUBLESHOOTING.md#authentication-issues)
+- 💻 [Terminal/Curses Errors](TROUBLESHOOTING.md#terminalcurses-errors)
+- 📝 [Using Verbose Logging](TROUBLESHOOTING.md#using-verbose-logging)
+
+**Quick diagnosis:**
+```bash
+# Enable verbose logging to see what's happening
+python -m ytm_cli search "test" -s 1 -v --log-file debug.log
+
+# Check versions
+mpv --version
+yt-dlp --version
+```
 
 ## 📄 License
 
