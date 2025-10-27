@@ -4,7 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-10-27
+
 ### Added
+
+- **Easy Setup Scripts**: Cross-platform alias setup for simple `ytm` command
+  - `setup_alias.sh` for Linux/macOS (supports zsh, bash, fish shells)
+  - `setup_alias.ps1` for Windows PowerShell
+  - `setup_alias.bat` for Windows Command Prompt
+  - Auto-detects shell configuration and venv path
+  - One-command setup for easier installation
+
+- **Automated Dependency Management**: Dependabot integration for automatic updates
+  - Weekly dependency update checks every Monday
+  - Automatic security vulnerability scanning
+  - Pull requests with grouped patch updates
+  - Configured via `.github/dependabot.yml`
 
 - **Smart Auto-Selection**: When only one playlist exists, automatically select it
   - Applies to `playlist show`, `playlist play`, and `playlist delete` commands  
@@ -19,17 +34,32 @@ All notable changes to this project will be documented in this file.
 
 ### Enhanced
 
+- **Dependencies**: Updated yt-dlp to 2025.10.22 (fixes songs skipping issues)
+- **Documentation**: Major README.md simplification
+  - Removed authentication section (feature in development)
+  - Updated all examples to use `ytm` alias for cleaner commands
+  - Added platform-specific setup instructions
+  - Streamlined troubleshooting guide links
+- **Documentation**: Enhanced CLAUDE.md with dependency management guidelines
+  - Added Dependabot setup instructions
+  - Manual update procedures
+  - GitHub CLI commands for enabling automation
 - **Playlist Management**: Added `remove_song_from_playlist_by_id()` method for video ID-based removal
 - **User Experience**: Smart dislike workflow protects user-curated playlists
-- **Documentation**: Updated CLAUDE.md with comprehensive two-step dislike system documentation
 
 ### Fixed
 
+- **Version Sync**: Fixed pyproject.toml version mismatch (was 0.3.0, now synced to current)
 - **Player UI Sync**: Play/pause status now syncs with mpv player UI controls
   - Status display updates when pause/play is controlled via mpv UI clicks
   - Status display updates when using mpv keyboard shortcuts (e.g., 'p' key)
   - Implemented throttled IPC polling (every 0.5 seconds) for performance
   - Maintains responsive CLI controls while adding UI sync capability
+
+### Changed
+
+- **Repository**: Merged develop branch to main with latest features
+- **Installation**: Simplified setup process with optional alias configuration
 
 ## [0.4.0] - 2025-07-24
 
