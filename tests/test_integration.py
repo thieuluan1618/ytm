@@ -20,13 +20,13 @@ class TestPlaylistDislikeIntegration:
         dislike_manager = DislikeManager(dislikes_file)
 
         # Create playlist and add songs
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             playlist_manager.create_playlist("Test Playlist")
             for song in sample_songs:
                 playlist_manager.add_song_to_playlist("Test Playlist", song)
 
         # Dislike one song
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             dislike_manager.dislike_song(sample_songs[1])  # Dislike "song2"
 
         # Get playlist and filter disliked songs
@@ -39,11 +39,11 @@ class TestPlaylistDislikeIntegration:
             converted_song = {
                 "videoId": song["videoId"],
                 "title": song["title"],
-                "artists": [{"name": song["artist"]}]
+                "artists": [{"name": song["artist"]}],
             }
             converted_songs.append(converted_song)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             filtered_songs = dislike_manager.filter_disliked_songs(converted_songs)
 
         # Should have 2 songs left (song1 and song3)
@@ -59,14 +59,14 @@ class TestPlaylistDislikeIntegration:
         config_file = os.path.join(temp_dir, "config.ini")
         auth_manager = AuthManager(config_file=config_file)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             auth_manager.enable_auth("oauth")
 
         # Setup playlist manager
         playlist_manager = PlaylistManager(temp_dir)
 
         # Create playlist - should work regardless of auth status
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             result = playlist_manager.create_playlist("Auth Test Playlist")
 
         assert result is True
@@ -77,18 +77,20 @@ class TestPlaylistDislikeIntegration:
         assert len(playlists) == 1
         assert playlists[0]["name"] == "Auth Test Playlist"
 
-    def test_dislike_persistence_across_playlist_operations(self, temp_dir, sample_songs):
+    def test_dislike_persistence_across_playlist_operations(
+        self, temp_dir, sample_songs
+    ):
         """Test that dislikes persist across playlist operations"""
         dislikes_file = os.path.join(temp_dir, "dislikes.json")
         dislike_manager = DislikeManager(dislikes_file)
         playlist_manager = PlaylistManager(temp_dir)
 
         # Dislike a song first
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             dislike_manager.dislike_song(sample_songs[0])
 
         # Create playlist and add songs
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             playlist_manager.create_playlist("Test Playlist")
             for song in sample_songs:
                 playlist_manager.add_song_to_playlist("Test Playlist", song)
@@ -109,16 +111,13 @@ class TestAuthConfigIntegration:
         config_file = os.path.join(temp_dir, "config.ini")
         oauth_file = os.path.join(temp_dir, "oauth.json")
 
-        auth_manager = AuthManager(
-            oauth_file=oauth_file,
-            config_file=config_file
-        )
+        auth_manager = AuthManager(oauth_file=oauth_file, config_file=config_file)
 
         # Initially no auth
         assert auth_manager.is_auth_enabled() is False
 
         # Enable OAuth
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             auth_manager.enable_auth("oauth")
 
         assert auth_manager.is_auth_enabled() is True
@@ -130,7 +129,7 @@ class TestAuthConfigIntegration:
         assert auth_manager2.get_auth_method() == "oauth"
 
         # Disable auth
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             auth_manager2.disable_auth()
 
         # Create third instance to verify disable persisted
@@ -142,14 +141,10 @@ class TestAuthConfigIntegration:
         config_file = os.path.join(temp_dir, "config.ini")
         oauth_file = os.path.join(temp_dir, "oauth.json")
 
-        auth_manager = AuthManager(
-            oauth_file=oauth_file,
-            config_file=config_file
-        )
+        auth_manager = AuthManager(oauth_file=oauth_file, config_file=config_file)
 
         # Test unauthenticated instance
-        with patch('ytmusicapi.YTMusic') as mock_ytmusic, \
-             patch('builtins.print'):
+        with patch("ytmusicapi.YTMusic") as mock_ytmusic, patch("builtins.print"):
 
             mock_instance = Mock()
             mock_ytmusic.return_value = mock_instance
@@ -161,15 +156,14 @@ class TestAuthConfigIntegration:
 
         # Enable auth and create OAuth file
         oauth_data = {"access_token": "test_token"}
-        with open(oauth_file, 'w') as f:
+        with open(oauth_file, "w") as f:
             json.dump(oauth_data, f)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             auth_manager.enable_auth("oauth")
 
         # Test authenticated instance
-        with patch('ytmusicapi.YTMusic') as mock_ytmusic, \
-             patch('builtins.print'):
+        with patch("ytmusicapi.YTMusic") as mock_ytmusic, patch("builtins.print"):
 
             mock_instance = Mock()
             mock_ytmusic.return_value = mock_instance
@@ -189,14 +183,18 @@ class TestFullWorkflowIntegration:
         dislikes_file = os.path.join(temp_dir, "dislikes.json")
         dislike_manager = DislikeManager(dislikes_file)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             # Create playlist
-            result = playlist_manager.create_playlist("My Workflow Playlist", "Test playlist")
+            result = playlist_manager.create_playlist(
+                "My Workflow Playlist", "Test playlist"
+            )
             assert result is True
 
             # Add songs to playlist
             for song in sample_songs:
-                result = playlist_manager.add_song_to_playlist("My Workflow Playlist", song)
+                result = playlist_manager.add_song_to_playlist(
+                    "My Workflow Playlist", song
+                )
                 assert result is True
 
             # Verify playlist contents
@@ -214,7 +212,7 @@ class TestFullWorkflowIntegration:
                 converted_song = {
                     "videoId": song["videoId"],
                     "title": song["title"],
-                    "artists": [{"name": song["artist"]}]
+                    "artists": [{"name": song["artist"]}],
                 }
                 converted_songs.append(converted_song)
 
@@ -222,7 +220,9 @@ class TestFullWorkflowIntegration:
             assert len(filtered_songs) == 2
 
             # Remove a song from playlist
-            result = playlist_manager.remove_song_from_playlist("My Workflow Playlist", "song3")
+            result = playlist_manager.remove_song_from_playlist(
+                "My Workflow Playlist", "song3"
+            )
             assert result is True
 
             # Verify final state
@@ -242,16 +242,16 @@ class TestFullWorkflowIntegration:
         config_file = os.path.join(temp_dir, "config.ini")
         oauth_file = os.path.join(temp_dir, "oauth.json")
 
-        auth_manager = AuthManager(
-            oauth_file=oauth_file,
-            config_file=config_file
-        )
+        auth_manager = AuthManager(oauth_file=oauth_file, config_file=config_file)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             # Setup OAuth
-            mock_oauth_data = {"access_token": "test_token", "refresh_token": "refresh_token"}
+            mock_oauth_data = {
+                "access_token": "test_token",
+                "refresh_token": "refresh_token",
+            }
 
-            with patch('ytmusicapi.setup.setup_oauth', return_value=mock_oauth_data):
+            with patch("ytmusicapi.setup.setup_oauth", return_value=mock_oauth_data):
                 result = auth_manager.setup_oauth_auth("client_id", "client_secret")
                 assert result is True
 
@@ -266,7 +266,7 @@ class TestFullWorkflowIntegration:
                 assert saved_data == mock_oauth_data
 
             # Test YTMusic instance creation
-            with patch('ytmusicapi.YTMusic') as mock_ytmusic:
+            with patch("ytmusicapi.YTMusic") as mock_ytmusic:
                 mock_instance = Mock()
                 mock_ytmusic.return_value = mock_instance
 
@@ -286,13 +286,15 @@ class TestFullWorkflowIntegration:
         dislikes_file = os.path.join(temp_dir, "dislikes.json")
         dislike_manager = DislikeManager(dislikes_file)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             # Create playlist successfully
             playlist_manager.create_playlist("Error Test Playlist")
 
             # Try to add song with missing data
             incomplete_song = {"title": "Incomplete Song"}  # Missing videoId
-            result = playlist_manager.add_song_to_playlist("Error Test Playlist", incomplete_song)
+            result = playlist_manager.add_song_to_playlist(
+                "Error Test Playlist", incomplete_song
+            )
             # Should handle gracefully (behavior depends on implementation)
 
             # Add valid songs
@@ -321,7 +323,7 @@ class TestConcurrentOperations:
         manager1 = PlaylistManager(temp_dir)
         manager2 = PlaylistManager(temp_dir)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             # Create playlist with manager1
             manager1.create_playlist("Shared Playlist")
             manager1.add_song_to_playlist("Shared Playlist", sample_songs[0])
@@ -345,7 +347,7 @@ class TestConcurrentOperations:
         manager1 = DislikeManager(dislikes_file)
         manager2 = DislikeManager(dislikes_file)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             # Dislike song with manager1
             manager1.dislike_song(sample_songs[0])
 
@@ -369,20 +371,17 @@ class TestDataValidation:
         """Test playlist song data validation"""
         playlist_manager = PlaylistManager(temp_dir)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             playlist_manager.create_playlist("Validation Test")
 
             # Test with various song data formats
             valid_song = {
                 "videoId": "valid_id",
                 "title": "Valid Song",
-                "artists": [{"name": "Valid Artist"}]
+                "artists": [{"name": "Valid Artist"}],
             }
 
-            minimal_song = {
-                "videoId": "minimal_id",
-                "title": "Minimal Song"
-            }
+            minimal_song = {"videoId": "minimal_id", "title": "Minimal Song"}
 
             # Both should be handled appropriately
             playlist_manager.add_song_to_playlist("Validation Test", valid_song)
@@ -397,17 +396,17 @@ class TestDataValidation:
         dislikes_file = os.path.join(temp_dir, "dislikes.json")
         dislike_manager = DislikeManager(dislikes_file)
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             # Test with various song formats
             valid_song = {
                 "videoId": "valid_id",
                 "title": "Valid Song",
-                "artists": [{"name": "Valid Artist"}]
+                "artists": [{"name": "Valid Artist"}],
             }
 
             song_without_video_id = {
                 "title": "No Video ID",
-                "artists": [{"name": "Artist"}]
+                "artists": [{"name": "Artist"}],
             }
 
             empty_song = {}
