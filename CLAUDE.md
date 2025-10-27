@@ -14,7 +14,7 @@ This is a Python-based YouTube Music CLI tool that provides an interactive termi
 
 ```bash
 # Create and activate virtual environment
-python -m vena vena
+python -m venv venv
 source venv/bin/activate  # macOS/Linux
 # .\venv\Scripts\activate  # Windows PowerShell
 # venv\Scripts\activate.bat # Windows Command Prompt
@@ -22,6 +22,74 @@ source venv/bin/activate  # macOS/Linux
 # Install dependencies
 pip install -r requirements.txt
 ```
+
+### Quick Setup (Recommended)
+
+For easier access, set up the `ytm` command alias. Choose the appropriate setup script for your platform:
+
+#### Linux / macOS
+
+Supports: **zsh**, **bash**, **fish** shells
+
+```bash
+# Run the setup script
+./setup_alias.sh
+
+# Reload your shell configuration
+source ~/.zshrc      # for zsh
+source ~/.bashrc     # for bash
+source ~/.config/fish/config.fish  # for fish
+
+# Now you can use ytm from anywhere
+ytm "song name"
+ytm
+```
+
+**What it does:**
+- Auto-detects your shell (zsh, bash, or fish)
+- Creates an alias `ytm` in your shell config
+- Automatically activates the virtual environment
+- Runs `python -m ytm_cli` with any arguments you provide
+- Works from any directory
+
+#### Windows (PowerShell)
+
+```powershell
+# Run the setup script
+.\setup_alias.ps1
+
+# Reload your PowerShell profile
+. $PROFILE
+
+# Now you can use ytm from anywhere
+ytm "song name"
+ytm
+```
+
+**What it does:**
+- Creates a `ytm` function in your PowerShell profile
+- Automatically activates the virtual environment
+- Handles directory navigation automatically
+
+#### Windows (Command Prompt)
+
+```cmd
+REM Run the setup script
+setup_alias.bat
+
+REM Follow the on-screen instructions to add to PATH if needed
+
+REM Now you can use ytm from anywhere
+ytm "song name"
+ytm
+```
+
+**What it does:**
+- Creates a `ytm.bat` wrapper in `%USERPROFILE%\bin`
+- Automatically activates the virtual environment
+- Adds to PATH if not already present
+
+**Note:** If your shell is not detected, the script will show you the manual alias command to add.
 
 ### Running the Application
 
@@ -49,10 +117,60 @@ python -m ytm_cli search "song" -s 1 -v
 
 ### Dependencies Management
 
+#### Manual Updates
+
 ```bash
 # Update requirements.txt after adding new dependencies
 pip freeze > requirements.txt
+
+# Check for outdated packages
+pip list --outdated
+
+# Update specific package
+pip install --upgrade package-name
+pip freeze > requirements.txt
 ```
+
+#### Automated Updates (Dependabot)
+
+This project uses **GitHub Dependabot** for automatic dependency updates:
+
+**Configuration**: `.github/dependabot.yml`
+
+**Schedule**: 
+- Runs every **Monday at 9:00 AM UTC**
+- Automatically creates Pull Requests for outdated dependencies
+- Groups patch updates together to reduce PR noise
+- Ignores major version updates to prevent breaking changes
+
+**Features**:
+- Security vulnerability scanning
+- Automated security fix PRs
+- Weekly version update checks
+- PR labels: `dependencies`, `automated`
+- Follows conventional commit format (`chore:` prefix)
+
+**Enable Dependabot via GitHub CLI**:
+```bash
+# Enable vulnerability alerts
+gh api -X PUT repos/{owner}/{repo}/vulnerability-alerts
+
+# Enable automated security fixes
+gh api -X PUT repos/{owner}/{repo}/automated-security-fixes
+
+# Verify status
+gh api repos/{owner}/{repo}/vulnerability-alerts
+```
+
+**Manual Trigger**:
+- Visit: `https://github.com/{owner}/{repo}/network/updates`
+- Click "Check for updates" button to trigger immediate scan
+
+**Benefits**:
+- Zero maintenance overhead
+- Keeps dependencies secure and up-to-date
+- Review and merge PRs at your convenience
+- Automatic rollback if tests fail
 
 ## Usage Modes
 
@@ -189,37 +307,6 @@ chore: add curl_command.txt to .gitignore
 - **Version bumps**: Use `chore: bump version X.Y.Z → A.B.C`
 - **Breaking changes**: Add `BREAKING CHANGE:` in footer
 - **Issue references**: Add `Closes #123` in footer
-
-## Authentication
-
-The application supports optional authentication via OAuth or browser method:
-
-### OAuth Authentication (Recommended)
-
-```bash
-python -m ytm_cli auth setup-oauth    # Interactive OAuth setup
-python -m ytm_cli auth scan            # Scan for credential files
-python -m ytm_cli auth manual          # Show setup manual
-```
-
-**Note**: New OAuth apps may encounter "Google verification process" errors. This is normal and can be resolved by:
-
-1. Adding test users to the OAuth consent screen
-2. Using browser authentication as alternative
-3. Run `python -m ytm_cli auth troubleshoot` for detailed solutions
-
-### Browser Authentication (Alternative)
-
-```bash
-python -m ytm_cli auth setup-browser   # Setup using browser headers
-```
-
-### Authentication Management
-
-```bash
-python -m ytm_cli auth status          # Check auth status
-python -m ytm_cli auth disable         # Disable authentication
-```
 
 ## Local Playlists
 
