@@ -43,7 +43,7 @@ def sample_song():
         "album": {"name": "Test Album"},
         "duration": "3:45",
         "duration_seconds": 225,
-        "thumbnails": [{"url": "http://example.com/thumb.jpg"}]
+        "thumbnails": [{"url": "http://example.com/thumb.jpg"}],
     }
 
 
@@ -56,22 +56,22 @@ def sample_songs():
             "title": "Song One",
             "artists": [{"name": "Artist One"}],
             "album": {"name": "Album One"},
-            "duration": "3:30"
+            "duration": "3:30",
         },
         {
             "videoId": "song2",
             "title": "Song Two",
             "artists": [{"name": "Artist Two"}],
             "album": {"name": "Album Two"},
-            "duration": "4:15"
+            "duration": "4:15",
         },
         {
             "videoId": "song3",
             "title": "Song Three",
             "artists": [{"name": "Artist Three"}],
             "album": {"name": "Album Three"},
-            "duration": "2:45"
-        }
+            "duration": "2:45",
+        },
     ]
 
 
@@ -88,9 +88,9 @@ def sample_playlist_data():
                 "videoId": "song1",
                 "title": "Song One",
                 "artist": "Artist One",
-                "added_at": "2024-01-01T12:00:00"
+                "added_at": "2024-01-01T12:00:00",
             }
-        ]
+        ],
     }
 
 
@@ -103,14 +103,14 @@ def sample_dislikes_data():
                 "videoId": "disliked_song_1",
                 "title": "Disliked Song 1",
                 "artist": "Artist 1",
-                "disliked_at": "2024-01-01T12:00:00"
+                "disliked_at": "2024-01-01T12:00:00",
             },
             {
                 "videoId": "disliked_song_2",
                 "title": "Disliked Song 2",
                 "artist": "Artist 2",
-                "disliked_at": "2024-01-01T13:00:00"
-            }
+                "disliked_at": "2024-01-01T13:00:00",
+            },
         ]
     }
 
@@ -152,14 +152,14 @@ def sample_lyrics_response():
         "albumName": "Test Album",
         "duration": 225,
         "plainLyrics": "Line one\nLine two\nLine three\nLine four",
-        "syncedLyrics": "[00:12.50]Line one of the song\n[00:17.20]Line two of the song"
+        "syncedLyrics": "[00:12.50]Line one of the song\n[00:17.20]Line two of the song",
     }
 
 
 @pytest.fixture(autouse=True)
 def mock_signal_handler():
     """Mock signal handler to prevent interference during tests"""
-    with patch('ytm_cli.utils.setup_signal_handler'):
+    with patch("ytm_cli.utils.setup_signal_handler"):
         yield
 
 

@@ -29,7 +29,9 @@ def display_lyrics_with_curses(
         curses.init_pair(2, curses.COLOR_WHITE, -1)  # Lyrics text
         curses.init_pair(3, curses.COLOR_YELLOW, -1)  # Footer/instructions
         curses.init_pair(4, curses.COLOR_GREEN, -1)  # Highlight
-        curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_YELLOW)  # Current line highlight
+        curses.init_pair(
+            5, curses.COLOR_BLACK, curses.COLOR_YELLOW
+        )  # Current line highlight
 
         header_color = curses.color_pair(1)
         text_color = curses.color_pair(2)
@@ -74,7 +76,9 @@ def display_lyrics_with_curses(
             if len(line) <= max_x - 4:  # Leave margin
                 wrapped_lines.append(line)
                 if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
-                    timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[orig_idx][0]
+                    timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[
+                        orig_idx
+                    ][0]
             else:
                 # Simple word wrapping
                 words = line.split()
@@ -85,12 +89,16 @@ def display_lyrics_with_curses(
                     else:
                         wrapped_lines.append(current_line)
                         if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
-                            timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[orig_idx][0]
+                            timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[
+                                orig_idx
+                            ][0]
                         current_line = word
                 if current_line:
                     wrapped_lines.append(current_line)
                     if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
-                        timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[orig_idx][0]
+                        timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[
+                            orig_idx
+                        ][0]
 
         lines = wrapped_lines
         scroll_pos = 0
@@ -113,12 +121,16 @@ def display_lyrics_with_curses(
                             break
                 elif current_time > 0:
                     # Fallback to estimation for plain text lyrics
-                    non_empty_lines = [i for i, line in enumerate(lines) if line.strip()]
+                    non_empty_lines = [
+                        i for i, line in enumerate(lines) if line.strip()
+                    ]
                     line_duration = 3.0  # Assume 3 seconds per line on average
                     if non_empty_lines:
                         estimated_line_index = int(current_time / line_duration)
                         if estimated_line_index < len(non_empty_lines):
-                            current_highlighted_line = non_empty_lines[estimated_line_index]
+                            current_highlighted_line = non_empty_lines[
+                                estimated_line_index
+                            ]
 
             # Auto-scroll to follow highlighted line
             if current_highlighted_line >= 0:
@@ -139,7 +151,9 @@ def display_lyrics_with_curses(
 
             stdscr.addstr(0, 0, border[: max_x - 1], header_color)
             if len(header_text) < max_x - 1:
-                stdscr.addstr(1, (max_x - len(header_text)) // 2, header_text, header_color)
+                stdscr.addstr(
+                    1, (max_x - len(header_text)) // 2, header_text, header_color
+                )
             else:
                 stdscr.addstr(1, 0, header_text[: max_x - 1], header_color)
             stdscr.addstr(2, 0, border[: max_x - 1], header_color)
@@ -152,7 +166,9 @@ def display_lyrics_with_curses(
                     if line:
                         # Highlight the current line
                         if line_idx == current_highlighted_line:
-                            stdscr.addstr(3 + i, 2, f"♪ {line[: max_x - 5]}", current_line_color)
+                            stdscr.addstr(
+                                3 + i, 2, f"♪ {line[: max_x - 5]}", current_line_color
+                            )
                         else:
                             stdscr.addstr(3 + i, 2, line[: max_x - 3], text_color)
                     # Empty lines create natural spacing
@@ -167,7 +183,9 @@ def display_lyrics_with_curses(
                 time_info = ""
                 if socket_path:
                     current_time = get_mpv_time_position_func(socket_path)
-                    time_info = f" | {int(current_time // 60)}:{int(current_time % 60):02d}"
+                    time_info = (
+                        f" | {int(current_time // 60)}:{int(current_time % 60):02d}"
+                    )
                 instructions = f"j/k: scroll | q: back{time_info} | {progress}"
             else:
                 instructions = "q: back to player"
@@ -190,7 +208,9 @@ def display_lyrics_with_curses(
                 if scroll_pos > 0:
                     scroll_pos -= 1
             if key == curses.KEY_NPAGE:  # Page Down
-                scroll_pos = min(scroll_pos + content_height, len(lines) - content_height)
+                scroll_pos = min(
+                    scroll_pos + content_height, len(lines) - content_height
+                )
                 scroll_pos = max(0, scroll_pos)
             elif key == curses.KEY_PPAGE:  # Page Up
                 scroll_pos = max(scroll_pos - content_height, 0)
@@ -268,7 +288,9 @@ def selection_ui(stdscr, results, query, songs_to_display):
         if key in (curses.KEY_DOWN, ord("j")):
             current_selection = (current_selection + 1) % songs_to_display
         elif key in (curses.KEY_UP, ord("k")):
-            current_selection = (current_selection - 1 + songs_to_display) % songs_to_display
+            current_selection = (
+                current_selection - 1 + songs_to_display
+            ) % songs_to_display
         elif key in (ord("\n"), 10, 13):
             return current_selection
         elif key == ord("q"):

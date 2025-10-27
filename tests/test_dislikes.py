@@ -57,7 +57,8 @@ class TestDislikeManagerInit:
 
         assert manager._disliked_ids == set()
         assert any(
-            "Warning: Could not load dislikes" in str(call) for call in mock_print.call_args_list
+            "Warning: Could not load dislikes" in str(call)
+            for call in mock_print.call_args_list
         )
 
     def test_init_handles_missing_video_ids(self, temp_dir):
@@ -114,7 +115,9 @@ class TestDislikeSong:
             result = manager.dislike_song(song_without_id)
 
             assert result is False
-            mock_print.assert_called_with("[red]Cannot dislike song: missing videoId[/red]")
+            mock_print.assert_called_with(
+                "[red]Cannot dislike song: missing videoId[/red]"
+            )
 
     def test_dislike_song_already_disliked(self, temp_dir, sample_song):
         """Test disliking a song that's already disliked"""
@@ -141,7 +144,9 @@ class TestDislikeSong:
             result = manager.dislike_song(sample_song)
 
             assert result is False
-            mock_print.assert_called_with("[red]Error disliking song: Permission denied[/red]")
+            mock_print.assert_called_with(
+                "[red]Error disliking song: Permission denied[/red]"
+            )
 
     def test_dislike_song_preserves_existing_dislikes(
         self, temp_dir, sample_song, sample_dislikes_data
@@ -228,7 +233,9 @@ class TestFilterDislikedSongs:
         assert "song2" in video_ids
         assert "song3" in video_ids
 
-        mock_print.assert_called_with("[yellow]Filtered out 1 disliked song(s)[/yellow]")
+        mock_print.assert_called_with(
+            "[yellow]Filtered out 1 disliked song(s)[/yellow]"
+        )
 
     def test_filter_disliked_songs_all_disliked(self, temp_dir, sample_songs):
         """Test filtering when all songs are disliked"""
@@ -250,13 +257,19 @@ class TestFilterDislikedSongs:
             result = manager.filter_disliked_songs(sample_songs)
 
         assert len(result) == 0
-        mock_print.assert_called_with("[yellow]Filtered out 3 disliked song(s)[/yellow]")
+        mock_print.assert_called_with(
+            "[yellow]Filtered out 3 disliked song(s)[/yellow]"
+        )
 
     def test_filter_disliked_songs_missing_video_id(self, temp_dir):
         """Test filtering songs with missing videoId"""
         songs_with_missing_id = [
             {"title": "Song without ID", "artists": [{"name": "Artist"}]},
-            {"videoId": "song2", "title": "Song Two", "artists": [{"name": "Artist Two"}]},
+            {
+                "videoId": "song2",
+                "title": "Song Two",
+                "artists": [{"name": "Artist Two"}],
+            },
         ]
 
         manager = DislikeManager(os.path.join(temp_dir, "dislikes.json"))
@@ -289,7 +302,9 @@ class TestUndislikeSong:
 
             # Verify song was removed from disliked set
             assert "disliked_song_1" not in manager._disliked_ids
-            assert "disliked_song_2" in manager._disliked_ids  # Other song should remain
+            assert (
+                "disliked_song_2" in manager._disliked_ids
+            )  # Other song should remain
 
     def test_undislike_song_not_disliked(self, temp_dir):
         """Test undisliking a song that's not disliked"""
@@ -368,7 +383,9 @@ class TestClearAllDislikes:
             result = manager.clear_all_dislikes()
 
             assert result is False
-            mock_print.assert_called_with("[red]Error clearing dislikes: Permission denied[/red]")
+            mock_print.assert_called_with(
+                "[red]Error clearing dislikes: Permission denied[/red]"
+            )
 
 
 class TestGetDislikeCount:
