@@ -5,7 +5,7 @@ bump2version==1.0.1
 certifi==2025.7.14
 charset-normalizer==3.4.2
 click==8.2.1
-coverage==7.10.2
+coverage==7.10.7
 cx_Freeze==8.3.0
 dill==0.4.0
 dmgbuild==1.6.5
