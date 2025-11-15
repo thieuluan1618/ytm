@@ -29,7 +29,7 @@ Pygments==2.19.2
 pyinstaller==6.15.0
 pyinstaller-hooks-contrib==2025.9
 pylint==3.3.9
-pyperclip==1.9.0
+pyperclip==1.11.0
 pytest==8.4.2
 pytest-cov==6.3.0
 pytest-mock==3.14.1
