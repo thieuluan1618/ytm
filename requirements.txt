@@ -34,10 +34,11 @@ pytest==8.4.1
 pytest-cov==6.3.0
 pytest-mock==3.14.1
 requests==2.32.4
-rich==14.0.0
+rich>=14.2.0
 ruff==0.12.5
 setuptools==80.4.0
 tomlkit==0.13.3
 urllib3==2.5.0
 yt-dlp==2025.10.22
 ytmusicapi==1.10.3
+textual==6.6.0

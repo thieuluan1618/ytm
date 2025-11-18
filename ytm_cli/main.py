@@ -668,7 +668,7 @@ def main():
     if (
         len(sys.argv) >= 2
         and not sys.argv[1].startswith("-")
-        and sys.argv[1] not in ["search", "auth", "playlist", "llm"]
+        and sys.argv[1] not in ["search", "auth", "playlist", "llm", "tui"]
         and "--verbose" not in sys.argv
         and "--select" not in sys.argv
     ):
@@ -714,8 +714,8 @@ During music playback:
     # Create subcommands
     subparsers = parser.add_subparsers(
         dest="command",
-        help="Available commands: search, auth, playlist, llm",
-        description="Main commands for the YouTube Music CLI: search, auth, playlist, llm",
+        help="Available commands: search, auth, playlist, llm, tui",
+        description="Main commands for the YouTube Music CLI: search, auth, playlist, llm, tui",
     )
 
     # Search command (explicit)
@@ -809,6 +809,19 @@ During music playback:
         "--log-file",
         metavar="FILE",
         help="Write verbose logs to FILE (requires --verbose)",
+    )
+
+    # TUI command
+    tui_parser = subparsers.add_parser(
+        "tui",
+        help="Launch modern Textual TUI",
+        description="Launch a beautiful full-screen terminal interface for YouTube Music",
+    )
+    tui_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose output with detailed logging",
     )
 
     playlist_subparsers.add_parser(
@@ -932,6 +945,12 @@ During music playback:
             print(f"[yellow]Unsupported LLM action: {response.action}[/yellow]")
             print(f"[cyan]Try:[/cyan] {response.query}")
             search_and_play(response.query)
+    elif args.command == "tui":
+        # Launch Textual TUI
+        from .tui import YTMApp
+
+        app = YTMApp()
+        app.run()
     elif args.command == "search":
         auto_select = getattr(args, "select", None)
         search_and_play(args.search_query, auto_select=auto_select)

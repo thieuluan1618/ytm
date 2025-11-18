@@ -1,0 +1,235 @@
+/* YTM CLI Textual Styles */
+
+/* Main Layout */
+#app-grid {
+    layout: horizontal;
+    height: 1fr;
+}
+
+/* Sidebar */
+#sidebar {
+    width: 25;
+    background: $surface;
+    border-right: solid $primary;
+}
+
+#sidebar-title {
+    background: $primary;
+    color: $text;
+    padding: 1;
+    text-align: center;
+    text-style: bold;
+}
+
+#playlist-scroll {
+    height: 1fr;
+}
+
+#playlist-list {
+    height: auto;
+}
+
+#btn-new-playlist {
+    margin: 1;
+    width: 100%;
+}
+
+/* Main Content */
+#main-content {
+    width: 3fr;
+}
+
+/* Search Section */
+#search-container {
+    height: auto;
+    background: $surface;
+    border-top: solid $accent;
+    padding: 1;
+}
+
+#search-title {
+    color: $accent;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#search-input-container {
+    layout: horizontal;
+    height: auto;
+}
+
+#search-input {
+    width: 1fr;
+    margin-right: 1;
+}
+
+#search-button {
+    width: auto;
+    margin-right: 1;
+}
+
+#llm-button {
+    width: auto;
+}
+
+#search-results {
+    height: 15;
+    margin-top: 1;
+}
+
+/* Player Area */
+#player-area {
+    layout: horizontal;
+    height: 1fr;
+}
+
+/* Now Playing */
+#now-playing-container {
+    width: 2fr;
+    background: $surface;
+    border-right: solid $primary;
+    padding: 1;
+}
+
+#now-playing-title {
+    color: $primary;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#song-info {
+    height: auto;
+    margin-bottom: 2;
+}
+
+#song-title-display {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#artist-display {
+    margin-bottom: 1;
+}
+
+#album-display {
+    margin-bottom: 1;
+}
+
+/* Progress */
+#progress-container {
+    height: auto;
+    margin-bottom: 2;
+}
+
+#progress-bar {
+    margin-bottom: 1;
+}
+
+#time-display {
+    layout: horizontal;
+    height: auto;
+}
+
+#current-time {
+    width: 1fr;
+    text-align: left;
+}
+
+#total-time {
+    width: 1fr;
+    text-align: right;
+}
+
+/* Controls */
+#playback-controls {
+    layout: horizontal;
+    height: auto;
+    margin-bottom: 1;
+    align: center middle;
+}
+
+#playback-controls Button {
+    margin: 0 1;
+}
+
+#additional-controls {
+    layout: horizontal;
+    height: auto;
+    align: center middle;
+}
+
+#additional-controls Button {
+    margin: 0 1;
+}
+
+/* Queue */
+#queue-container {
+    width: 1fr;
+    background: $surface;
+    padding: 1;
+}
+
+#queue-title {
+    color: $accent;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#queue-scroll {
+    height: 1fr;
+}
+
+#queue-list {
+    height: auto;
+}
+
+/* List Items */
+ListItem {
+    padding: 1;
+}
+
+ListItem:hover {
+    background: $accent 20%;
+}
+
+ListItem.--highlight {
+    background: $success 20%;
+}
+
+/* Data Table */
+DataTable {
+    height: 100%;
+}
+
+DataTable > .datatable--header {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: $accent 40%;
+}
+
+/* Buttons */
+Button {
+    min-width: 8;
+}
+
+Button:hover {
+    text-style: bold;
+}
+
+/* Progress Bar */
+ProgressBar {
+    color: $accent;
+}
+
+/* Input */
+Input {
+    border: solid $primary;
+}
+
+Input:focus {
+    border: solid $accent;
+}
