@@ -77,9 +77,7 @@ def search_and_play(query=None, auto_select=None):
         selected_index = auto_select - 1  # Convert to 0-based index
 
         if selected_index < 0 or selected_index >= len(results):
-            print(
-                f"[red]Invalid selection {auto_select}. Valid range: 1-{len(results)}[/red]"
-            )
+            print(f"[red]Invalid selection {auto_select}. Valid range: 1-{len(results)}[/red]")
             return
 
         song = results[selected_index]
@@ -111,9 +109,7 @@ def search_and_play(query=None, auto_select=None):
                 if choice.lower() == "q":
                     return
                 selected_index = int(choice) - 1
-                if selected_index < 0 or selected_index >= len(
-                    results[:songs_to_display]
-                ):
+                if selected_index < 0 or selected_index >= len(results[:songs_to_display]):
                     print("[red]Invalid selection.[/red]")
                     return
             except (ValueError, KeyboardInterrupt):
@@ -208,22 +204,14 @@ def show_oauth_manual():
     print("• 'Access blocked' error: Check OAuth consent screen config")
     print("• 'Invalid client' error: Verify Client ID/Secret are correct")
     print("• 'Quota exceeded' error: Check API quotas in Cloud Console")
-    print(
-        "• 'Google verification process' error: Add test users (see troubleshoot command)"
-    )
-    print(
-        "• App verification required: https://support.google.com/cloud/answer/7454865"
-    )
-    print(
-        "• Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for verification help"
-    )
+    print("• 'Google verification process' error: Add test users (see troubleshoot command)")
+    print("• App verification required: https://support.google.com/cloud/answer/7454865")
+    print("• Run: [cyan]python -m ytm_cli auth troubleshoot[/cyan] for verification help")
 
     print("\n[yellow]📚 Additional Resources:[/yellow]")
     print("• YouTube Data API docs: https://developers.google.com/youtube/v3")
     print("• OAuth 2.0 guide: https://developers.google.com/identity/protocols/oauth2")
-    print(
-        "• ytmusicapi docs: https://ytmusicapi.readthedocs.io/en/stable/setup/oauth.html"
-    )
+    print("• ytmusicapi docs: https://ytmusicapi.readthedocs.io/en/stable/setup/oauth.html")
 
     print("\n[green]✅ Ready to continue with OAuth setup![/green]")
     print("After getting your credentials, run:")
@@ -279,9 +267,7 @@ def setup_oauth_command(open_browser=True):
         print("Or use the manual above for detailed instructions.\n")
 
         if open_browser:
-            response = (
-                input("Open Google Cloud Console in browser? (Y/n): ").strip().lower()
-            )
+            response = input("Open Google Cloud Console in browser? (Y/n): ").strip().lower()
             if response != "n":
                 try:
                     import webbrowser
@@ -291,9 +277,7 @@ def setup_oauth_command(open_browser=True):
                     print("[green]Browser opened![/green]")
                 except Exception as e:
                     print(f"[red]Could not open browser: {e}[/red]")
-                    print(
-                        "Please manually open: https://console.cloud.google.com/apis/credentials"
-                    )
+                    print("Please manually open: https://console.cloud.google.com/apis/credentials")
 
         print("\n[yellow]Enter your OAuth credentials:[/yellow]")
         client_id = input("Client ID: ").strip()
@@ -360,9 +344,7 @@ def scan_credentials_command():
         print("• auth/client_secret*.json")
         print("• credentials/client_secret*.json")
         print("• *client_secret*.json")
-        print(
-            "\n[yellow]💡 Download your credentials from Google Cloud Console[/yellow]"
-        )
+        print("\n[yellow]💡 Download your credentials from Google Cloud Console[/yellow]")
         print("and save as 'client_secret_*.json' in your project directory.")
     else:
         print(f"[green]Found {len(credential_files)} credential file(s):[/green]\n")
@@ -448,9 +430,7 @@ def playlist_list_command():
 
     if not playlists:
         print("[yellow]No playlists found.[/yellow]")
-        print(
-            "Create your first playlist: [cyan]python -m ytm_cli playlist create[/cyan]"
-        )
+        print("Create your first playlist: [cyan]python -m ytm_cli playlist create[/cyan]")
         return
 
     print(f"\n[cyan]📁 Local Playlists ({len(playlists)} found)[/cyan]")
@@ -460,9 +440,7 @@ def playlist_list_command():
         name = playlist["name"]
         song_count = playlist["song_count"]
         description = playlist["description"]
-        created_at = (
-            playlist["created_at"][:10] if playlist["created_at"] else "Unknown"
-        )
+        created_at = playlist["created_at"][:10] if playlist["created_at"] else "Unknown"
 
         print(f"\n[{i}] [yellow]{name}[/yellow]")
         print(f"    Songs: {song_count}")
@@ -596,9 +574,7 @@ def playlist_play_command(name):
         print(f"[yellow]Playlist '{name}' is empty[/yellow]")
         return
 
-    print(
-        f"[green]🎵 Playing playlist: {playlist['name']} ({len(songs)} songs)[/green]"
-    )
+    print(f"[green]🎵 Playing playlist: {playlist['name']} ({len(songs)} songs)[/green]")
 
     # Convert playlist songs to format expected by player
     playable_songs = []
@@ -677,7 +653,7 @@ def main():
     if (
         len(sys.argv) >= 2
         and not sys.argv[1].startswith("-")
-        and sys.argv[1] not in ["search", "auth", "playlist"]
+        and sys.argv[1] not in ["search", "auth", "playlist", "llm"]
         and "--verbose" not in sys.argv
         and "--select" not in sys.argv
     ):
@@ -695,6 +671,7 @@ Examples:
   %(prog)s playlist list                          List all local playlists
   %(prog)s playlist create "Rock Hits"            Create a new playlist
   %(prog)s auth setup-oauth                       Setup OAuth authentication
+  %(prog)s llm "play upbeat pop songs"            Use AI to find and play music
 
 During song selection:
   • Enter: Play selected song with radio
@@ -722,8 +699,8 @@ During music playback:
     # Create subcommands
     subparsers = parser.add_subparsers(
         dest="command",
-        help="Available commands",
-        description="Main commands for the YouTube Music CLI",
+        help="Available commands: search, auth, playlist, llm",
+        description="Main commands for the YouTube Music CLI: search, auth, playlist, llm",
     )
 
     # Search command (explicit)
@@ -784,13 +761,9 @@ During music playback:
 
     auth_subparsers.add_parser("manual", help="Show detailed OAuth setup guide")
     auth_subparsers.add_parser("scan", help="Scan for Google Cloud credential files")
-    auth_subparsers.add_parser(
-        "troubleshoot", help="OAuth verification troubleshooting guide"
-    )
+    auth_subparsers.add_parser("troubleshoot", help="OAuth verification troubleshooting guide")
     auth_subparsers.add_parser("status", help="Show current authentication status")
-    auth_subparsers.add_parser(
-        "disable", help="Disable authentication and use guest access"
-    )
+    auth_subparsers.add_parser("disable", help="Disable authentication and use guest access")
 
     # Playlist commands
     playlist_parser = subparsers.add_parser(
@@ -800,6 +773,27 @@ During music playback:
     )
     playlist_subparsers = playlist_parser.add_subparsers(
         dest="playlist_command", help="Playlist operations"
+    )
+
+    # LLM commands
+    llm_parser = subparsers.add_parser(
+        "llm",
+        help="AI-powered music assistant",
+        description="Use AI to search, recommend and play music based on natural language requests",
+    )
+    llm_parser.add_argument(
+        "prompt", help="Natural language request for music (e.g. 'play upbeat pop songs')"
+    )
+    llm_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose output with detailed logging",
+    )
+    llm_parser.add_argument(
+        "--log-file",
+        metavar="FILE",
+        help="Write verbose logs to FILE (requires --verbose)",
     )
 
     playlist_subparsers.add_parser(
@@ -813,12 +807,8 @@ During music playback:
         help="Create a new playlist",
         description="Create a new local playlist with optional description",
     )
-    create_parser.add_argument(
-        "name", nargs="?", help="Playlist name (prompted if not provided)"
-    )
-    create_parser.add_argument(
-        "-d", "--description", help="Optional playlist description"
-    )
+    create_parser.add_argument("name", nargs="?", help="Playlist name (prompted if not provided)")
+    create_parser.add_argument("-d", "--description", help="Optional playlist description")
 
     show_parser = playlist_subparsers.add_parser(
         "show",
@@ -905,6 +895,24 @@ During music playback:
             playlist_delete_command(args.name)
         else:
             print("Available playlist commands: list, create, show, play, delete")
+    elif args.command == "llm":
+        from .llm_client import LLMClient
+
+        llm_client = LLMClient()
+        response = llm_client.generate(args.prompt)
+
+        if not response:
+            print("[red]Failed to process LLM request[/red]")
+            return
+
+        if response.action == "search":
+            search_and_play(response.query, auto_select=response.parameters.get("limit", None))
+        elif response.action == "playlist":
+            playlist_play_command(response.query)
+        else:
+            print(f"[yellow]Unsupported LLM action: {response.action}[/yellow]")
+            print(f"[cyan]Try:[/cyan] {response.query}")
+            search_and_play(response.query)
     elif args.command == "search":
         auto_select = getattr(args, "select", None)
         search_and_play(args.search_query, auto_select=auto_select)

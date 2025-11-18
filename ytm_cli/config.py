@@ -22,3 +22,8 @@ def get_mpv_flags():
     if "mpv" in config and "flags" in config["mpv"]:
         return config["mpv"]["flags"].split()
     return []
+
+
+def get_config_value(section, key, fallback=None):
+    """Get a value from the config"""
+    return config.get(section, key, fallback=fallback)
