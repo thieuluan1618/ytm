@@ -14,28 +14,29 @@ from .player import set_verbose as set_player_verbose
 from .playlists import playlist_manager
 from .ui import selection_ui
 from .utils import setup_signal_handler
+from .verbose_logger import (
+    log_api_call,
+    log_playlist_composition,
+    log_radio_generation,
+    log_search_results,
+    log_section,
+    log_step,
+    log_success,
+    log_warning,
+    print_verbose_summary,
+    set_verbose,
+)
 
-# Global verbose flag
+# Backward compatibility
 _VERBOSE = False
 _VERBOSE_FILE = None
 
 
 def verbose_print(*args, **kwargs):
-    """Print only if verbose mode is enabled"""
+    """Print only if verbose mode is enabled (deprecated, use verbose_logger)"""
     if _VERBOSE:
-        import time
-
         message = " ".join(str(arg) for arg in args)
         print(message, **kwargs)
-
-        # Write to file if specified
-        if _VERBOSE_FILE:
-            try:
-                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                with open(_VERBOSE_FILE, "a") as f:
-                    f.write(f"[{timestamp}] {message}\n")
-            except Exception:
-                pass  # Silently ignore file write errors
 
 
 def search_and_play(query=None, auto_select=None):
@@ -50,30 +51,37 @@ def search_and_play(query=None, auto_select=None):
     else:
         print(f"🎵 Searching for: {query}")
 
-    verbose_print("[dim]Sending search query to YouTube Music API...[/dim]")
+    log_section("Music Search", "🔍")
+    log_step("Searching YouTube Music", query)
+    log_api_call("ytmusic.search", {"query": query, "filter": "songs"})
+
     results = ytmusic.search(query, filter="songs")
     if not results:
         print("[red]No songs found.[/red]")
         return
 
-    verbose_print(f"[dim]Found {len(results)} results[/dim]")
+    log_success(f"Found {len(results)} results")
 
     # Filter out disliked songs
     original_count = len(results)
     results = dislike_manager.filter_disliked_songs(results)
     filtered_count = original_count - len(results)
+
     if filtered_count > 0:
-        verbose_print(f"[dim]Filtered out {filtered_count} disliked song(s)[/dim]")
+        log_warning(f"Filtered out {filtered_count} disliked song(s)")
 
     if not results:
         print("[red]No songs found after filtering dislikes.[/red]")
         return
 
+    # Log search results in verbose mode
+    log_search_results(query, results, filtered_count)
+
     songs_to_display = get_songs_to_display()
 
     # Non-interactive mode: auto-select specified song
     if auto_select is not None:
-        verbose_print(f"[dim]Auto-selecting song #{auto_select}[/dim]")
+        log_step("Auto-selecting song", f"#{auto_select}")
         selected_index = auto_select - 1  # Convert to 0-based index
 
         if selected_index < 0 or selected_index >= len(results):
@@ -84,6 +92,7 @@ def search_and_play(query=None, auto_select=None):
         title = song["title"]
         artist = song["artists"][0]["name"] if song.get("artists") else "Unknown Artist"
         print(f"[green]✓ Selected:[/green] {title} - {artist}")
+        log_success(f"Selected: {title} - {artist}")
 
     else:
         # Interactive mode: use curses UI
@@ -122,27 +131,33 @@ def search_and_play(query=None, auto_select=None):
     playlist = [song]
 
     print("\n[yellow]🎶 Fetching Radio...[/yellow]")
-    verbose_print(f"[dim]Fetching radio playlist for videoId: {song['videoId']}[/dim]")
+
+    log_step("Fetching radio playlist", f"videoId: {song['videoId']}")
+    log_api_call("ytmusic.get_watch_playlist", {"videoId": song["videoId"]})
+
     try:
         radio = ytmusic.get_watch_playlist(videoId=song["videoId"])
         radio_tracks = radio["tracks"][1:]  # Skip first track (the selected song)
-        verbose_print(f"[dim]Radio returned {len(radio_tracks)} tracks[/dim]")
+
+        log_success(f"Radio returned {len(radio_tracks)} tracks")
 
         # Filter out disliked songs from radio
         original_radio_count = len(radio_tracks)
         filtered_radio = dislike_manager.filter_disliked_songs(radio_tracks)
         filtered_radio_count = original_radio_count - len(filtered_radio)
 
-        if filtered_radio_count > 0:
-            verbose_print(
-                f"[dim]Filtered out {filtered_radio_count} disliked song(s) from radio[/dim]"
-            )
+        # Log radio generation details
+        log_radio_generation(song["videoId"], original_radio_count, filtered_radio_count)
 
         playlist.extend(filtered_radio)
-        verbose_print(f"[dim]Final playlist: {len(playlist)} tracks[/dim]")
+        log_success(f"Final playlist ready: {len(playlist)} tracks")
+
+        # Log playlist composition
+        log_playlist_composition(playlist, 0)
+
     except Exception as e:
         print(f"[red]Error fetching radio: {e}[/red]")
-        verbose_print(f"[dim]Exception details: {str(e)}[/dim]")
+        log_warning(f"Exception details: {str(e)}")
 
     play_music_with_controls(playlist)
 
@@ -844,7 +859,8 @@ During music playback:
     _VERBOSE = getattr(args, "verbose", False)
     _VERBOSE_FILE = getattr(args, "log_file", None)
 
-    # Pass verbose settings to player module
+    # Initialize new verbose logger
+    set_verbose(_VERBOSE, _VERBOSE_FILE)
     set_player_verbose(_VERBOSE, _VERBOSE_FILE)
 
     # Initialize log file if specified
@@ -856,9 +872,12 @@ During music playback:
                 f.write("=== YTM CLI Verbose Log ===\n")
                 f.write(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write("=" * 50 + "\n\n")
-            verbose_print(f"[green]Logging to: {_VERBOSE_FILE}[/green]")
         except Exception as e:
             print(f"[red]Could not create log file: {e}[/red]")
+
+    # Show verbose mode banner
+    if _VERBOSE:
+        print_verbose_summary()
 
     # Handle auth commands
     if args.command == "auth":

@@ -17,35 +17,18 @@ from .config import get_mpv_flags, ytmusic
 from .dislikes import dislike_manager
 from .playlists import playlist_manager
 from .ui import display_lyrics_with_curses
-
-# Verbose logging (imported from main)
-_VERBOSE = False
-_VERBOSE_FILE = None
+from .verbose_logger import (
+    log_mpv_start,
+    log_mpv_stop,
+)
+from .verbose_logger import (
+    set_verbose as set_verbose_logger,
+)
 
 
 def set_verbose(enabled, log_file=None):
     """Set verbose mode and optional log file"""
-    global _VERBOSE, _VERBOSE_FILE
-    _VERBOSE = enabled
-    _VERBOSE_FILE = log_file
-
-
-def verbose_log(message):
-    """Log verbose message to stdout and/or file"""
-    if _VERBOSE:
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        log_msg = f"[{timestamp}] {message}"
-
-        # Print to stdout
-        print(f"[dim]{message}[/dim]")
-
-        # Write to file if specified
-        if _VERBOSE_FILE:
-            try:
-                with open(_VERBOSE_FILE, "a") as f:
-                    f.write(log_msg + "\n")
-            except Exception:
-                pass  # Silently ignore file write errors
+    set_verbose_logger(enabled, log_file)
 
 
 def send_mpv_command(socket_path, command):
@@ -284,9 +267,12 @@ def play_music_with_controls(playlist, playlist_name=None):
         playlist: List of songs to play
         playlist_name: Name of user playlist (if playing from a user playlist)
     """
-    verbose_log(f"Starting playback with {len(playlist)} songs in playlist")
+    from .verbose_logger import log_info, log_section
+
+    log_section("Playback Starting", "🎵")
+    log_info(f"Total tracks in queue: {len(playlist)}")
     if playlist_name:
-        verbose_log(f"Playing from user playlist: {playlist_name}")
+        log_info(f"Playing from user playlist: {playlist_name}")
 
     current_song_index = 0
     mpv_process = None
@@ -299,34 +285,43 @@ def play_music_with_controls(playlist, playlist_name=None):
     try:
         tty.setraw(sys.stdin.fileno())
         while 0 <= current_song_index < len(playlist):
+            from .verbose_logger import (
+                log_info as vlog_info,
+            )
+            from .verbose_logger import (
+                log_song_change as vlog_song_change,
+            )
+            from .verbose_logger import (
+                log_user_action as vlog_user_action,
+            )
+
             if mpv_process:
-                verbose_log("Terminating previous mpv process")
+                vlog_user_action("Terminating previous mpv process")
                 mpv_process.terminate()
                 mpv_process.wait()
 
             if socket_path and os.path.exists(socket_path):
-                verbose_log(f"Cleaning up socket: {socket_path}")
+                vlog_info(f"Cleaning up socket: {socket_path}")
                 os.unlink(socket_path)
 
             item = playlist[current_song_index]
             video_id = item["videoId"]
 
             title = item.get("title", "Unknown Title")
+            artist = "Unknown Artist"
 
             if "artists" in item and item["artists"] and item["artists"][0].get("name"):
-                title = f"{title} - {item['artists'][0]['name']}"
+                artist = item["artists"][0]["name"]
+                title = f"{title} - {artist}"
 
             url = f"https://music.youtube.com/watch?v={video_id}"
 
-            verbose_log(
-                f"Now playing [{current_song_index + 1}/{len(playlist)}]: {title}"
-            )
-            verbose_log(f"Video ID: {video_id}")
-            verbose_log(f"URL: {url}")
+            # Log song change
+            vlog_song_change(current_song_index, len(playlist), item)
 
             # Create a temporary socket for mpv IPC
             socket_path = tempfile.mktemp(suffix=".sock")
-            verbose_log(f"IPC socket path: {socket_path}")
+            vlog_info(f"IPC socket: {socket_path}")
 
             def cleanup(mpv_process=mpv_process):
                 if mpv_process:
@@ -344,10 +339,10 @@ def play_music_with_controls(playlist, playlist_name=None):
             mpv_flags = get_mpv_flags()
             mpv_flags.extend([f"--input-ipc-server={socket_path}"])
 
-            verbose_log(f"Launching mpv with flags: {' '.join(mpv_flags)}")
+            from .verbose_logger import is_verbose
 
             # Capture stderr in verbose mode for debugging
-            if _VERBOSE:
+            if is_verbose():
                 mpv_process = subprocess.Popen(
                     ["mpv", url] + mpv_flags,
                     stdout=subprocess.PIPE,
@@ -359,7 +354,9 @@ def play_music_with_controls(playlist, playlist_name=None):
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-            verbose_log(f"MPV process started with PID: {mpv_process.pid}")
+
+            # Log MPV start
+            log_mpv_start(video_id, title, artist, socket_path, mpv_process.pid)
             is_paused = False
             last_pause_check = 0  # Reset pause check timer for new song
 
@@ -369,25 +366,30 @@ def play_music_with_controls(playlist, playlist_name=None):
             while True:
                 if mpv_process.poll() is not None:
                     exit_code = mpv_process.returncode
-                    verbose_log(f"MPV process exited with code: {exit_code}")
+
+                    # Log MPV stop with reason
                     if exit_code != 0:
-                        verbose_log("MPV error detected, skipping to next song")
+                        from .verbose_logger import is_verbose, log_error
+                        from .verbose_logger import log_info as vlog_info
+                        log_mpv_stop(exit_code, "Error during playback")
+
                         # Capture error output in verbose mode
-                        if _VERBOSE and mpv_process.stderr:
+                        if is_verbose() and mpv_process.stderr:
                             try:
                                 stderr_output = mpv_process.stderr.read().decode(
                                     "utf-8", errors="replace"
                                 )
                                 if stderr_output:
                                     # Log last few lines of error
-                                    error_lines = stderr_output.strip().split("\n")[
-                                        -10:
-                                    ]
-                                    verbose_log("MPV stderr (last 10 lines):")
+                                    error_lines = stderr_output.strip().split("\n")[-10:]
+                                    log_error("MPV stderr (last 10 lines):")
                                     for line in error_lines:
-                                        verbose_log(f"  {line}")
+                                        vlog_info(f"  {line}")
                             except Exception:
                                 pass
+                    else:
+                        log_mpv_stop(exit_code, "Song finished")
+
                     current_song_index += 1
                     break
 
