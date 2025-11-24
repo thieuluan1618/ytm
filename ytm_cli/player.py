@@ -278,7 +278,7 @@ def play_music_with_controls(playlist, playlist_name=None):
     # Initialize hybrid player
     player = CLIHybridPlayerService()
     if not player.is_available():
-        print("❌ No audio player available. Install mpv or pygame")
+        print("❌ No audio player available. Install mpv or FFmpeg")
         return
 
     current_song_index = 0

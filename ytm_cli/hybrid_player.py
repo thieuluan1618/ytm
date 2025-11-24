@@ -1,4 +1,4 @@
-"""Hybrid player for CLI mode with mpv/pygame fallback support"""
+"""Hybrid player for CLI mode with mpv/FFmpeg fallback support"""
 
 import json
 import os
@@ -10,16 +10,16 @@ import time
 from typing import Optional
 
 from .config import get_mpv_flags
-from .tui.pygame_player import PygamePlayerService
+from .tui.ffmpeg_player import FFmpegPlayerService
 from .verbose_logger import log_error, log_info, log_section
 
 
 class CLIHybridPlayerService:
-    """Hybrid player for CLI mode that uses mpv by default, falls back to pygame if needed"""
+    """Hybrid player for CLI mode that uses mpv by default, falls back to FFmpeg if needed"""
 
     def __init__(self):
         self.mpv_process: Optional[subprocess.Popen] = None
-        self.pygame_player: Optional[PygamePlayerService] = None
+        self.ffmpeg_player: Optional[FFmpegPlayerService] = None
         self.player_type: str = "none"
         self.socket_path: Optional[str] = None
         self._initialize_player()
@@ -33,23 +33,23 @@ class CLIHybridPlayerService:
             print("✓ Using mpv for playback (high quality, full controls)")
             return
 
-        # Fall back to pygame
+        # Fall back to FFmpeg
         try:
             log_section("Player Initialization", "🎵")
-            log_info("MPV not found, attempting pygame fallback...")
-            self.pygame_player = PygamePlayerService()
-            self.player_type = "pygame"
-            log_info("Pygame player initialized successfully")
-            print("✓ Using pygame for playback (fallback mode)")
+            log_info("MPV not found, attempting FFmpeg fallback...")
+            self.ffmpeg_player = FFmpegPlayerService()
+            self.player_type = "ffmpeg"
+            log_info("FFmpeg player initialized successfully")
+            print("✓ Using FFmpeg for playback (fallback mode)")
             return
         except Exception as e:
-            log_error(f"Pygame initialization failed: {e}")
-            print(f"⚠ pygame initialization failed: {e}")
+            log_error(f"FFmpeg initialization failed: {e}")
+            print(f"⚠ FFmpeg initialization failed: {e}")
 
         # No player available
         self.player_type = "none"
-        log_error("No audio player available (mpv and pygame both unavailable)")
-        print("❌ No audio player available. Install mpv or pygame")
+        log_error("No audio player available (mpv and FFmpeg both unavailable)")
+        print("❌ No audio player available. Install mpv or FFmpeg")
 
     def is_available(self) -> bool:
         """Check if any player is available"""
@@ -64,8 +64,8 @@ class CLIHybridPlayerService:
 
         if self.player_type == "mpv":
             return self._play_mpv(video_id, title)
-        elif self.player_type == "pygame" and self.pygame_player:
-            return self.pygame_player.play(video_id, title)
+        elif self.player_type == "ffmpeg" and self.ffmpeg_player:
+            return self.ffmpeg_player.play(video_id, title)
 
         return False
 
@@ -106,29 +106,29 @@ class CLIHybridPlayerService:
             if self.socket_path and os.path.exists(self.socket_path):
                 os.unlink(self.socket_path)
                 self.socket_path = None
-        elif self.player_type == "pygame" and self.pygame_player:
-            self.pygame_player.stop()
+        elif self.player_type == "ffmpeg" and self.ffmpeg_player:
+            self.ffmpeg_player.stop()
 
     def pause(self) -> None:
         """Pause playback"""
         if self.player_type == "mpv" and self.socket_path:
             self._send_mpv_command({"command": ["set_property", "pause", True]})
-        elif self.player_type == "pygame" and self.pygame_player:
-            self.pygame_player.pause()
+        elif self.player_type == "ffmpeg" and self.ffmpeg_player:
+            self.ffmpeg_player.pause()
 
     def resume(self) -> None:
         """Resume playback"""
         if self.player_type == "mpv" and self.socket_path:
             self._send_mpv_command({"command": ["set_property", "pause", False]})
-        elif self.player_type == "pygame" and self.pygame_player:
-            self.pygame_player.resume()
+        elif self.player_type == "ffmpeg" and self.ffmpeg_player:
+            self.ffmpeg_player.resume()
 
     def is_playing(self) -> bool:
         """Check if music is currently playing"""
         if self.player_type == "mpv" and self.mpv_process:
             return self.mpv_process.poll() is None
-        elif self.player_type == "pygame" and self.pygame_player:
-            return self.pygame_player.is_playing_now()
+        elif self.player_type == "ffmpeg" and self.ffmpeg_player:
+            return self.ffmpeg_player.is_playing_now()
 
         return False
 
@@ -156,6 +156,6 @@ class CLIHybridPlayerService:
     def cleanup(self) -> None:
         """Clean up player resources"""
         self.stop()
-        if self.player_type == "pygame" and self.pygame_player:
-            self.pygame_player.cleanup()
-            self.pygame_player = None
+        if self.player_type == "ffmpeg" and self.ffmpeg_player:
+            self.ffmpeg_player.cleanup()
+            self.ffmpeg_player = None

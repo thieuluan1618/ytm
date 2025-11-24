@@ -1,17 +1,17 @@
-"""Player factory that provides hybrid mpv/pygame support"""
+"""Player factory that provides hybrid mpv/FFmpeg support"""
 
 import shutil
 from typing import Union, Optional
 
 from .player_service import TUIPlayerService
-from .pygame_player import PygamePlayerService
+from .ffmpeg_player import FFmpegPlayerService
 
 
 class HybridPlayerService:
-    """Hybrid player that uses mpv by default, falls back to pygame if needed"""
+    """Hybrid player that uses mpv by default, falls back to FFmpeg if needed"""
 
     def __init__(self):
-        self.player: Union[TUIPlayerService, PygamePlayerService, None] = None
+        self.player: Union[TUIPlayerService, FFmpegPlayerService, None] = None
         self.player_type: str = "none"
         self._initialize_player()
 
@@ -27,19 +27,19 @@ class HybridPlayerService:
             except Exception as e:
                 print(f"⚠ mpv initialization failed: {e}")
 
-        # Fall back to pygame
+        # Fall back to FFmpeg
         try:
-            self.player = PygamePlayerService()
-            self.player_type = "pygame"
-            print("✓ Using pygame for playback (fallback mode)")
+            self.player = FFmpegPlayerService()
+            self.player_type = "ffmpeg"
+            print("✓ Using FFmpeg for playback (fallback mode)")
             return
         except Exception as e:
-            print(f"⚠ pygame initialization failed: {e}")
+            print(f"⚠ FFmpeg initialization failed: {e}")
 
         # No player available
         self.player = None
         self.player_type = "none"
-        print("❌ No audio player available. Install mpv or pygame")
+        print("❌ No audio player available. Install mpv or FFmpeg")
 
     def is_available(self) -> bool:
         """Check if any player is available"""
@@ -76,7 +76,7 @@ class HybridPlayerService:
         # Different method names for different players
         if self.player_type == "mpv":
             return self.player.is_playing()
-        elif self.player_type == "pygame":
+        elif self.player_type == "ffmpeg":
             return self.player.is_playing_now()
 
         return False
@@ -92,7 +92,7 @@ class HybridPlayerService:
     def cleanup(self) -> None:
         """Clean up player resources"""
         if self.player:
-            if self.player_type == "pygame":
+            if self.player_type == "ffmpeg":
                 self.player.cleanup()
             elif self.player_type == "mpv":
                 self.player.stop()

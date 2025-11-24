@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Simple test to verify pygame fallback in CLI mode.
+Simple test to verify FFmpeg fallback in CLI mode.
 This test checks that the CLIHybridPlayerService correctly:
 1. Prefers MPV when available
-2. Falls back to pygame when MPV is unavailable
+2. Falls back to FFmpeg when MPV is unavailable
 3. Gracefully handles when both are unavailable
 """
 
 from ytm_cli.verbose_logger import set_verbose
 
 # Enable verbose logging
-set_verbose(True, "pygame_cli_test.log")
+set_verbose(True, "ffmpeg_cli_test.log")
 
 print("\n" + "=" * 70)
-print("CLI Hybrid Player - Pygame Fallback Test")
+print("CLI Hybrid Player - FFmpeg Fallback Test")
 print("=" * 70 + "\n")
 
 from ytm_cli.hybrid_player import CLIHybridPlayerService
@@ -45,14 +45,14 @@ if player.is_available():
             print(f"  ✗ Method '{method}' missing!")
 
 else:
-    print("✗ No player available (this is OK if mpv and pygame aren't both installed)")
+    print("✗ No player available (this is OK if mpv and FFmpeg aren't both installed)")
 
 print("\n" + "=" * 70)
 if player.player_type == "mpv":
     print("Result: Using MPV for playback")
-elif player.player_type == "pygame":
-    print("Result: Using Pygame fallback (MPV not available)")
+elif player.player_type == "ffmpeg":
+    print("Result: Using FFmpeg fallback (MPV not available)")
 else:
     print("Result: No audio player available")
 print("=" * 70)
-print(f"\nDetailed log saved to: pygame_cli_test.log\n")
+print(f"\nDetailed log saved to: ffmpeg_cli_test.log\n")

@@ -209,7 +209,7 @@ class YTMApp(App):
         # Check if player is available
         if not self.player.is_available():
             self.notify(
-                "❌ No audio player available. Install mpv or pygame.",
+                "❌ No audio player available. Install mpv or FFmpeg.",
                 severity="error",
             )
             return

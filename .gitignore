@@ -87,3 +87,4 @@ ytm_debug.log
 
 # Serena cache
 .serena/cache/
+**.log
