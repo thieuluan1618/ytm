@@ -100,12 +100,12 @@ class FFmpegPlayerService:
                 self.is_playing = False
             return False
 
-    def _get_stream_url(self, youtube_url: str) -> Optional[str]:
-        """Extract audio stream URL using yt-dlp"""
+    def _get_stream_url(self, youtube_url: str) -> tuple[Optional[str], Optional[dict]]:
+        """Extract audio stream URL and headers using yt-dlp"""
         try:
             if not YTDLP_AVAILABLE:
                 print("❌ yt-dlp not available for stream extraction")
-                return None
+                return None, None
 
             ydl_opts = {
                 'format': 'bestaudio[abr<=128]/bestaudio',  # Prefer lower bitrate for streaming
@@ -117,15 +117,15 @@ class FFmpegPlayerService:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(youtube_url, download=False)
                 if info and 'url' in info:
-                    return info['url']
+                    return info['url'], info.get('http_headers')
                 else:
                     print("❌ Could not extract stream URL")
-                    return None
+                    return None, None
 
         except Exception as e:
             log_error(f"Error extracting stream URL: {e}")
             print(f"❌ Error extracting stream URL: {e}")
-            return None
+            return None, None
 
     def _play_stream(self, youtube_url: str, title: str) -> None:
         """Internal method to handle playback in a thread"""
@@ -140,7 +140,7 @@ class FFmpegPlayerService:
                 return
 
             # Extract stream URL using yt-dlp
-            stream_url = self._get_stream_url(youtube_url)
+            stream_url, headers = self._get_stream_url(youtube_url)
             if not stream_url:
                 log_error("Failed to get audio stream URL")
                 print("❌ Failed to get audio stream URL")
@@ -175,15 +175,23 @@ class FFmpegPlayerService:
                     "-nodisp",           # No video display
                     "-autoexit",         # Exit when playback finishes
                     "-loglevel", "quiet", # Suppress ffplay output
-                    stream_url
                 ]
 
+                # Add user-agent if available to avoid 403 errors
+                if headers and "User-Agent" in headers:
+                    ffplay_cmd.extend(["-user_agent", headers["User-Agent"]])
+                    
+                # Add other headers if needed (some FFmpeg versions support -headers)
+                # but usually User-Agent is the most important one for playback
+                
+                ffplay_cmd.append(stream_url)
+                
                 try:
                     # Start ffplay process
                     self.ffplay_process = subprocess.Popen(
                         ffplay_cmd,
                         stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
+                        stderr=subprocess.PIPE, # Capture stderr to log errors
                     )
                     log_info("ffplay process started successfully")
                 except Exception as proc_error:
@@ -201,6 +209,15 @@ class FFmpegPlayerService:
                     if self.ffplay_process.poll() is not None:
                         # Process finished naturally
                         log_info("Stream ended naturally")
+                        
+                        # Check return code
+                        if self.ffplay_process.returncode != 0:
+                            # Read stderr if possible
+                             stderr_out = self.ffplay_process.stderr.read() if self.ffplay_process.stderr else b""
+                             if stderr_out:
+                                 log_error(f"ffplay error: {stderr_out.decode(errors='replace')}")
+                                 print(f"⚠ Playback error: {stderr_out.decode(errors='replace')[:100]}...")
+                        
                         print("✅ Song finished")
                         break
                 time.sleep(0.1)
