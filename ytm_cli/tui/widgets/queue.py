@@ -16,36 +16,50 @@ class QueueWidget(Widget):
             with VerticalScroll(id="queue-scroll"):
                 yield ListView(id="queue-list")
 
+    def on_mount(self) -> None:
+        """Initialize empty queue display"""
+        queue_list = self.query_one("#queue-list", ListView)
+        queue_list.append(ListItem(Static("[dim]Queue is empty - Search and play a song[/dim]")))
+
     def update_queue(self, playlist: list, current_index: int) -> None:
         """Update the queue display"""
-        queue_list = self.query_one("#queue-list", ListView)
-        queue_list.clear()
+        try:
+            queue_list = self.query_one("#queue-list", ListView)
+            queue_list.clear()
 
-        if not playlist:
-            queue_list.append(ListItem(Static("[dim]Queue is empty[/dim]")))
-            return
+            if not playlist:
+                queue_list.append(ListItem(Static("[dim]Queue is empty[/dim]")))
+                return
 
-        for i, song in enumerate(playlist):
-            title = song.get("title", "Unknown")
-            artist = (
-                song.get("artists", [{}])[0].get("name", "Unknown")
-                if song.get("artists")
-                else "Unknown"
-            )
-
-            if i == current_index:
-                # Current song - highlighted
-                item_text = f"[bold green]► {i + 1}. {title}[/bold green]\n   [dim]{artist}[/dim]"
-            elif i < current_index:
-                # Already played - dimmed
-                item_text = (
-                    f"[dim]{i + 1}. {title}\n   {artist}[/dim]"
+            for i, song in enumerate(playlist):
+                title = song.get("title", "Unknown")
+                artist = (
+                    song.get("artists", [{}])[0].get("name", "Unknown")
+                    if song.get("artists")
+                    else "Unknown"
                 )
-            else:
-                # Upcoming songs
-                item_text = f"[cyan]{i + 1}. {title}[/cyan]\n   [yellow]{artist}[/yellow]"
 
-            queue_list.append(ListItem(Static(item_text)))
+                if i == current_index:
+                    # Current song - highlighted
+                    item_text = f"[bold green]► {i + 1}. {title}[/bold green]\n   [dim]{artist}[/dim]"
+                elif i < current_index:
+                    # Already played - dimmed
+                    item_text = (
+                        f"[dim]{i + 1}. {title}\n   {artist}[/dim]"
+                    )
+                else:
+                    # Upcoming songs
+                    item_text = f"[cyan]{i + 1}. {title}[/cyan]\n   [yellow]{artist}[/yellow]"
+
+                queue_list.append(ListItem(Static(item_text)))
+
+            # Force refresh
+            self.refresh()
+
+        except Exception as e:
+            self.app.notify(f"✗ Queue update failed: {e}", severity="error")
+            import traceback
+            traceback.print_exc()
 
     def add_placeholder_songs(self) -> None:
         """Add placeholder songs for demonstration"""

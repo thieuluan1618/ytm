@@ -84,3 +84,6 @@ playlists/
 dislikes.json
 ytm_debug.log
 *.log
+
+# Serena cache
+.serena/cache/
