@@ -35,7 +35,7 @@ pytest-cov==6.3.0
 pytest-mock==3.15.1
 requests==2.32.5
 rich==14.2.0
-ruff==0.14.9
+ruff==0.14.11
 setuptools==80.4.0
 tomlkit==0.13.3
 urllib3==2.6.3
