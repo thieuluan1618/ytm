@@ -26,7 +26,7 @@ pathspec==0.12.1
 platformdirs==4.4.0
 pluggy==1.6.0
 Pygments==2.19.2
-pyinstaller==6.17.0
+pyinstaller==6.18.0
 pyinstaller-hooks-contrib==2025.10
 pylint==3.3.9
 pyperclip==1.11.0
