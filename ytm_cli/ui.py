@@ -2,6 +2,7 @@
 
 import curses
 import os
+import sys
 import time
 from curses import wrapper
 
@@ -392,48 +393,56 @@ def add_song_to_playlist_ui(stdscr, song):
     return playlist_manager.add_song_to_playlist(playlist_name, song)
 
 
-def display_player_status(title, is_paused):
-    """Display player status with centered text that adapts to terminal width"""
-    # Clear screen
-    os.system("clear" if os.name == "posix" else "cls")
+def _format_time(seconds):
+    """Format seconds as m:ss"""
+    if seconds is None or seconds < 0:
+        return "-:--"
+    m, s = divmod(int(seconds), 60)
+    return f"{m}:{s:02d}"
 
+
+def display_player_status(title, is_paused, track_index=None, track_total=None,
+                          elapsed=None, duration=None):
+    """Display player status with progress bar and track info"""
     # Get terminal dimensions
     try:
-        terminal_size = os.get_terminal_size()
-        width = terminal_size.columns
+        width = os.get_terminal_size().columns
     except OSError:
-        width = 80  # fallback
+        width = 80
 
-    # Status and title
-    status = "⏸️ Paused" if is_paused else "▶️ Playing"
-    status_line = f"{status}: {title}"
+    # Move cursor to top-left and clear screen (no flicker)
+    sys.stdout.write("\033[H\033[2J")
 
-    # Controls text
-    controls = "  ⏮️ (b)  ⏯️ (space)  ⏭️ (n)  📜 (l)  ❤️ (a)    👎 (d)    🚪 (q)"
+    # Status line
+    status = "\u23f8\ufe0f  Paused" if is_paused else "\u25b6\ufe0f  Playing"
+    if track_index is not None and track_total is not None:
+        status += f" [{track_index}/{track_total}]"
 
-    # Center the text
-    print()  # Empty line
-    if len(status_line) <= width:
-        print(status_line.center(width))
+    # Build output lines
+    lines = [
+        "",
+        status.center(width),
+        "",
+        title.center(width)[:width],
+        "",
+    ]
+
+    # Progress bar
+    if elapsed is not None and duration and duration > 0:
+        time_str = f" {_format_time(elapsed)} / {_format_time(duration)} "
+        bar_width = min(width - 2, 40)
+        filled = int(bar_width * min(elapsed / duration, 1.0))
+        empty = bar_width - filled
+        bar = "\u2593" * filled + "\u2591" * empty
+        bar_line = f"{bar}{time_str}"
+        lines.append(bar_line.center(width))
     else:
-        print(status_line[:width])
+        lines.append("")
 
-    print()  # Empty line
-    if len(controls) <= width:
-        print(controls.center(width))
-    else:
-        # Word wrap if too long
-        words = controls.split()
-        lines = []
-        current_line = ""
-        for word in words:
-            if len(current_line + " " + word) <= width:
-                current_line += " " + word if current_line else word
-            else:
-                lines.append(current_line)
-                current_line = word
-        if current_line:
-            lines.append(current_line)
+    # Controls
+    controls = "\u23ee\ufe0f b  \u23ef\ufe0f space  \u23ed\ufe0f n  \U0001f4dc l  \u2764\ufe0f a  \U0001f44e d  \U0001f6aa q"
+    lines.append("")
+    lines.append(controls.center(width))
 
-        for line in lines:
-            print(line.center(width))
+    sys.stdout.write("\n".join(lines))
+    sys.stdout.flush()

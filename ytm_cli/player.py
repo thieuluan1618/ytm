@@ -58,6 +58,12 @@ def get_mpv_pause_state(socket_path):
     return result if result is not None else False
 
 
+def get_mpv_duration(socket_path):
+    """Get total duration of current track from MPV"""
+    result = _mpv_ipc(socket_path, {"command": ["get_property", "duration"]}, expect_response=True)
+    return result if result is not None else 0
+
+
 def add_song_to_playlist_interactive(song_data):
     """Interactive playlist selection and song addition during playback"""
     import curses
@@ -305,10 +311,22 @@ def play_music_with_controls(playlist, playlist_name=None):
                     except termios.error:
                         pass  # Ignore errors during cleanup
 
+            track_num = current_song_index + 1
+            track_total = len(playlist)
+
             def update_display(current_title, current_paused):
                 from .ui import display_player_status
 
-                display_player_status(current_title, current_paused)
+                elapsed = None
+                duration = None
+                if player.player_type == "mpv" and player.socket_path:
+                    elapsed = get_mpv_time_position(player.socket_path)
+                    duration = get_mpv_duration(player.socket_path)
+                display_player_status(
+                    current_title, current_paused,
+                    track_index=track_num, track_total=track_total,
+                    elapsed=elapsed, duration=duration,
+                )
 
             update_display(title, is_paused)
 
@@ -332,12 +350,11 @@ def play_music_with_controls(playlist, playlist_name=None):
                     current_song_index += 1
                     break
 
-                # Update display if pause state changed
+                # Refresh display periodically for progress bar
                 current_time = time.time()
                 if current_time - last_pause_check > 0.5:
-                    # For mpv, we could check pause state via IPC if needed
-                    # For now, we'll track it locally
                     last_pause_check = current_time
+                    update_display(title, is_paused)
 
                 # Handle keyboard input only if in TTY
                 if is_tty:
