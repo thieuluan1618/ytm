@@ -340,9 +340,9 @@ def play_music_with_controls(playlist, playlist_name=None):
     is_paused = False
     last_pause_check = 0
 
-    # Start audio visualizer
+    # Audio visualizer (disabled — not smooth enough yet)
     visualizer = CavaVisualizer()
-    vis_available = visualizer.start()
+    vis_available = False  # visualizer.start()
 
     # Check if we're in a TTY environment
     is_tty = sys.stdin.isatty()
