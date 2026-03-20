@@ -21,75 +21,50 @@ from .verbose_logger import (
     log_mpv_start,
     log_mpv_stop,
 )
-from .verbose_logger import (
-    set_verbose as set_verbose_logger,
-)
 
 
-def set_verbose(enabled, log_file=None):
-    """Set verbose mode and optional log file"""
-    set_verbose_logger(enabled, log_file)
-
-
-def send_mpv_command(socket_path, command):
-    """Send a command to mpv via IPC socket"""
+def _mpv_ipc(socket_path, command, expect_response=False):
+    """Send a command to mpv via IPC socket and optionally read a response."""
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(socket_path)
         sock.send((json.dumps(command) + "\n").encode())
+        if expect_response:
+            sock.settimeout(0.1)
+            data = json.loads(sock.recv(1024).decode())
+            sock.close()
+            if data.get("error") == "success":
+                return data.get("data")
+            return None
         sock.close()
-    except (OSError, json.JSONEncodeError):
-        pass  # Ignore errors if mpv isn't ready yet
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+def send_mpv_command(socket_path, command):
+    """Send a command to mpv via IPC socket"""
+    _mpv_ipc(socket_path, command)
 
 
 def get_mpv_time_position(socket_path):
     """Get current playback position from MPV"""
-    try:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect(socket_path)
-        sock.send(
-            json.dumps({"command": ["get_property", "time-pos"]}).encode() + b"\n"
-        )
-        sock.settimeout(0.1)
-        response = sock.recv(1024).decode()
-        sock.close()
-
-        response_data = json.loads(response)
-        if response_data.get("error") == "success":
-            return response_data.get("data", 0)
-    except Exception:
-        pass
-    return 0
+    result = _mpv_ipc(socket_path, {"command": ["get_property", "time-pos"]}, expect_response=True)
+    return result if result is not None else 0
 
 
 def get_mpv_pause_state(socket_path):
     """Get current pause state from MPV"""
-    try:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect(socket_path)
-        sock.send(json.dumps({"command": ["get_property", "pause"]}).encode() + b"\n")
-        sock.settimeout(0.1)
-        response = sock.recv(1024).decode()
-        sock.close()
-
-        response_data = json.loads(response)
-        if response_data.get("error") == "success":
-            return response_data.get("data", False)
-    except Exception:
-        pass
-    return False
+    result = _mpv_ipc(socket_path, {"command": ["get_property", "pause"]}, expect_response=True)
+    return result if result is not None else False
 
 
 def add_song_to_playlist_interactive(song_data):
     """Interactive playlist selection and song addition during playback"""
-    import sys
-    import termios
-    import tty
+    import curses
     from curses import wrapper
 
     def playlist_selection_ui(stdscr, song_title):
         """Curses UI for playlist selection"""
-        import curses
 
         stdscr.clear()
         height, width = stdscr.getmaxyx()

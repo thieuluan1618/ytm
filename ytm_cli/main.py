@@ -10,7 +10,6 @@ from rich import print
 from .config import auth_manager, get_songs_to_display, ytmusic
 from .dislikes import dislike_manager
 from .player import play_music_with_controls
-from .player import set_verbose as set_player_verbose
 from .playlists import playlist_manager
 from .ui import selection_ui
 from .utils import setup_signal_handler
@@ -27,16 +26,8 @@ from .verbose_logger import (
     set_verbose,
 )
 
-# Backward compatibility
 _VERBOSE = False
 _VERBOSE_FILE = None
-
-
-def verbose_print(*args, **kwargs):
-    """Print only if verbose mode is enabled (deprecated, use verbose_logger)"""
-    if _VERBOSE:
-        message = " ".join(str(arg) for arg in args)
-        print(message, **kwargs)
 
 
 def search_and_play(query=None, auto_select=None):
@@ -933,9 +924,8 @@ During music playback:
     _VERBOSE = getattr(args, "verbose", False)
     _VERBOSE_FILE = getattr(args, "log_file", None)
 
-    # Initialize new verbose logger
+    # Initialize verbose logger
     set_verbose(_VERBOSE, _VERBOSE_FILE)
-    set_player_verbose(_VERBOSE, _VERBOSE_FILE)
 
     # Initialize log file if specified
     if _VERBOSE_FILE and _VERBOSE:
