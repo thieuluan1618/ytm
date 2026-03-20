@@ -658,6 +658,50 @@ def playlist_delete_command(name):
     playlist_manager.delete_playlist(name)
 
 
+def llm_create_playlist_command(llm_client, prompt, num_songs=15, auto_play=False, verbose=False):
+    """Create a playlist using AI-generated song suggestions"""
+    print(f"[cyan]Asking AI to create a playlist: {prompt}[/cyan]")
+
+    response = llm_client.generate_playlist(prompt, num_songs=num_songs, verbose=verbose)
+    if not response or not response.songs:
+        print("[red]Failed to generate playlist songs[/red]")
+        return
+
+    playlist_name = response.query
+    print(f"[green]Playlist name: {playlist_name}[/green]")
+    print(f"[cyan]Searching YouTube Music for {len(response.songs)} songs...[/cyan]")
+
+    # Create the playlist
+    if not playlist_manager.create_playlist(playlist_name, f"AI-generated: {prompt}"):
+        return
+
+    # Search each song on YTMusic and add to playlist
+    found_count = 0
+    for i, song_suggestion in enumerate(response.songs, 1):
+        title = song_suggestion.get("title", "")
+        artist = song_suggestion.get("artist", "")
+        search_query = f"{title} {artist}"
+
+        try:
+            results = ytmusic.search(search_query, filter="songs", limit=1)
+            if results:
+                song = results[0]
+                song_title = song.get("title", "Unknown")
+                song_artist = song["artists"][0]["name"] if song.get("artists") else "Unknown"
+                playlist_manager.add_song_to_playlist(playlist_name, song)
+                found_count += 1
+                print(f"  [{i}/{len(response.songs)}] {song_title} - {song_artist}")
+            else:
+                print(f"  [{i}/{len(response.songs)}] Not found: {title} - {artist}")
+        except Exception as e:
+            print(f"  [{i}/{len(response.songs)}] Error: {title} - {e}")
+
+    print(f"\n[green]Playlist '{playlist_name}' created with {found_count} songs[/green]")
+
+    if auto_play and found_count > 0:
+        playlist_play_command(playlist_name)
+
+
 def main():
     """Main CLI entry point"""
     global _VERBOSE
@@ -796,19 +840,36 @@ During music playback:
         help="AI-powered music assistant",
         description="Use AI to search, recommend and play music based on natural language requests",
     )
-    llm_parser.add_argument(
+    llm_subparsers = llm_parser.add_subparsers(
+        dest="llm_command", help="LLM operations"
+    )
+
+    # llm ask (default behavior)
+    llm_ask_parser = llm_subparsers.add_parser(
+        "ask", help="Ask AI for music recommendations"
+    )
+    llm_ask_parser.add_argument(
         "prompt", help="Natural language request for music (e.g. 'play upbeat pop songs')"
     )
-    llm_parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Enable verbose output with detailed logging",
+    llm_ask_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
-    llm_parser.add_argument(
-        "--log-file",
-        metavar="FILE",
-        help="Write verbose logs to FILE (requires --verbose)",
+
+    # llm playlist - AI-generated playlist
+    llm_playlist_parser = llm_subparsers.add_parser(
+        "playlist", help="Create a playlist using AI suggestions"
+    )
+    llm_playlist_parser.add_argument(
+        "prompt", help="Describe the playlist (e.g. 'chill lo-fi beats for studying')"
+    )
+    llm_playlist_parser.add_argument(
+        "--songs", "-n", type=int, default=15, help="Number of songs (default: 15)"
+    )
+    llm_playlist_parser.add_argument(
+        "--play", "-p", action="store_true", help="Start playing after creation"
+    )
+    llm_playlist_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
 
     # TUI command
@@ -931,20 +992,30 @@ During music playback:
         from .llm_client import LLMClient
 
         llm_client = LLMClient()
-        response = llm_client.generate(args.prompt)
 
-        if not response:
-            print("[red]Failed to process LLM request[/red]")
-            return
+        if args.llm_command == "playlist":
+            llm_create_playlist_command(
+                llm_client, args.prompt, args.songs,
+                getattr(args, "play", False),
+                getattr(args, "verbose", False),
+            )
+        elif args.llm_command == "ask":
+            response = llm_client.generate(args.prompt, verbose=getattr(args, "verbose", False))
 
-        if response.action == "search":
-            search_and_play(response.query, auto_select=response.parameters.get("limit", None))
-        elif response.action == "playlist":
-            playlist_play_command(response.query)
+            if not response:
+                print("[red]Failed to process LLM request[/red]")
+                return
+
+            if response.action == "search":
+                search_and_play(response.query, auto_select=response.parameters.get("limit", None))
+            elif response.action == "playlist":
+                playlist_play_command(response.query)
+            else:
+                print(f"[yellow]Unsupported LLM action: {response.action}[/yellow]")
+                print(f"[cyan]Try:[/cyan] {response.query}")
+                search_and_play(response.query)
         else:
-            print(f"[yellow]Unsupported LLM action: {response.action}[/yellow]")
-            print(f"[cyan]Try:[/cyan] {response.query}")
-            search_and_play(response.query)
+            print("Available llm commands: ask, playlist")
     elif args.command == "tui":
         # Launch Textual TUI
         from .tui import YTMApp

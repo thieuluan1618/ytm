@@ -88,3 +88,7 @@ ytm_debug.log
 # Serena cache
 .serena/cache/
 **.log
+
+# LLM credentials
+vertex-ai-client.json
+Luna AI Vertex AI Client.json
