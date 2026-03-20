@@ -401,9 +401,21 @@ def _format_time(seconds):
     return f"{m}:{s:02d}"
 
 
+# Block characters for visualizer (index 0 = empty, 8 = full)
+_VIS_BLOCKS = " ▁▂▃▄▅▆▇█"
+
+
+def _render_visualizer(bars, width):
+    """Render cava bar values as a centered line of block characters."""
+    if not bars:
+        return ""
+    vis = "".join(_VIS_BLOCKS[min(v, 8)] for v in bars)
+    return vis.center(width)
+
+
 def display_player_status(title, is_paused, track_index=None, track_total=None,
-                          elapsed=None, duration=None):
-    """Display player status with progress bar and track info"""
+                          elapsed=None, duration=None, visualizer_bars=None):
+    """Display player status with progress bar, visualizer, and track info"""
     # Get terminal dimensions
     try:
         width = os.get_terminal_size().columns
@@ -426,6 +438,12 @@ def display_player_status(title, is_paused, track_index=None, track_total=None,
         title.center(width)[:width],
         "",
     ]
+
+    # Visualizer
+    if visualizer_bars:
+        lines.append(_render_visualizer(visualizer_bars, width))
+    else:
+        lines.append("")
 
     # Progress bar
     if elapsed is not None and duration and duration > 0:

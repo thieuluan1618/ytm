@@ -3,6 +3,7 @@
 import json
 import os
 import select
+import shutil
 import socket
 import subprocess
 import sys
@@ -21,6 +22,79 @@ from .verbose_logger import (
     log_mpv_start,
     log_mpv_stop,
 )
+
+
+class CavaVisualizer:
+    """Manages a cava subprocess for audio visualization."""
+
+    def __init__(self, num_bars=30):
+        self.process = None
+        self.bars = []
+        self.num_bars = num_bars
+        self._config_path = None
+
+    def start(self):
+        """Start cava in raw ASCII output mode."""
+        if not shutil.which("cava"):
+            return False
+
+        self._config_path = tempfile.mktemp(suffix=".cava.conf")
+        with open(self._config_path, "w") as f:
+            f.write(
+                f"[general]\nbars = {self.num_bars}\nframerate = 15\n\n"
+                f"[output]\nmethod = raw\nraw_target = /dev/stdout\n"
+                f"data_format = ascii\nascii_max_range = 8\n"
+            )
+
+        try:
+            self.process = subprocess.Popen(
+                ["cava", "-p", self._config_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+            # Set stdout to non-blocking
+            import fcntl
+            fd = self.process.stdout.fileno()
+            flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+            return True
+        except OSError:
+            return False
+
+    def read_bars(self):
+        """Read latest bar values from cava. Returns list of ints (0-8)."""
+        if not self.process or self.process.poll() is not None:
+            return self.bars
+
+        try:
+            # Read all available data, use the last complete line
+            data = self.process.stdout.read(4096)
+            if data:
+                lines = data.decode("ascii", errors="ignore").strip().split("\n")
+                last_line = lines[-1]
+                values = [int(v) for v in last_line.split(";") if v.strip()]
+                if values:
+                    self.bars = values
+        except (BlockingIOError, ValueError):
+            pass
+        return self.bars
+
+    def stop(self):
+        """Stop cava subprocess and clean up."""
+        if self.process:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+            self.process = None
+        if self._config_path:
+            try:
+                os.unlink(self._config_path)
+            except OSError:
+                pass
+            self._config_path = None
+        self.bars = []
 
 
 def _mpv_ipc(socket_path, command, expect_response=False):
@@ -266,6 +340,10 @@ def play_music_with_controls(playlist, playlist_name=None):
     is_paused = False
     last_pause_check = 0
 
+    # Start audio visualizer
+    visualizer = CavaVisualizer()
+    vis_available = visualizer.start()
+
     # Check if we're in a TTY environment
     is_tty = sys.stdin.isatty()
     
@@ -304,6 +382,7 @@ def play_music_with_controls(playlist, playlist_name=None):
             vlog_song_change(current_song_index, len(playlist), item)
 
             def cleanup():
+                visualizer.stop()
                 player.cleanup()
                 if is_tty:
                     try:
@@ -322,10 +401,12 @@ def play_music_with_controls(playlist, playlist_name=None):
                 if player.player_type == "mpv" and player.socket_path:
                     elapsed = get_mpv_time_position(player.socket_path)
                     duration = get_mpv_duration(player.socket_path)
+                vis_bars = visualizer.read_bars() if vis_available else None
                 display_player_status(
                     current_title, current_paused,
                     track_index=track_num, track_total=track_total,
                     elapsed=elapsed, duration=duration,
+                    visualizer_bars=vis_bars,
                 )
 
             update_display(title, is_paused)
@@ -440,6 +521,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                     time.sleep(0.5)  # Check playback status every 0.5 seconds
 
     finally:
+        visualizer.stop()
         if is_tty:
             try:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
