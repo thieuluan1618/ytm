@@ -53,12 +53,18 @@ yt-dlp --version  # Should be 2025.09.26 or newer
 ```
 
 #### Exit Code 0 followed by immediate skip
-**Cause:** Video not available or region-locked
+**Causes:**
+1. Video not available or region-locked
+2. Playback state detection bug (process exit detected before actual playback finishes)
 
-**Solution:**
+**Solutions:**
 - Try different songs
 - Check if YouTube Music is available in your region
 - Verify internet connection
+- **Update YTM CLI** - Recent version uses mpv IPC socket to check actual playback state, not just process status
+  ```bash
+  git pull  # If using local repo
+  ```
 
 #### Exit Code -9 or -15
 **Cause:** Process was killed (usually intentional)

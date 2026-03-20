@@ -350,8 +350,10 @@ def play_music_with_controls(playlist, playlist_name=None):
             last_pause_check = 0  # Reset pause check timer for new song
 
             while True:
-                if not player.is_playing():
+                is_playing = player.is_playing()
+                if not is_playing:
                     # Song finished or error occurred
+                    vlog_info(f"Song ended: player.is_playing() = {is_playing}, process poll = {player.mpv_process.poll() if player.player_type == 'mpv' and player.mpv_process else 'N/A'}")
                     current_song_index += 1
                     break
 
