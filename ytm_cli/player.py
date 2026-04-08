@@ -104,14 +104,33 @@ def _mpv_ipc(socket_path, command, expect_response=False):
         sock.connect(socket_path)
         sock.send((json.dumps(command) + "\n").encode())
         if expect_response:
-            sock.settimeout(0.1)
-            data = json.loads(sock.recv(1024).decode())
+            sock.settimeout(0.5)
+            buf = b""
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+                # Process each line — skip event messages, return command response
+                for line in buf.split(b"\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line.decode())
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        continue
+                    if "event" in data:
+                        continue
+                    if data.get("error") == "success":
+                        sock.close()
+                        return data.get("data")
+                    sock.close()
+                    return None
             sock.close()
-            if data.get("error") == "success":
-                return data.get("data")
             return None
         sock.close()
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError, TimeoutError):
         return None
 
 

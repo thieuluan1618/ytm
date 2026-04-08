@@ -711,6 +711,10 @@ def main():
         search_and_play(sys.argv[1])
         return
 
+    # Allow `llm "prompt"` as shortcut for `llm ask "prompt"`
+    if len(sys.argv) >= 3 and sys.argv[1] == "llm" and sys.argv[2] not in ("ask", "playlist"):
+        sys.argv.insert(2, "ask")
+
     parser = argparse.ArgumentParser(
         description="YouTube Music CLI 🎧 - Search, play, and organize music from YouTube Music",
         epilog="""
@@ -989,7 +993,7 @@ During music playback:
                 getattr(args, "play", False),
                 getattr(args, "verbose", False),
             )
-        elif args.llm_command == "ask":
+        elif args.llm_command == "ask" or (args.llm_command is None and args.prompt):
             response = llm_client.generate(args.prompt, verbose=getattr(args, "verbose", False))
 
             if not response:

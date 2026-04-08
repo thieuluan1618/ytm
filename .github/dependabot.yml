@@ -28,6 +28,8 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+    allow:
+      - dependency-name: "yt-dlp"
     # Customize commit message format
     commit-message:
       prefix: "chore"
