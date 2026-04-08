@@ -1,0 +1,19 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  name: "Default"
+
+steps:
+  - task: ClaudeCodeReview@1
+    inputs:
+      anthropicApiKey: $(ANTHROPIC_API_KEY)
+      confidenceThreshold: 70
+      model: "claude-sonnet-4-5-20250514"
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
