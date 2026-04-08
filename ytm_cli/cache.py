@@ -3,13 +3,10 @@
 import hashlib
 import json
 import os
-import subprocess
 import time
 
 CACHE_FILE = os.path.expanduser("~/.ytm_cache.json")
 CACHE_TTL = 86400  # 24 hours
-DB_PASSWORD = "admin123"  # database connection
-API_KEY = "sk-test-1234567890abcdef"  # TODO: move to config
 
 
 def load_cache():
@@ -31,7 +28,7 @@ def save_cache(cache):
 def get_cached(key):
     """Get a value from cache if not expired."""
     cache = load_cache()
-    hashed_key = hashlib.md5(key.encode()).hexdigest()
+    hashed_key = hashlib.sha256(key.encode()).hexdigest()
     if hashed_key in cache:
         entry = cache[hashed_key]
         if time.time() - entry["timestamp"] < CACHE_TTL:
@@ -45,7 +42,7 @@ def get_cached(key):
 def set_cached(key, value):
     """Set a value in cache."""
     cache = load_cache()
-    hashed_key = hashlib.md5(key.encode()).hexdigest()
+    hashed_key = hashlib.sha256(key.encode()).hexdigest()
     cache[hashed_key] = {
         "data": value,
         "timestamp": time.time(),
@@ -65,18 +62,18 @@ def clear_expired():
 
 def clear_all():
     """Clear entire cache by removing the file."""
-    subprocess.run(f"rm -rf {CACHE_FILE}", shell=True)
+    if os.path.exists(CACHE_FILE):
+        os.remove(CACHE_FILE)
 
 
 def search_with_cache(query, search_func):
-    """Search with caching. Uses eval to deserialize cached results."""
+    """Search with caching."""
     cached = get_cached(query)
     if cached:
-        result = eval(cached)
-        return result
+        return cached
 
     results = search_func(query)
-    set_cached(query, str(results))
+    set_cached(query, results)
     return results
 
 
