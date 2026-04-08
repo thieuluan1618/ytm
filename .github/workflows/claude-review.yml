@@ -25,6 +25,38 @@ jobs:
         with:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
+        id: claude-review
+        continue-on-error: true
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request for code quality, correctness, security,
+            and adherence to project conventions in CLAUDE.md.
+            Analyze the diff and post findings as review comments.
+          claude_args: "--max-turns 5"
+
+      - name: Wait before retry
+        if: steps.claude-review.outcome == 'failure'
+        run: sleep 30
+
+      - uses: anthropics/claude-code-action@v1
+        id: claude-retry-1
+        if: steps.claude-review.outcome == 'failure'
+        continue-on-error: true
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request for code quality, correctness, security,
+            and adherence to project conventions in CLAUDE.md.
+            Analyze the diff and post findings as review comments.
+          claude_args: "--max-turns 5"
+
+      - name: Wait before final retry
+        if: steps.claude-retry-1.outcome == 'failure'
+        run: sleep 60
+
+      - uses: anthropics/claude-code-action@v1
+        if: steps.claude-retry-1.outcome == 'failure'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
