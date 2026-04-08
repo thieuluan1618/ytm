@@ -1,4 +1,4 @@
-"""Main entry point and search functionality for YTM CLI"""
+"""Main entry point and search functionality for YTM CLI."""
 
 import argparse
 import curses
