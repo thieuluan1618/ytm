@@ -21,6 +21,6 @@ jobs:
       - name: Lint with ruff
         run: |
           ruff check ytm_cli/ tests/ --output-format=github
-      - name: Check formatting with black
+      - name: Check formatting with ruff
         run: |
-          black --check ytm_cli/ tests/
+          ruff format --check ytm_cli/ tests/
