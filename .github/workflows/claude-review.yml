@@ -3,64 +3,95 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
 
 jobs:
   review:
-    if: |
-      (github.event_name == 'pull_request') ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-      issues: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: anthropics/claude-code-action@v1
-        id: claude-review
-        continue-on-error: true
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Review this pull request for code quality, correctness, security,
-            and adherence to project conventions in CLAUDE.md.
-            Analyze the diff and post findings as review comments.
-          claude_args: "--max-turns 5"
 
-      - name: Wait before retry
-        if: steps.claude-review.outcome == 'failure'
-        run: sleep 30
+      - name: Get PR diff
+        run: |
+          git diff origin/${{ github.event.pull_request.base.ref }}...HEAD > /tmp/pr_diff.txt
 
-      - uses: anthropics/claude-code-action@v1
-        id: claude-retry-1
-        if: steps.claude-review.outcome == 'failure'
-        continue-on-error: true
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Review this pull request for code quality, correctness, security,
-            and adherence to project conventions in CLAUDE.md.
-            Analyze the diff and post findings as review comments.
-          claude_args: "--max-turns 5"
+      - name: Read project conventions
+        run: |
+          if [ -f CLAUDE.md ]; then
+            head -c 3000 CLAUDE.md > /tmp/conventions.txt
+          else
+            echo "No CLAUDE.md found" > /tmp/conventions.txt
+          fi
 
-      - name: Wait before final retry
-        if: steps.claude-retry-1.outcome == 'failure'
-        run: sleep 60
+      - name: Review with Claude API
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          DIFF=$(cat /tmp/pr_diff.txt)
+          CONVENTIONS=$(cat /tmp/conventions.txt)
 
-      - uses: anthropics/claude-code-action@v1
-        if: steps.claude-retry-1.outcome == 'failure'
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Review this pull request for code quality, correctness, security,
-            and adherence to project conventions in CLAUDE.md.
-            Analyze the diff and post findings as review comments.
-          claude_args: "--max-turns 5"
+          # Skip if diff is empty
+          if [ -z "$DIFF" ]; then
+            echo "REVIEW=No code changes to review." >> $GITHUB_ENV
+            exit 0
+          fi
+
+          PROMPT="You are a code reviewer. Review the following PR diff for:
+          1. Code quality and correctness
+          2. Security issues
+          3. Performance concerns
+          4. Adherence to project conventions
+
+          Be concise. Only comment on real issues. Use markdown formatting.
+          If the change is trivial and looks good, say so briefly.
+
+          Project conventions:
+          $CONVENTIONS
+
+          Diff:
+          $DIFF"
+
+          # Retry up to 3 times
+          for i in 1 2 3; do
+            RESPONSE=$(jq -n --arg prompt "$PROMPT" \
+              '{
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 2048,
+                messages: [{role: "user", content: $prompt}]
+              }' | curl -s -w "\n%{http_code}" \
+                https://api.anthropic.com/v1/messages \
+                -H "x-api-key: $ANTHROPIC_API_KEY" \
+                -H "content-type: application/json" \
+                -H "anthropic-version: 2023-06-01" \
+                -d @-)
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              REVIEW=$(echo "$BODY" | jq -r '.content[0].text')
+              echo "$REVIEW" > /tmp/review.txt
+              break
+            fi
+
+            echo "Attempt $i failed with HTTP $HTTP_CODE, retrying in $((i * 30))s..."
+            sleep $((i * 30))
+          done
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Claude API failed after 3 attempts (HTTP $HTTP_CODE)" > /tmp/review.txt
+          fi
+
+      - name: Post review comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REVIEW=$(cat /tmp/review.txt)
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "## 🤖 Claude Code Review
+
+          $REVIEW"
