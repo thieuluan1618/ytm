@@ -34,20 +34,38 @@ jobs:
           DIFF=$(cat /tmp/pr_diff.txt)
           CONVENTIONS=$(cat /tmp/conventions.txt)
 
-          # Skip if diff is empty
           if [ -z "$DIFF" ]; then
-            echo "No code changes to review." > /tmp/review.txt
+            echo '{"summary":"No code changes to review.","comments":[]}' > /tmp/review.json
             exit 0
           fi
 
-          PROMPT="You are a code reviewer. Review the following PR diff for:
-          1. Code quality and correctness
-          2. Security issues
-          3. Performance concerns
-          4. Adherence to project conventions
+          PROMPT=$(cat <<'EOF'
+          You are a code reviewer. Review the following PR diff and return a JSON response.
 
-          Be concise. Only comment on real issues. Use markdown formatting.
-          If the change is trivial and looks good, say so briefly.
+          Return ONLY valid JSON with this exact structure, no markdown:
+          {
+            "summary": "Brief overall summary of the review",
+            "comments": [
+              {
+                "path": "path/to/file.py",
+                "line": 10,
+                "severity": "critical|warning|suggestion",
+                "body": "Description of the issue and suggested fix"
+              }
+            ]
+          }
+
+          Rules:
+          - "line" must be a line number from the NEW file (lines with + in the diff)
+          - "path" must match the file path from the diff header (after b/)
+          - Only comment on real issues: security, bugs, performance, correctness
+          - Use markdown in "body" for code blocks
+          - If everything looks good, return empty comments array
+
+          EOF
+          )
+
+          FULL_PROMPT="$PROMPT
 
           Project conventions:
           $CONVENTIONS
@@ -55,12 +73,11 @@ jobs:
           Diff:
           $DIFF"
 
-          # Retry up to 3 times
           for i in 1 2 3; do
-            RESPONSE=$(jq -n --arg prompt "$PROMPT" \
+            RESPONSE=$(jq -n --arg prompt "$FULL_PROMPT" \
               '{
                 model: "claude-sonnet-4-20250514",
-                max_tokens: 2048,
+                max_tokens: 4096,
                 messages: [{role: "user", content: $prompt}]
               }' | curl -s -w "\n%{http_code}" \
                 https://api.anthropic.com/v1/messages \
@@ -73,8 +90,7 @@ jobs:
             BODY=$(echo "$RESPONSE" | sed '$d')
 
             if [ "$HTTP_CODE" = "200" ]; then
-              REVIEW=$(echo "$BODY" | jq -r '.content[0].text')
-              echo "$REVIEW" > /tmp/review.txt
+              echo "$BODY" | jq -r '.content[0].text' > /tmp/review.json
               break
             fi
 
@@ -83,15 +99,53 @@ jobs:
           done
 
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "Claude API failed after 3 attempts (HTTP $HTTP_CODE)" > /tmp/review.txt
+            echo '{"summary":"Claude API failed after 3 attempts.","comments":[]}' > /tmp/review.json
           fi
 
-      - name: Post review comment
+      - name: Post inline review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          REVIEW=$(cat /tmp/review.txt)
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body "## 🤖 Claude Code Review
+          REVIEW=$(cat /tmp/review.json)
+          SUMMARY=$(echo "$REVIEW" | jq -r '.summary // "No summary"')
+          COMMENTS=$(echo "$REVIEW" | jq -c '.comments // []')
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          PR_NUMBER=${{ github.event.pull_request.number }}
 
-          $REVIEW"
+          # Build the review comments array for GitHub API
+          NUM_COMMENTS=$(echo "$COMMENTS" | jq 'length')
+
+          if [ "$NUM_COMMENTS" -gt 0 ]; then
+            # Create review with inline comments
+            REVIEW_COMMENTS=$(echo "$COMMENTS" | jq -c '[.[] | {
+              path: .path,
+              line: .line,
+              body: (
+                (if .severity == "critical" then "🚨 **Critical**: "
+                 elif .severity == "warning" then "⚠️ **Warning**: "
+                 else "💡 **Suggestion**: " end) + .body
+              )
+            }]')
+
+            jq -n \
+              --arg body "## 🤖 Claude Code Review\n\n$SUMMARY" \
+              --arg sha "$COMMIT_SHA" \
+              --argjson comments "$REVIEW_COMMENTS" \
+              '{
+                body: $body,
+                event: "COMMENT",
+                commit_id: $sha,
+                comments: $comments
+              }' | gh api \
+                "repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" \
+                --method POST \
+                --input -
+          else
+            # No inline comments, just post summary
+            gh pr comment "$PR_NUMBER" \
+              --body "## 🤖 Claude Code Review
+
+          $SUMMARY
+
+          ✅ No issues found."
+          fi
