@@ -2,6 +2,8 @@
 
 🎵 **A simple, interactive command-line tool for YouTube Music**
 
+> Testing Azure Pipelines with Claude code review integration
+
 Stream music directly from YouTube Music in your terminal with intuitive controls, playlist management, and smart filtering.
 
 ![YTM CLI Screenshot](image.png)
