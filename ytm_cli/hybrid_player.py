@@ -89,9 +89,13 @@ class CLIHybridPlayerService:
                 stderr=subprocess.DEVNULL,
             )
 
-            # Give mpv a moment to start
-            time.sleep(0.1)
-            return True
+            # Wait for mpv to create the IPC socket before returning
+            for _ in range(20):
+                time.sleep(0.1)
+                if os.path.exists(self.socket_path):
+                    return True
+            # Socket not created but process is running
+            return self.mpv_process.poll() is None
         except Exception as e:
             log_error(f"Failed to start mpv: {e}")
             print(f"Failed to start mpv: {e}")
@@ -124,13 +128,47 @@ class CLIHybridPlayerService:
             self.ffmpeg_player.resume()
 
     def is_playing(self) -> bool:
-        """Check if music is currently playing"""
+        """Check if music is currently playing.
+
+        For mpv, checks both process state and playback idle status via IPC.
+        This prevents false positives when mpv is buffering or loading.
+        """
         if self.player_type == "mpv" and self.mpv_process:
-            return self.mpv_process.poll() is None
+            if self.mpv_process.poll() is not None:
+                return False
+            # Also check if mpv reports idle (finished playing)
+            if self.socket_path and os.path.exists(self.socket_path):
+                idle = self._get_mpv_property("idle-active")
+                if idle is True:
+                    return False
+            return True
         elif self.player_type == "ffmpeg" and self.ffmpeg_player:
             return self.ffmpeg_player.is_playing_now()
 
         return False
+
+    def _get_mpv_property(self, prop: str):
+        """Get a property value from mpv via IPC socket."""
+        if not self.socket_path:
+            return None
+        try:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.connect(self.socket_path)
+            cmd = json.dumps({"command": ["get_property", prop]}) + "\n"
+            sock.send(cmd.encode())
+            sock.settimeout(0.3)
+            data = sock.recv(4096).decode()
+            sock.close()
+            for line in data.split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+                parsed = json.loads(line)
+                if "event" not in parsed and parsed.get("error") == "success":
+                    return parsed.get("data")
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            pass
+        return None
 
     def _send_mpv_command(self, command: dict) -> None:
         """Send a command to mpv via IPC socket"""
