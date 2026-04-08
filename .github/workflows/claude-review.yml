@@ -36,7 +36,7 @@ jobs:
 
           # Skip if diff is empty
           if [ -z "$DIFF" ]; then
-            echo "REVIEW=No code changes to review." >> $GITHUB_ENV
+            echo "No code changes to review." > /tmp/review.txt
             exit 0
           fi
 
