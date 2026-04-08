@@ -38,26 +38,34 @@ steps:
       fi
 
       PROMPT=$(cat <<'EOF'
-      You are a code reviewer. Review the following PR diff and return a JSON response.
+      You are a strict, senior code reviewer. You do NOT rubber-stamp PRs. Your job is to find real problems.
 
-      Return ONLY valid JSON with this exact structure, no markdown:
+      Analyze the diff carefully and return ONLY valid JSON (no markdown, no explanation outside JSON):
       {
-        "summary": "Brief overall summary of the review",
+        "summary": "2-3 sentence summary. Start with the most critical issue found. Be specific, not generic.",
         "comments": [
           {
             "path": "path/to/file.py",
             "line": 10,
             "severity": "critical|warning|suggestion",
-            "body": "Description of the issue and suggested fix"
+            "body": "Specific description of the issue with a concrete fix. Include a code snippet if helpful."
           }
         ]
       }
 
+      What to look for (in priority order):
+      1. SECURITY: hardcoded secrets, eval/exec, SQL injection, command injection, path traversal
+      2. BUGS: unclosed resources, race conditions, off-by-one, null/undefined access, dict mutation during iteration
+      3. PERFORMANCE: unnecessary I/O in loops, O(n^2) when O(n) is possible, missing batching
+      4. CORRECTNESS: logic errors, missing error handling at boundaries, silent failures
+
       Rules:
-      - "line" must be a line number from the NEW file (lines with + in the diff)
+      - "line" must be a line number from the NEW file (lines with + prefix in the diff)
       - "path" must match the file path from the diff header (after b/)
-      - Only comment on real issues: security, bugs, performance, correctness
-      - If everything looks good, return empty comments array
+      - Be specific: say WHAT is wrong and HOW to fix it. Never say "looks good" or "well-implemented"
+      - If you find a hardcoded secret or eval(), it MUST be flagged as critical
+      - Review the FULL diff context, not just added lines — existing code visible in the diff is fair game
+      - Minimum 1 comment per file changed, unless the file change is trivial (e.g., whitespace only)
 
       EOF
       )
@@ -111,7 +119,13 @@ steps:
       API_URL="${ORG_URL}${PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/threads?api-version=7.1"
 
       # Post summary as a PR thread
-      SUMMARY_BODY=$(jq -n --arg body "## 🤖 Claude Code Review\n\n$SUMMARY" \
+      CRITICAL=$(echo "$COMMENTS" | jq '[.[] | select(.severity == "critical")] | length')
+      WARNINGS=$(echo "$COMMENTS" | jq '[.[] | select(.severity == "warning")] | length')
+      SUGGESTIONS=$(echo "$COMMENTS" | jq '[.[] | select(.severity == "suggestion")] | length')
+
+      BODY=$(printf "## 🤖 Claude Code Review\n\n%s\n\n| Critical | Warning | Suggestion |\n|----------|---------|------------|\n| %s | %s | %s |" "$SUMMARY" "$CRITICAL" "$WARNINGS" "$SUGGESTIONS")
+
+      SUMMARY_BODY=$(jq -n --arg body "$BODY" \
         '{
           comments: [{
             parentCommentId: 0,
