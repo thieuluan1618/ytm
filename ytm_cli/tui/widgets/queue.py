@@ -41,12 +41,12 @@ class QueueWidget(Widget):
 
                 if i == current_index:
                     # Current song - highlighted
-                    item_text = f"[bold green]► {i + 1}. {title}[/bold green]\n   [dim]{artist}[/dim]"
+                    item_text = (
+                        f"[bold green]► {i + 1}. {title}[/bold green]\n   [dim]{artist}[/dim]"
+                    )
                 elif i < current_index:
                     # Already played - dimmed
-                    item_text = (
-                        f"[dim]{i + 1}. {title}\n   {artist}[/dim]"
-                    )
+                    item_text = f"[dim]{i + 1}. {title}\n   {artist}[/dim]"
                 else:
                     # Upcoming songs
                     item_text = f"[cyan]{i + 1}. {title}[/cyan]\n   [yellow]{artist}[/yellow]"
@@ -59,6 +59,7 @@ class QueueWidget(Widget):
         except Exception as e:
             self.app.notify(f"✗ Queue update failed: {e}", severity="error")
             import traceback
+
             traceback.print_exc()
 
     def add_placeholder_songs(self) -> None:

@@ -77,9 +77,7 @@ class TestPlaylistDislikeIntegration:
         assert len(playlists) == 1
         assert playlists[0]["name"] == "Auth Test Playlist"
 
-    def test_dislike_persistence_across_playlist_operations(
-        self, temp_dir, sample_songs
-    ):
+    def test_dislike_persistence_across_playlist_operations(self, temp_dir, sample_songs):
         """Test that dislikes persist across playlist operations"""
         dislikes_file = os.path.join(temp_dir, "dislikes.json")
         dislike_manager = DislikeManager(dislikes_file)
@@ -145,7 +143,6 @@ class TestAuthConfigIntegration:
 
         # Test unauthenticated instance
         with patch("ytmusicapi.YTMusic") as mock_ytmusic, patch("builtins.print"):
-
             mock_instance = Mock()
             mock_ytmusic.return_value = mock_instance
 
@@ -164,7 +161,6 @@ class TestAuthConfigIntegration:
 
         # Test authenticated instance
         with patch("ytmusicapi.YTMusic") as mock_ytmusic, patch("builtins.print"):
-
             mock_instance = Mock()
             mock_ytmusic.return_value = mock_instance
 
@@ -185,16 +181,12 @@ class TestFullWorkflowIntegration:
 
         with patch("builtins.print"):
             # Create playlist
-            result = playlist_manager.create_playlist(
-                "My Workflow Playlist", "Test playlist"
-            )
+            result = playlist_manager.create_playlist("My Workflow Playlist", "Test playlist")
             assert result is True
 
             # Add songs to playlist
             for song in sample_songs:
-                result = playlist_manager.add_song_to_playlist(
-                    "My Workflow Playlist", song
-                )
+                result = playlist_manager.add_song_to_playlist("My Workflow Playlist", song)
                 assert result is True
 
             # Verify playlist contents
@@ -220,9 +212,7 @@ class TestFullWorkflowIntegration:
             assert len(filtered_songs) == 2
 
             # Remove a song from playlist
-            result = playlist_manager.remove_song_from_playlist(
-                "My Workflow Playlist", "song3"
-            )
+            result = playlist_manager.remove_song_from_playlist("My Workflow Playlist", "song3")
             assert result is True
 
             # Verify final state
@@ -292,9 +282,7 @@ class TestFullWorkflowIntegration:
 
             # Try to add song with missing data
             incomplete_song = {"title": "Incomplete Song"}  # Missing videoId
-            result = playlist_manager.add_song_to_playlist(
-                "Error Test Playlist", incomplete_song
-            )
+            result = playlist_manager.add_song_to_playlist("Error Test Playlist", incomplete_song)
             # Should handle gracefully (behavior depends on implementation)
 
             # Add valid songs

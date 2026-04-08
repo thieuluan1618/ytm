@@ -101,9 +101,7 @@ class TestLyricsService:
                 result = service.get_lyrics("Test Song", "Test Artist")
 
             assert result is None
-            mock_print.assert_called_with(
-                "Error fetching lyrics from LRCLIB: Network error"
-            )
+            mock_print.assert_called_with("Error fetching lyrics from LRCLIB: Network error")
 
     def test_search_lyrics_success(self):
         """Test successful lyrics search"""
@@ -170,9 +168,7 @@ class TestLyricsService:
                 result = service.search_lyrics("Test Song")
 
             assert result == []
-            mock_print.assert_called_with(
-                "Error searching lyrics from LRCLIB: Network error"
-            )
+            mock_print.assert_called_with("Error searching lyrics from LRCLIB: Network error")
 
 
 class TestLRCParser:
@@ -294,9 +290,7 @@ class TestGetSongMetadataFromItem:
 
     def test_get_song_metadata_complete_item(self, sample_song):
         """Test extracting metadata from complete song item"""
-        track_name, artist_name, album_name, duration = get_song_metadata_from_item(
-            sample_song
-        )
+        track_name, artist_name, album_name, duration = get_song_metadata_from_item(sample_song)
 
         assert track_name == "Test Song"
         assert artist_name == "Test Artist"
@@ -465,8 +459,7 @@ class TestLyricsServiceIntegration:
             # Verify parsed lyrics
             assert len(result["parsed_lyrics"]) == 3
             assert all(
-                isinstance(item, tuple) and len(item) == 2
-                for item in result["parsed_lyrics"]
+                isinstance(item, tuple) and len(item) == 2 for item in result["parsed_lyrics"]
             )
             assert all(
                 isinstance(item[0], float) and isinstance(item[1], str)
@@ -532,9 +525,7 @@ class TestLyricsServiceIntegration:
         song_no_artists = sample_song.copy()
         del song_no_artists["artists"]
 
-        track_name, artist_name, album_name, duration = get_song_metadata_from_item(
-            song_no_artists
-        )
+        track_name, artist_name, album_name, duration = get_song_metadata_from_item(song_no_artists)
 
         assert track_name == "Test Song"
         assert artist_name is None

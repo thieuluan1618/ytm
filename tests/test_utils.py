@@ -14,12 +14,9 @@ class TestGoodbyeMessage:
     def test_goodbye_message_prints_and_exits(self):
         """Test that goodbye_message prints message and exits"""
         with patch("builtins.print") as mock_print, patch("sys.exit") as mock_exit:
-
             goodbye_message()
 
-            mock_print.assert_called_once_with(
-                "\n👋 Goodbye! Thanks for using YTM CLI! 💩 💩 💩"
-            )
+            mock_print.assert_called_once_with("\n👋 Goodbye! Thanks for using YTM CLI! 💩 💩 💩")
             mock_exit.assert_called_once_with(0)
 
 
@@ -42,7 +39,6 @@ class TestSetupSignalHandler:
         with patch("signal.signal") as mock_signal, patch(
             "ytm_cli.utils.goodbye_message"
         ) as mock_goodbye:
-
             setup_signal_handler()
 
             # Get the registered handler function
@@ -60,7 +56,6 @@ class TestClearScreen:
     def test_clear_screen_windows(self):
         """Test clear_screen on Windows"""
         with patch("os.name", "nt"), patch("os.system") as mock_system:
-
             clear_screen()
 
             mock_system.assert_called_once_with("cls")
@@ -68,7 +63,6 @@ class TestClearScreen:
     def test_clear_screen_unix(self):
         """Test clear_screen on Unix-like systems"""
         with patch("os.name", "posix"), patch("os.system") as mock_system:
-
             clear_screen()
 
             mock_system.assert_called_once_with("clear")
@@ -76,7 +70,6 @@ class TestClearScreen:
     def test_clear_screen_other_os(self):
         """Test clear_screen on other OS"""
         with patch("os.name", "other"), patch("os.system") as mock_system:
-
             clear_screen()
 
             mock_system.assert_called_once_with("clear")
@@ -92,7 +85,6 @@ class TestGetch:
         ), patch("tty.setraw"), patch("sys.stdin.read", return_value="a"), patch(
             "termios.tcsetattr"
         ):
-
             result = getch()
 
             assert result == "a"
@@ -106,10 +98,7 @@ class TestGetch:
             "termios.tcgetattr", return_value=mock_old_settings
         ) as mock_get, patch("tty.setraw") as mock_setraw, patch(
             "sys.stdin.read", return_value="x"
-        ), patch(
-            "termios.tcsetattr"
-        ) as mock_set:
-
+        ), patch("termios.tcsetattr") as mock_set:
             getch()
 
             # Verify terminal settings are saved and restored
@@ -124,12 +113,9 @@ class TestGetch:
 
         with patch("sys.stdin.fileno", return_value=mock_fd), patch(
             "termios.tcgetattr", return_value=mock_old_settings
-        ), patch("tty.setraw"), patch(
-            "sys.stdin.read", side_effect=KeyboardInterrupt
-        ), patch(
+        ), patch("tty.setraw"), patch("sys.stdin.read", side_effect=KeyboardInterrupt), patch(
             "termios.tcsetattr"
         ) as mock_set:
-
             with pytest.raises(KeyboardInterrupt):
                 getch()
 
@@ -142,10 +128,9 @@ class TestUtilsIntegration:
 
     def test_signal_handler_integration(self):
         """Test that signal handler integration works correctly"""
-        with patch("signal.signal") as mock_signal, patch(
-            "builtins.print"
-        ) as mock_print, patch("sys.exit") as mock_exit:
-
+        with patch("signal.signal") as mock_signal, patch("builtins.print") as mock_print, patch(
+            "sys.exit"
+        ) as mock_exit:
             # Setup signal handler
             setup_signal_handler()
 
@@ -156,7 +141,5 @@ class TestUtilsIntegration:
             handler_func(signal.SIGINT, None)
 
             # Verify goodbye message was printed and exit was called
-            mock_print.assert_called_once_with(
-                "\n👋 Goodbye! Thanks for using YTM CLI! 💩 💩 💩"
-            )
+            mock_print.assert_called_once_with("\n👋 Goodbye! Thanks for using YTM CLI! 💩 💩 💩")
             mock_exit.assert_called_once_with(0)

@@ -1,8 +1,8 @@
 """Background player service for TUI"""
 
+import os
 import subprocess
 import tempfile
-import os
 from typing import Optional
 
 from ..config import get_mpv_flags
@@ -87,9 +87,7 @@ class TUIPlayerService:
 
                 sock = socket.socket(socket.AF_UNIX)
                 sock.connect(self.socket_path)
-                sock.sendall(
-                    json.dumps({"command": ["cycle", "pause"]}).encode() + b"\n"
-                )
+                sock.sendall(json.dumps({"command": ["cycle", "pause"]}).encode() + b"\n")
                 sock.close()
             except Exception:
                 pass

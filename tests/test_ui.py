@@ -3,9 +3,9 @@
 from unittest.mock import patch
 
 # Mock curses before importing ui module
-with patch("curses.curs_set"), patch("curses.use_default_colors"), patch(
-    "curses.init_pair"
-), patch("curses.color_pair"):
+with patch("curses.curs_set"), patch("curses.use_default_colors"), patch("curses.init_pair"), patch(
+    "curses.color_pair"
+):
     from ytm_cli.ui import display_player_status
 
 
@@ -17,7 +17,6 @@ class TestDisplayPlayerStatus:
         with patch("os.system") as mock_system, patch(
             "os.get_terminal_size"
         ) as mock_terminal_size, patch("builtins.print") as mock_print:
-
             mock_terminal_size.return_value.columns = 80
 
             display_player_status("Test Song - Test Artist", False)
@@ -34,7 +33,6 @@ class TestDisplayPlayerStatus:
         with patch("os.system") as mock_system, patch(
             "os.get_terminal_size"
         ) as mock_terminal_size, patch("builtins.print") as mock_print:
-
             mock_terminal_size.return_value.columns = 80
 
             display_player_status("Test Song - Test Artist", True)
@@ -50,10 +48,9 @@ class TestDisplayPlayerStatus:
         """Test display player status with very long title"""
         long_title = "Very Long Song Title That Exceeds Terminal Width" * 3
 
-        with patch("os.system"), patch(
-            "os.get_terminal_size"
-        ) as mock_terminal_size, patch("builtins.print") as mock_print:
-
+        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
+            "builtins.print"
+        ) as mock_print:
             mock_terminal_size.return_value.columns = 80
 
             display_player_status(long_title, False)
@@ -72,10 +69,9 @@ class TestDisplayPlayerStatus:
 
     def test_display_player_status_narrow_terminal(self):
         """Test display player status with narrow terminal"""
-        with patch("os.system"), patch(
-            "os.get_terminal_size"
-        ) as mock_terminal_size, patch("builtins.print") as mock_print:
-
+        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
+            "builtins.print"
+        ) as mock_print:
             mock_terminal_size.return_value.columns = 40
 
             display_player_status("Test Song", False)
@@ -89,7 +85,6 @@ class TestDisplayPlayerStatus:
         with patch("os.system"), patch(
             "os.get_terminal_size", side_effect=OSError("No terminal")
         ), patch("builtins.print") as mock_print:
-
             display_player_status("Test Song", False)
 
             # Should use fallback width of 80
@@ -101,7 +96,6 @@ class TestDisplayPlayerStatus:
         with patch("os.name", "nt"), patch("os.system") as mock_system, patch(
             "os.get_terminal_size"
         ) as mock_terminal_size, patch("builtins.print"):
-
             mock_terminal_size.return_value.columns = 80
 
             display_player_status("Test Song", False)
@@ -111,26 +105,22 @@ class TestDisplayPlayerStatus:
 
     def test_display_player_status_controls_display(self):
         """Test that controls are displayed correctly"""
-        with patch("os.system"), patch(
-            "os.get_terminal_size"
-        ) as mock_terminal_size, patch("builtins.print") as mock_print:
-
+        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
+            "builtins.print"
+        ) as mock_print:
             mock_terminal_size.return_value.columns = 120
 
             display_player_status("Test Song", False)
 
             # Should print controls
-            controls_text = (
-                "  ⏮️ (b)  ⏯️ (space)  ⏭️ (n)  📜 (l)  ❤️ (a)    👎 (d)    🚪 (q)"
-            )
+            controls_text = "  ⏮️ (b)  ⏯️ (space)  ⏭️ (n)  📜 (l)  ❤️ (a)    👎 (d)    🚪 (q)"
             mock_print.assert_any_call(controls_text.center(120))
 
     def test_display_player_status_empty_title(self):
         """Test display player status with empty title"""
-        with patch("os.system"), patch(
-            "os.get_terminal_size"
-        ) as mock_terminal_size, patch("builtins.print") as mock_print:
-
+        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
+            "builtins.print"
+        ) as mock_print:
             mock_terminal_size.return_value.columns = 80
 
             display_player_status("", False)

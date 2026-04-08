@@ -3,9 +3,9 @@
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical
-from textual.widget import Widget
-from textual.widgets import Button, DataTable, Input, Static
 from textual.message import Message
+from textual.widget import Widget
+from textual.widgets import Button, DataTable, Input
 
 from ...config import ytmusic
 from ...dislikes import dislike_manager
@@ -139,7 +139,9 @@ class SearchView(Widget):
             filtered_count = original_count - len(filtered_results)
 
             if filtered_count > 0:
-                self.app.notify(f"Filtered out {filtered_count} disliked song(s)", severity="information")
+                self.app.notify(
+                    f"Filtered out {filtered_count} disliked song(s)", severity="information"
+                )
 
             if not filtered_results:
                 self.app.notify("No songs found after filtering dislikes", severity="warning")
@@ -154,7 +156,11 @@ class SearchView(Widget):
 
             for idx, song in enumerate(filtered_results, 1):
                 title = song.get("title", "Unknown Title")
-                artist = song.get("artists", [{}])[0].get("name", "Unknown Artist") if song.get("artists") else "Unknown Artist"
+                artist = (
+                    song.get("artists", [{}])[0].get("name", "Unknown Artist")
+                    if song.get("artists")
+                    else "Unknown Artist"
+                )
 
                 table.add_row(str(idx), title, artist)
 

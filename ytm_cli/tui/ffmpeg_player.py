@@ -8,6 +8,7 @@ from typing import Optional
 
 try:
     import yt_dlp
+
     YTDLP_AVAILABLE = True
 except ImportError:
     YTDLP_AVAILABLE = False
@@ -47,10 +48,7 @@ class FFmpegPlayerService:
         """Check if ffplay is available"""
         try:
             result = subprocess.run(
-                ["ffplay", "-version"],
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["ffplay", "-version"], capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
@@ -78,7 +76,7 @@ class FFmpegPlayerService:
 
             with self._lock:
                 self.current_video_id = video_id
-                self.is_playing = True # Mark as playing immediately to prevent race in UI checks
+                self.is_playing = True  # Mark as playing immediately to prevent race in UI checks
 
             # Build YouTube URL for yt-dlp extraction
             youtube_url = f"https://www.youtube.com/watch?v={video_id}"
@@ -108,16 +106,16 @@ class FFmpegPlayerService:
                 return None, None
 
             ydl_opts = {
-                'format': 'bestaudio[abr<=128]/bestaudio',  # Prefer lower bitrate for streaming
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False,
+                "format": "bestaudio[abr<=128]/bestaudio",  # Prefer lower bitrate for streaming
+                "quiet": True,
+                "no_warnings": True,
+                "extract_flat": False,
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(youtube_url, download=False)
-                if info and 'url' in info:
-                    return info['url'], info.get('http_headers')
+                if info and "url" in info:
+                    return info["url"], info.get("http_headers")
                 else:
                     print("❌ Could not extract stream URL")
                     return None, None
@@ -172,26 +170,27 @@ class FFmpegPlayerService:
                 # -loglevel quiet: suppress ffplay output
                 ffplay_cmd = [
                     "ffplay",
-                    "-nodisp",           # No video display
-                    "-autoexit",         # Exit when playback finishes
-                    "-loglevel", "quiet", # Suppress ffplay output
+                    "-nodisp",  # No video display
+                    "-autoexit",  # Exit when playback finishes
+                    "-loglevel",
+                    "quiet",  # Suppress ffplay output
                 ]
 
                 # Add user-agent if available to avoid 403 errors
                 if headers and "User-Agent" in headers:
                     ffplay_cmd.extend(["-user_agent", headers["User-Agent"]])
-                    
+
                 # Add other headers if needed (some FFmpeg versions support -headers)
                 # but usually User-Agent is the most important one for playback
-                
+
                 ffplay_cmd.append(stream_url)
-                
+
                 try:
                     # Start ffplay process
                     self.ffplay_process = subprocess.Popen(
                         ffplay_cmd,
                         stdout=subprocess.DEVNULL,
-                        stderr=subprocess.PIPE, # Capture stderr to log errors
+                        stderr=subprocess.PIPE,  # Capture stderr to log errors
                     )
                     log_info("ffplay process started successfully")
                 except Exception as proc_error:
@@ -209,15 +208,21 @@ class FFmpegPlayerService:
                     if self.ffplay_process.poll() is not None:
                         # Process finished naturally
                         log_info("Stream ended naturally")
-                        
+
                         # Check return code
                         if self.ffplay_process.returncode != 0:
                             # Read stderr if possible
-                             stderr_out = self.ffplay_process.stderr.read() if self.ffplay_process.stderr else b""
-                             if stderr_out:
-                                 log_error(f"ffplay error: {stderr_out.decode(errors='replace')}")
-                                 print(f"⚠ Playback error: {stderr_out.decode(errors='replace')[:100]}...")
-                        
+                            stderr_out = (
+                                self.ffplay_process.stderr.read()
+                                if self.ffplay_process.stderr
+                                else b""
+                            )
+                            if stderr_out:
+                                log_error(f"ffplay error: {stderr_out.decode(errors='replace')}")
+                                print(
+                                    f"⚠ Playback error: {stderr_out.decode(errors='replace')[:100]}..."
+                                )
+
                         print("✅ Song finished")
                         break
                 time.sleep(0.1)
@@ -234,7 +239,7 @@ class FFmpegPlayerService:
             with self._lock:
                 self.is_playing = False
         finally:
-             pass # Cleanup handled in specific blocks or stop()
+            pass  # Cleanup handled in specific blocks or stop()
 
     def stop(self) -> None:
         """Stop current playback"""
@@ -282,7 +287,12 @@ class FFmpegPlayerService:
         """Pause playback"""
         try:
             with self._lock:
-                if self.is_initialized and self.is_playing and not self.is_paused and self.ffplay_process:
+                if (
+                    self.is_initialized
+                    and self.is_playing
+                    and not self.is_paused
+                    and self.ffplay_process
+                ):
                     # Send SIGSTOP to pause ffplay process
                     self.ffplay_process.send_signal(signal.SIGSTOP)
                     self.is_paused = True
@@ -294,7 +304,12 @@ class FFmpegPlayerService:
         """Resume playback"""
         try:
             with self._lock:
-                if self.is_initialized and self.is_playing and self.is_paused and self.ffplay_process:
+                if (
+                    self.is_initialized
+                    and self.is_playing
+                    and self.is_paused
+                    and self.ffplay_process
+                ):
                     # Send SIGCONT to resume ffplay process
                     self.ffplay_process.send_signal(signal.SIGCONT)
                     self.is_paused = False
@@ -311,13 +326,13 @@ class FFmpegPlayerService:
                 # Return simple state flag
                 # This covers loading state (process is None but is_playing is True)
                 # and paused state (is_paused is True but is_playing is True)
-                
+
                 # If we have a process, we can double check it's still alive
                 # to catch cases where it crashed/exited but thread hasn't updated yet
                 if self.ffplay_process and self.ffplay_process.poll() is not None:
-                     self.is_playing = False
-                     return False
-                     
+                    self.is_playing = False
+                    return False
+
                 return self.is_playing
         except Exception:
             return False

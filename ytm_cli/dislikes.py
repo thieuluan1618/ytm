@@ -76,9 +76,7 @@ class DislikeManager:
                 ),
                 "videoId": video_id,
                 "duration": song.get("duration_seconds", song.get("duration", "")),
-                "album": (
-                    song.get("album", {}).get("name", "") if song.get("album") else ""
-                ),
+                "album": (song.get("album", {}).get("name", "") if song.get("album") else ""),
                 "disliked_at": datetime.now().isoformat(),
             }
 
@@ -103,9 +101,7 @@ class DislikeManager:
         """Check if a song is disliked"""
         return video_id in self._disliked_ids
 
-    def filter_disliked_songs(
-        self, songs: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def filter_disliked_songs(self, songs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter out disliked songs from a list"""
         if not self._disliked_ids:
             return songs

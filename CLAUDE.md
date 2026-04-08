@@ -137,7 +137,7 @@ This project uses **GitHub Dependabot** for automatic dependency updates:
 
 **Configuration**: `.github/dependabot.yml`
 
-**Schedule**: 
+**Schedule**:
 - Runs every **Monday at 9:00 AM UTC**
 - Automatically creates Pull Requests for outdated dependencies
 - Groups patch updates together to reduce PR noise

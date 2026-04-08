@@ -3,14 +3,13 @@
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Footer
 
+from ..config import ytmusic
+from ..dislikes import dislike_manager
+from .player_factory import HybridPlayerService
 from .widgets.now_playing import NowPlayingWidget
 from .widgets.queue import QueueWidget
 from .widgets.search import SearchView, SongSelected
-from .player_factory import HybridPlayerService
-from ..config import ytmusic
-from ..dislikes import dislike_manager
 
 
 class YTMApp(App):
@@ -59,7 +58,6 @@ class YTMApp(App):
 
         #     # Search box at bottom
         #     yield SearchView()
-
 
         with Horizontal(id="simple-layout"):
             with Vertical(id="now-playing-container"):
@@ -111,7 +109,10 @@ class YTMApp(App):
                 filtered_radio_count = original_radio_count - len(filtered_radio)
 
                 if filtered_radio_count > 0:
-                    self.notify(f"Filtered out {filtered_radio_count} disliked song(s)", severity="information")
+                    self.notify(
+                        f"Filtered out {filtered_radio_count} disliked song(s)",
+                        severity="information",
+                    )
 
                 self.playlist.extend(filtered_radio)
                 self.notify(f"✓ Ready to play: {len(self.playlist)} songs", severity="information")
@@ -204,6 +205,7 @@ class YTMApp(App):
         except Exception as e:
             self.notify(f"Error updating UI: {str(e)}", severity="error")
             import traceback
+
             traceback.print_exc()
 
         # Check if player is available

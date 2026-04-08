@@ -44,9 +44,7 @@ class LyricsService:
             params["duration"] = duration
 
         try:
-            response = self.session.get(
-                f"{self.base_url}/get", params=params, timeout=10
-            )
+            response = self.session.get(f"{self.base_url}/get", params=params, timeout=10)
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 404:
@@ -71,9 +69,7 @@ class LyricsService:
         params = {"track_name": track_name}
 
         try:
-            response = self.session.get(
-                f"{self.base_url}/search", params=params, timeout=10
-            )
+            response = self.session.get(f"{self.base_url}/search", params=params, timeout=10)
             if response.status_code == 200:
                 return response.json()
             else:
@@ -127,9 +123,7 @@ class LRCParser:
         return lines
 
     @staticmethod
-    def get_current_line_index(
-        parsed_lyrics: List[Tuple[float, str]], current_time: float
-    ) -> int:
+    def get_current_line_index(parsed_lyrics: List[Tuple[float, str]], current_time: float) -> int:
         """
         Get the index of the current line based on playback time
 
@@ -211,9 +205,7 @@ def get_timestamped_lyrics(item: Dict) -> Optional[Dict]:
     lyrics_service = LyricsService()
 
     # Try exact match first
-    lyrics_data = lyrics_service.get_lyrics(
-        track_name, artist_name, album_name, duration
-    )
+    lyrics_data = lyrics_service.get_lyrics(track_name, artist_name, album_name, duration)
 
     # If no exact match, try search
     if not lyrics_data:

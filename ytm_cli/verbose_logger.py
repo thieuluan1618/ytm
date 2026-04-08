@@ -125,7 +125,11 @@ def log_search_results(query: str, results: List[Dict], filtered_count: int = 0)
 
         for i, song in enumerate(results[:10], 1):
             title = song.get("title", "Unknown")
-            artist = song.get("artists", [{}])[0].get("name", "Unknown") if song.get("artists") else "Unknown"
+            artist = (
+                song.get("artists", [{}])[0].get("name", "Unknown")
+                if song.get("artists")
+                else "Unknown"
+            )
             album = song.get("album", {}).get("name", "") if song.get("album") else ""
             duration = song.get("duration", "")
 
@@ -164,12 +168,16 @@ def log_playlist_composition(playlist: List[Dict], selected_song_index: int = 0)
 
     for i, song in enumerate(playlist[:15]):
         title = song.get("title", "Unknown")
-        artist = song.get("artists", [{}])[0].get("name", "Unknown") if song.get("artists") else "Unknown"
+        artist = (
+            song.get("artists", [{}])[0].get("name", "Unknown")
+            if song.get("artists")
+            else "Unknown"
+        )
 
         if i == selected_song_index:
-            tree.add(f"[bold green]► {i+1}. {title} - {artist}[/bold green]")
+            tree.add(f"[bold green]► {i + 1}. {title} - {artist}[/bold green]")
         else:
-            tree.add(f"[dim]{i+1}. {title} - {artist}[/dim]")
+            tree.add(f"[dim]{i + 1}. {title} - {artist}[/dim]")
 
     if len(playlist) > 15:
         tree.add(f"[dim]... + {len(playlist) - 15} more tracks[/dim]")
@@ -213,7 +221,9 @@ def log_song_change(index: int, total: int, song: Dict):
         return
 
     title = song.get("title", "Unknown")
-    artist = song.get("artists", [{}])[0].get("name", "Unknown") if song.get("artists") else "Unknown"
+    artist = (
+        song.get("artists", [{}])[0].get("name", "Unknown") if song.get("artists") else "Unknown"
+    )
 
     console.print()
     log_step(f"Now Playing ({index + 1}/{total})", f"{title} - {artist}")
@@ -226,7 +236,9 @@ def log_user_action(action: str, detail: str = ""):
 
     timestamp = time.strftime("%H:%M:%S")
     if detail:
-        console.print(f"[dim]{timestamp}[/dim]   [magenta]◆[/magenta] [magenta]{action}:[/magenta] {detail}")
+        console.print(
+            f"[dim]{timestamp}[/dim]   [magenta]◆[/magenta] [magenta]{action}:[/magenta] {detail}"
+        )
         log_to_file(f"{timestamp}   ◆ {action}: {detail}")
     else:
         console.print(f"[dim]{timestamp}[/dim]   [magenta]◆[/magenta] [magenta]{action}[/magenta]")
@@ -270,8 +282,12 @@ def print_verbose_summary():
     if not _VERBOSE:
         return
 
-    console.print("\n[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]")
+    console.print(
+        "\n[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]"
+    )
     console.print("[bold green]Verbose logging enabled[/bold green]")
     if _VERBOSE_FILE:
         console.print(f"[green]Logging to file: {_VERBOSE_FILE}[/green]")
-    console.print("[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]\n")
+    console.print(
+        "[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]\n"
+    )

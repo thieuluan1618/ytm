@@ -315,9 +315,9 @@ class TestSetupOauthAuth:
         config_file = os.path.join(temp_dir, "config.ini")
         manager = AuthManager(oauth_file=oauth_file, config_file=config_file)
 
-        with patch(
-            "ytmusicapi.setup.setup_oauth", side_effect=Exception("OAuth failed")
-        ), patch("builtins.print") as mock_print:
+        with patch("ytmusicapi.setup.setup_oauth", side_effect=Exception("OAuth failed")), patch(
+            "builtins.print"
+        ) as mock_print:
             result = manager.setup_oauth_auth("client_id", "client_secret")
 
             assert result is False
@@ -379,9 +379,9 @@ class TestSetupBrowserAuth:
         config_file = os.path.join(temp_dir, "config.ini")
         manager = AuthManager(browser_file=browser_file, config_file=config_file)
 
-        with patch(
-            "ytmusicapi.YTMusic.setup", side_effect=Exception("Browser auth failed")
-        ), patch("builtins.print") as mock_print:
+        with patch("ytmusicapi.YTMusic.setup", side_effect=Exception("Browser auth failed")), patch(
+            "builtins.print"
+        ) as mock_print:
             result = manager.setup_browser_auth()
 
             assert result is False
@@ -515,9 +515,7 @@ class TestGetYtmusicInstance:
             mock_ytmusic_class.assert_any_call()
 
             mock_print.assert_any_call("[red]Authentication failed: Auth failed[/red]")
-            mock_print.assert_any_call(
-                "[yellow]Falling back to unauthenticated access[/yellow]"
-            )
+            mock_print.assert_any_call("[yellow]Falling back to unauthenticated access[/yellow]")
 
     def test_get_ytmusic_instance_missing_credentials(self, temp_dir):
         """Test when auth is enabled but credential files are missing"""

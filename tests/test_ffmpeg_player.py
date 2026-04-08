@@ -1,13 +1,9 @@
 """Tests for FFmpegPlayerService"""
 
-import unittest
-import threading
 import subprocess
-import time
-from unittest.mock import MagicMock, patch, Mock, call
-from unittest.mock import PropertyMock
-
-import pytest
+import threading
+import unittest
+from unittest.mock import Mock, patch
 
 from ytm_cli.tui.ffmpeg_player import FFmpegPlayerService
 
@@ -52,7 +48,9 @@ class TestFFmpegPlayerServiceInitialization(unittest.TestCase):
         player = FFmpegPlayerService()
 
         assert player.is_initialized is True
-        mock_log_warning.assert_called_once_with("yt-dlp not available - FFmpeg player will not work properly")
+        mock_log_warning.assert_called_once_with(
+            "yt-dlp not available - FFmpeg player will not work properly"
+        )
         mock_print.assert_any_call("⚠️ yt-dlp not available - FFmpeg player will not work properly")
         mock_print.assert_any_call("   Install with: pip install yt-dlp")
 
@@ -65,10 +63,7 @@ class TestFFmpegPlayerServiceInitialization(unittest.TestCase):
 
             assert result is True
             mock_run.assert_called_once_with(
-                ["ffplay", "-version"],
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["ffplay", "-version"], capture_output=True, text=True, timeout=5
             )
 
     def test_check_ffmpeg_available_failure(self):
@@ -105,7 +100,9 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
         # Bind real methods for testing
         self.mock_player.play = FFmpegPlayerService.play.__get__(self.mock_player)
         self.mock_player.stop = FFmpegPlayerService.stop.__get__(self.mock_player)
-        self.mock_player.is_playing_now = FFmpegPlayerService.is_playing_now.__get__(self.mock_player)
+        self.mock_player.is_playing_now = FFmpegPlayerService.is_playing_now.__get__(
+            self.mock_player
+        )
 
     @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
@@ -167,7 +164,7 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
             mock_ytdlp.return_value.__enter__.return_value = mock_ydl_instance
             mock_ydl_instance.extract_info.return_value = {
                 "url": "http://example.com/stream.mp3",
-                "http_headers": {"User-Agent": "TestAgent"}
+                "http_headers": {"User-Agent": "TestAgent"},
             }
 
             player = FFmpegPlayerService._check_ffmpeg_available(None)
@@ -175,7 +172,9 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
                 player = Mock()
                 player.YTDLP_AVAILABLE = True
 
-            stream_url, headers = FFmpegPlayerService._get_stream_url(player, "http://youtube.com/watch?v=test")
+            stream_url, headers = FFmpegPlayerService._get_stream_url(
+                player, "http://youtube.com/watch?v=test"
+            )
 
             assert stream_url == "http://example.com/stream.mp3"
             assert headers == {"User-Agent": "TestAgent"}
@@ -184,7 +183,9 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
     def test_get_stream_url_no_ytdlp(self):
         """Should return None when yt-dlp is not available"""
         with patch("builtins.print"):
-            stream_url, headers = FFmpegPlayerService._get_stream_url(None, "http://youtube.com/watch?v=test")
+            stream_url, headers = FFmpegPlayerService._get_stream_url(
+                None, "http://youtube.com/watch?v=test"
+            )
 
         assert stream_url is None
         assert headers is None
@@ -198,7 +199,9 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
             mock_ydl_instance.extract_info.return_value = {"no_url": "here"}
 
             with patch("builtins.print"):
-                stream_url, headers = FFmpegPlayerService._get_stream_url(None, "http://youtube.com/watch?v=test")
+                stream_url, headers = FFmpegPlayerService._get_stream_url(
+                    None, "http://youtube.com/watch?v=test"
+                )
 
             assert stream_url is None
             assert headers is None
@@ -208,7 +211,9 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
         """Should handle exceptions during stream URL extraction"""
         with patch("yt_dlp.YoutubeDL", side_effect=Exception("yt-dlp error")):
             with patch("ytm_cli.tui.ffmpeg_player.log_error"), patch("builtins.print"):
-                stream_url, headers = FFmpegPlayerService._get_stream_url(None, "http://youtube.com/watch?v=test")
+                stream_url, headers = FFmpegPlayerService._get_stream_url(
+                    None, "http://youtube.com/watch?v=test"
+                )
 
             assert stream_url is None
             assert headers is None
@@ -219,10 +224,9 @@ class TestFFmpegPlayerServiceControls(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), \
-             patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True), \
-             patch("ytm_cli.tui.ffmpeg_player.log_info"), \
-             patch("builtins.print"):
+        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
+        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_pause_success(self):
@@ -312,10 +316,9 @@ class TestFFmpegPlayerServiceState(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), \
-             patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True), \
-             patch("ytm_cli.tui.ffmpeg_player.log_info"), \
-             patch("builtins.print"):
+        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
+        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_is_playing_now_true(self):
@@ -366,10 +369,9 @@ class TestFFmpegPlayerServiceVolume(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), \
-             patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True), \
-             patch("ytm_cli.tui.ffmpeg_player.log_info"), \
-             patch("builtins.print"):
+        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
+        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_get_volume(self):
@@ -382,7 +384,9 @@ class TestFFmpegPlayerServiceVolume(unittest.TestCase):
         """Should log volume set attempt (not implemented)"""
         self.player.set_volume(0.5)
 
-        mock_log.assert_called_once_with("Volume control not implemented for FFmpeg player (requested: 50.0%)")
+        mock_log.assert_called_once_with(
+            "Volume control not implemented for FFmpeg player (requested: 50.0%)"
+        )
 
 
 class TestFFmpegPlayerServiceCleanup(unittest.TestCase):
@@ -390,10 +394,9 @@ class TestFFmpegPlayerServiceCleanup(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), \
-             patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True), \
-             patch("ytm_cli.tui.ffmpeg_player.log_info"), \
-             patch("builtins.print"):
+        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
+        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_cleanup(self):
@@ -422,10 +425,9 @@ class TestFFmpegPlayerServiceStop(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), \
-             patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True), \
-             patch("ytm_cli.tui.ffmpeg_player.log_info"), \
-             patch("builtins.print"):
+        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
+        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_stop_no_process(self):
@@ -499,7 +501,9 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
     @patch("ytm_cli.tui.ffmpeg_player.log_info")
     @patch("ytm_cli.tui.ffmpeg_player.log_section")
     @patch("builtins.print")
-    def test_play_stream_stopped_early(self, mock_print, mock_log_section, mock_log, mock_ffmpeg_check):
+    def test_play_stream_stopped_early(
+        self, mock_print, mock_log_section, mock_log, mock_ffmpeg_check
+    ):
         """Should handle stop event before URL extraction"""
         player = FFmpegPlayerService()
         player._stop_event.set()  # Set stop event
@@ -530,12 +534,16 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
     @patch("ytm_cli.tui.ffmpeg_player.log_section")
     @patch("builtins.print")
     @patch("subprocess.Popen")
-    def test_play_stream_process_start_failure(self, mock_popen, mock_print, mock_log_section, mock_log, mock_ffmpeg_check):
+    def test_play_stream_process_start_failure(
+        self, mock_popen, mock_print, mock_log_section, mock_log, mock_ffmpeg_check
+    ):
         """Should handle ffplay process start failure"""
         player = FFmpegPlayerService()
         mock_popen.side_effect = Exception("Process start error")
 
-        with patch.object(player, "_get_stream_url", return_value=("http://stream.url", {"User-Agent": "test"})):
+        with patch.object(
+            player, "_get_stream_url", return_value=("http://stream.url", {"User-Agent": "test"})
+        ):
             player._play_stream("http://youtube.com/watch?v=test", "Test Song")
 
             assert player.is_playing is False
@@ -547,7 +555,9 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
     @patch("builtins.print")
     @patch("subprocess.Popen")
     @patch("time.sleep")
-    def test_play_stream_natural_end(self, mock_sleep, mock_popen, mock_print, mock_log_section, mock_log, mock_ffmpeg_check):
+    def test_play_stream_natural_end(
+        self, mock_sleep, mock_popen, mock_print, mock_log_section, mock_log, mock_ffmpeg_check
+    ):
         """Should handle stream ending naturally"""
         player = FFmpegPlayerService()
 
@@ -558,7 +568,9 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
         mock_process.stderr.read.return_value = b""
         mock_popen.return_value = mock_process
 
-        with patch.object(player, "_get_stream_url", return_value=("http://stream.url", {"User-Agent": "test"})):
+        with patch.object(
+            player, "_get_stream_url", return_value=("http://stream.url", {"User-Agent": "test"})
+        ):
             # Simulate the while loop ending after 3 iterations
             def sleep_side_effect(duration):
                 if mock_sleep.call_count >= 3:

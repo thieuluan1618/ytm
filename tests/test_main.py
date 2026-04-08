@@ -5,11 +5,9 @@ from unittest.mock import patch
 import pytest
 
 # Mock the imports before importing main to avoid initialization issues
-with patch("ytm_cli.main.auth_manager"), patch(
-    "ytm_cli.main.get_songs_to_display"
-), patch("ytm_cli.main.ytmusic"), patch("ytm_cli.main.dislike_manager"), patch(
-    "ytm_cli.main.playlist_manager"
-), patch(
+with patch("ytm_cli.main.auth_manager"), patch("ytm_cli.main.get_songs_to_display"), patch(
+    "ytm_cli.main.ytmusic"
+), patch("ytm_cli.main.dislike_manager"), patch("ytm_cli.main.playlist_manager"), patch(
     "ytm_cli.main.setup_signal_handler"
 ):
     from ytm_cli.main import (
@@ -36,13 +34,9 @@ class TestSearchAndPlay:
             "ytm_cli.main.dislike_manager"
         ) as mock_dislike_manager, patch(
             "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch(
-            "ytm_cli.main.selection_ui", return_value=0
-        ), patch(
+        ), patch("ytm_cli.main.selection_ui", return_value=0), patch(
             "ytm_cli.main.play_music_with_controls"
-        ), patch(
-            "builtins.print"
-        ) as mock_print:
+        ), patch("builtins.print") as mock_print:
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.return_value = {"tracks": []}
@@ -58,28 +52,20 @@ class TestSearchAndPlay:
             "ytm_cli.main.dislike_manager"
         ) as mock_dislike_manager, patch(
             "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch(
-            "ytm_cli.main.selection_ui", return_value=0
-        ), patch(
+        ), patch("ytm_cli.main.selection_ui", return_value=0), patch(
             "ytm_cli.main.play_music_with_controls"
-        ), patch(
-            "builtins.input", return_value="user input query"
-        ):
+        ), patch("builtins.input", return_value="user input query"):
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.return_value = {"tracks": []}
 
             search_and_play()
 
-            mock_ytmusic.search.assert_called_once_with(
-                "user input query", filter="songs"
-            )
+            mock_ytmusic.search.assert_called_once_with("user input query", filter="songs")
 
     def test_search_and_play_no_results(self):
         """Test search and play when no results found"""
-        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch(
-            "builtins.print"
-        ) as mock_print:
+        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch("builtins.print") as mock_print:
             mock_ytmusic.search.return_value = []
 
             search_and_play("no results query")
@@ -96,9 +82,7 @@ class TestSearchAndPlay:
 
             search_and_play("filtered query")
 
-            mock_print.assert_called_with(
-                "[red]No songs found after filtering dislikes.[/red]"
-            )
+            mock_print.assert_called_with("[red]No songs found after filtering dislikes.[/red]")
 
     def test_search_and_play_user_quits(self, sample_songs):
         """Test search and play when user quits selection"""
@@ -106,9 +90,7 @@ class TestSearchAndPlay:
             "ytm_cli.main.dislike_manager"
         ) as mock_dislike_manager, patch(
             "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch(
-            "ytm_cli.main.selection_ui", return_value=None
-        ), patch(
+        ), patch("ytm_cli.main.selection_ui", return_value=None), patch(
             "ytm_cli.main.play_music_with_controls"
         ) as mock_play:
             mock_ytmusic.search.return_value = sample_songs
@@ -125,13 +107,9 @@ class TestSearchAndPlay:
             "ytm_cli.main.dislike_manager"
         ) as mock_dislike_manager, patch(
             "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch(
-            "ytm_cli.main.selection_ui", return_value=0
-        ), patch(
+        ), patch("ytm_cli.main.selection_ui", return_value=0), patch(
             "ytm_cli.main.play_music_with_controls"
-        ) as mock_play, patch(
-            "builtins.print"
-        ) as mock_print:
+        ) as mock_play, patch("builtins.print") as mock_print:
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.side_effect = Exception("Radio error")
@@ -194,9 +172,7 @@ class TestAuthCommands:
             setup_browser_command()
 
             mock_auth_manager.setup_browser_auth.assert_called_once_with(True)
-            mock_print.assert_any_call(
-                "\n[green]🎉 Browser authentication setup complete![/green]"
-            )
+            mock_print.assert_any_call("\n[green]🎉 Browser authentication setup complete![/green]")
 
     def test_setup_browser_command_failure(self):
         """Test browser auth setup command failure"""
@@ -207,9 +183,7 @@ class TestAuthCommands:
 
             setup_browser_command()
 
-            mock_print.assert_any_call(
-                "\n[red]❌ Browser authentication setup failed.[/red]"
-            )
+            mock_print.assert_any_call("\n[red]❌ Browser authentication setup failed.[/red]")
 
     def test_auth_status_command_enabled(self):
         """Test auth status command when auth is enabled"""
@@ -245,9 +219,7 @@ class TestAuthCommands:
             disable_auth_command()
 
             mock_auth_manager.disable_auth.assert_called_once()
-            mock_print.assert_any_call(
-                "\n[green]✅ Authentication disabled successfully![/green]"
-            )
+            mock_print.assert_any_call("\n[green]✅ Authentication disabled successfully![/green]")
 
     def test_disable_auth_command_failure(self):
         """Test auth disable command failure"""
@@ -258,9 +230,7 @@ class TestAuthCommands:
 
             disable_auth_command()
 
-            mock_print.assert_any_call(
-                "\n[red]❌ Failed to disable authentication.[/red]"
-            )
+            mock_print.assert_any_call("\n[red]❌ Failed to disable authentication.[/red]")
 
 
 class TestPlaylistCommands:
@@ -348,13 +318,9 @@ class TestPlaylistCommands:
         """Test successful playlist play command"""
         with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
             "ytm_cli.main.dislike_manager"
-        ) as mock_dislike_manager, patch(
-            "ytm_cli.main.play_music_with_controls"
-        ) as mock_play:
+        ) as mock_dislike_manager, patch("ytm_cli.main.play_music_with_controls") as mock_play:
             mock_playlist_manager.get_playlist.return_value = sample_playlist_data
-            mock_dislike_manager.filter_disliked_songs.return_value = (
-                sample_playlist_data["songs"]
-            )
+            mock_dislike_manager.filter_disliked_songs.return_value = sample_playlist_data["songs"]
 
             playlist_play_command("Test Playlist")
 
@@ -367,9 +333,7 @@ class TestPlaylistCommands:
 
             playlist_delete_command("Test Playlist")
 
-            mock_playlist_manager.delete_playlist.assert_called_once_with(
-                "Test Playlist"
-            )
+            mock_playlist_manager.delete_playlist.assert_called_once_with("Test Playlist")
 
 
 class TestMainFunction:

@@ -26,18 +26,14 @@ class TestPlaylistManagerInit:
 
     def test_ensure_playlists_dir_creates_directory(self):
         """Test that directory is created if it doesn't exist"""
-        with patch("os.path.exists", return_value=False), patch(
-            "os.makedirs"
-        ) as mock_makedirs:
+        with patch("os.path.exists", return_value=False), patch("os.makedirs") as mock_makedirs:
             PlaylistManager("test_dir")
 
             mock_makedirs.assert_called_once_with("test_dir")
 
     def test_ensure_playlists_dir_exists(self):
         """Test when directory already exists"""
-        with patch("os.path.exists", return_value=True), patch(
-            "os.makedirs"
-        ) as mock_makedirs:
+        with patch("os.path.exists", return_value=True), patch("os.makedirs") as mock_makedirs:
             PlaylistManager("existing_dir")
 
             mock_makedirs.assert_not_called()
@@ -54,9 +50,7 @@ class TestCreatePlaylist:
             result = manager.create_playlist("Test Playlist", "A test playlist")
 
             assert result is True
-            mock_print.assert_called_with(
-                "[green]✅ Created playlist: Test Playlist[/green]"
-            )
+            mock_print.assert_called_with("[green]✅ Created playlist: Test Playlist[/green]")
 
             # Verify file was created
             playlist_path = os.path.join(temp_dir, "Test_Playlist.json")
@@ -83,9 +77,7 @@ class TestCreatePlaylist:
             result = manager.create_playlist("Existing Playlist")
 
             assert result is False
-            mock_print.assert_called_with(
-                "[red]Playlist 'Existing Playlist' already exists[/red]"
-            )
+            mock_print.assert_called_with("[red]Playlist 'Existing Playlist' already exists[/red]")
 
     def test_create_playlist_file_error(self, temp_dir):
         """Test playlist creation with file error"""
@@ -97,9 +89,7 @@ class TestCreatePlaylist:
             result = manager.create_playlist("Test Playlist")
 
             assert result is False
-            mock_print.assert_called_with(
-                "[red]Error creating playlist: Permission denied[/red]"
-            )
+            mock_print.assert_called_with("[red]Error creating playlist: Permission denied[/red]")
 
     def test_safe_filename_conversion(self, temp_dir):
         """Test that unsafe characters are converted in filenames"""
@@ -138,9 +128,7 @@ class TestAddSongToPlaylist:
             result = manager.add_song_to_playlist("Test Playlist", sample_song)
 
             assert result is True
-            mock_print.assert_called_with(
-                "[green]✅ Added 'Test Song' to 'Test Playlist'[/green]"
-            )
+            mock_print.assert_called_with("[green]✅ Added 'Test Song' to 'Test Playlist'[/green]")
 
     def test_add_song_playlist_not_found(self, temp_dir, sample_song):
         """Test adding song to non-existent playlist"""
@@ -150,9 +138,7 @@ class TestAddSongToPlaylist:
             result = manager.add_song_to_playlist("Non-existent", sample_song)
 
             assert result is False
-            mock_print.assert_called_with(
-                "[red]Playlist 'Non-existent' not found[/red]"
-            )
+            mock_print.assert_called_with("[red]Playlist 'Non-existent' not found[/red]")
 
     def test_add_song_duplicate(self, temp_dir, sample_song):
         """Test adding duplicate song to playlist"""
@@ -182,9 +168,7 @@ class TestAddSongToPlaylist:
             result = manager.add_song_to_playlist("Test Playlist", sample_song)
 
             assert result is False
-            mock_print.assert_called_with(
-                "[red]Error adding song to playlist: Disk full[/red]"
-            )
+            mock_print.assert_called_with("[red]Error adding song to playlist: Disk full[/red]")
 
     def test_add_song_updates_timestamp(self, temp_dir, sample_song):
         """Test that adding song updates the playlist timestamp"""
@@ -264,9 +248,7 @@ class TestListPlaylists:
         assert len(result) == 1
         assert result[0]["name"] == "Valid Playlist"
         # Should print warning about invalid JSON
-        assert any(
-            "Error reading playlist" in str(call) for call in mock_print.call_args_list
-        )
+        assert any("Error reading playlist" in str(call) for call in mock_print.call_args_list)
 
 
 class TestGetPlaylist:
@@ -305,9 +287,7 @@ class TestGetPlaylist:
             result = manager.get_playlist("Test Playlist")
 
             assert result is None
-            mock_print.assert_called_with(
-                "[red]Error reading playlist: Permission denied[/red]"
-            )
+            mock_print.assert_called_with("[red]Error reading playlist: Permission denied[/red]")
 
 
 class TestDeletePlaylist:
@@ -322,9 +302,7 @@ class TestDeletePlaylist:
             result = manager.delete_playlist("Test Playlist")
 
             assert result is True
-            mock_print.assert_called_with(
-                "[green]✅ Deleted playlist: Test Playlist[/green]"
-            )
+            mock_print.assert_called_with("[green]✅ Deleted playlist: Test Playlist[/green]")
 
             # Verify file was deleted
             playlist_path = os.path.join(temp_dir, "Test_Playlist.json")
@@ -338,9 +316,7 @@ class TestDeletePlaylist:
             result = manager.delete_playlist("Non-existent")
 
             assert result is False
-            mock_print.assert_called_with(
-                "[red]Playlist 'Non-existent' not found[/red]"
-            )
+            mock_print.assert_called_with("[red]Playlist 'Non-existent' not found[/red]")
 
     def test_delete_playlist_file_error(self, temp_dir):
         """Test deleting playlist with file error"""
@@ -353,9 +329,7 @@ class TestDeletePlaylist:
             result = manager.delete_playlist("Test Playlist")
 
             assert result is False
-            mock_print.assert_called_with(
-                "[red]Error deleting playlist: Permission denied[/red]"
-            )
+            mock_print.assert_called_with("[red]Error deleting playlist: Permission denied[/red]")
 
 
 class TestRemoveSongFromPlaylist:
@@ -368,9 +342,7 @@ class TestRemoveSongFromPlaylist:
         manager.add_song_to_playlist("Test Playlist", sample_song)
 
         with patch("builtins.print") as mock_print:
-            result = manager.remove_song_from_playlist(
-                "Test Playlist", "test_video_id_123"
-            )
+            result = manager.remove_song_from_playlist("Test Playlist", "test_video_id_123")
 
             assert result is True
             mock_print.assert_called_with(
@@ -385,9 +357,7 @@ class TestRemoveSongFromPlaylist:
             result = manager.remove_song_from_playlist("Non-existent", "video_id")
 
             assert result is False
-            mock_print.assert_called_with(
-                "[red]Playlist 'Non-existent' not found[/red]"
-            )
+            mock_print.assert_called_with("[red]Playlist 'Non-existent' not found[/red]")
 
     def test_remove_song_not_in_playlist(self, temp_dir):
         """Test removing song that's not in playlist"""
@@ -395,9 +365,7 @@ class TestRemoveSongFromPlaylist:
         manager.create_playlist("Test Playlist")
 
         with patch("builtins.print") as mock_print:
-            result = manager.remove_song_from_playlist(
-                "Test Playlist", "non_existent_id"
-            )
+            result = manager.remove_song_from_playlist("Test Playlist", "non_existent_id")
 
             assert result is False
             mock_print.assert_called_with("[yellow]Song not found in playlist[/yellow]")

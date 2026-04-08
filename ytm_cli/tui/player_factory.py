@@ -1,10 +1,10 @@
 """Player factory that provides hybrid mpv/FFmpeg support"""
 
 import shutil
-from typing import Union, Optional
+from typing import Union
 
-from .player_service import TUIPlayerService
 from .ffmpeg_player import FFmpegPlayerService
+from .player_service import TUIPlayerService
 
 
 class HybridPlayerService:

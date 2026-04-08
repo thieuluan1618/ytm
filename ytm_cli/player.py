@@ -14,14 +14,10 @@ import tty
 
 from ytm_cli.utils import goodbye_message
 
-from .config import get_mpv_flags, ytmusic
+from .config import ytmusic
 from .dislikes import dislike_manager
 from .playlists import playlist_manager
 from .ui import display_lyrics_with_curses
-from .verbose_logger import (
-    log_mpv_start,
-    log_mpv_stop,
-)
 
 
 class CavaVisualizer:
@@ -54,6 +50,7 @@ class CavaVisualizer:
             )
             # Set stdout to non-blocking
             import fcntl
+
             fd = self.process.stdout.fileno()
             flags = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
@@ -234,9 +231,7 @@ def add_song_to_playlist_interactive(song_data):
 
         # Run playlist selection UI
         song_title = song_data.get("title", "Unknown")
-        selected_playlist = wrapper(
-            lambda stdscr: playlist_selection_ui(stdscr, song_title)
-        )
+        selected_playlist = wrapper(lambda stdscr: playlist_selection_ui(stdscr, song_title))
 
         if selected_playlist is None:
             # User cancelled
@@ -293,8 +288,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
         timestamped_lyrics = get_timestamped_lyrics(song_item)
 
         if timestamped_lyrics and (
-            timestamped_lyrics.get("synced_lyrics")
-            or timestamped_lyrics.get("plain_lyrics")
+            timestamped_lyrics.get("synced_lyrics") or timestamped_lyrics.get("plain_lyrics")
         ):
             display_lyrics_with_curses(
                 timestamped_lyrics, title, socket_path, get_mpv_time_position
@@ -365,7 +359,7 @@ def play_music_with_controls(playlist, playlist_name=None):
 
     # Check if we're in a TTY environment
     is_tty = sys.stdin.isatty()
-    
+
     if is_tty:
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
@@ -382,9 +376,6 @@ def play_music_with_controls(playlist, playlist_name=None):
             )
             from .verbose_logger import (
                 log_song_change as vlog_song_change,
-            )
-            from .verbose_logger import (
-                log_user_action as vlog_user_action,
             )
 
             item = playlist[current_song_index]
@@ -412,7 +403,9 @@ def play_music_with_controls(playlist, playlist_name=None):
             track_num = current_song_index + 1
             track_total = len(playlist)
 
-            def update_display(current_title, current_paused):
+            def update_display(
+                current_title, current_paused, _track_num=track_num, _track_total=track_total
+            ):
                 from .ui import display_player_status
 
                 elapsed = None
@@ -422,9 +415,12 @@ def play_music_with_controls(playlist, playlist_name=None):
                     duration = get_mpv_duration(player.socket_path)
                 vis_bars = visualizer.read_bars() if vis_available else None
                 display_player_status(
-                    current_title, current_paused,
-                    track_index=track_num, track_total=track_total,
-                    elapsed=elapsed, duration=duration,
+                    current_title,
+                    current_paused,
+                    track_index=_track_num,
+                    track_total=_track_total,
+                    elapsed=elapsed,
+                    duration=duration,
                     visualizer_bars=vis_bars,
                 )
 
@@ -446,7 +442,9 @@ def play_music_with_controls(playlist, playlist_name=None):
                 is_playing = player.is_playing()
                 if not is_playing:
                     # Song finished or error occurred
-                    vlog_info(f"Song ended: player.is_playing() = {is_playing}, process poll = {player.mpv_process.poll() if player.player_type == 'mpv' and player.mpv_process else 'N/A'}")
+                    vlog_info(
+                        f"Song ended: player.is_playing() = {is_playing}, process poll = {player.mpv_process.poll() if player.player_type == 'mpv' and player.mpv_process else 'N/A'}"
+                    )
                     current_song_index += 1
                     break
 
@@ -510,9 +508,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                                         print(
                                             f"📝 Removed '{song_title}' from playlist '{playlist_name}'"
                                         )
-                                        print(
-                                            "   💡 Press 'd' again to add to global dislikes"
-                                        )
+                                        print("   💡 Press 'd' again to add to global dislikes")
                                         time.sleep(
                                             1.5
                                         )  # Give user time to read and potentially press 'd' again

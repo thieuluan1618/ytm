@@ -1,9 +1,10 @@
 """Tests for CLI hybrid player with mpv/FFmpeg fallback"""
 
-import unittest
-from unittest.mock import MagicMock, patch, call
-import tempfile
 import os
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
+
 from ytm_cli.hybrid_player import CLIHybridPlayerService
 from ytm_cli.tui.ffmpeg_player import FFmpegPlayerService
 
@@ -26,9 +27,7 @@ class TestCLIHybridPlayerInitialization(unittest.TestCase):
 
     @patch("shutil.which", return_value=None)
     @patch.object(FFmpegPlayerService, "__init__", return_value=None)
-    def test_init_falls_back_to_ffmpeg_when_mpv_unavailable(
-        self, mock_ffmpeg_init, mock_which
-    ):
+    def test_init_falls_back_to_ffmpeg_when_mpv_unavailable(self, mock_ffmpeg_init, mock_which):
         """Should fall back to FFmpeg if mpv is not available"""
         with patch("builtins.print"):
             player = CLIHybridPlayerService()
@@ -227,7 +226,9 @@ class TestCLIHybridPlayerInfo(unittest.TestCase):
 class TestFFmpegPlayerIntegration(unittest.TestCase):
     """Integration tests for FFmpegPlayerService"""
 
-    @patch("ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True)
+    @patch(
+        "ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True
+    )
     @patch("yt_dlp.YoutubeDL")
     def test_ffmpeg_player_initialization(self, mock_ytdlp, mock_ffmpeg_available):
         """Test FFmpegPlayerService initialization"""
@@ -237,7 +238,9 @@ class TestFFmpegPlayerIntegration(unittest.TestCase):
         except ImportError:
             self.skipTest("FFmpeg not installed")
 
-    @patch("ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=False)
+    @patch(
+        "ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=False
+    )
     def test_ffmpeg_player_init_failure(self, mock_ffmpeg_available):
         """Test FFmpegPlayerService init failure"""
         try:
@@ -246,7 +249,9 @@ class TestFFmpegPlayerIntegration(unittest.TestCase):
         except ImportError:
             self.skipTest("FFmpeg not installed")
 
-    @patch("ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True)
+    @patch(
+        "ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True
+    )
     def test_ffmpeg_player_stop(self, mock_ffmpeg_available):
         """Test FFmpegPlayerService stop"""
         try:

@@ -7,7 +7,7 @@ ytm/
 │   ├── __init__.py         # Package version (__version__ = "0.4.0")
 │   ├── __main__.py         # Package entry point
 │   ├── main.py             # CLI interface and command routing
-│   ├── player.py           # MPV integration and playback controls  
+│   ├── player.py           # MPV integration and playback controls
 │   ├── ui.py               # Curses-based terminal interfaces
 │   ├── auth.py             # Authentication (OAuth/browser)
 │   ├── playlists.py        # Local playlist management

@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
   - Configured via `.github/dependabot.yml`
 
 - **Smart Auto-Selection**: When only one playlist exists, automatically select it
-  - Applies to `playlist show`, `playlist play`, and `playlist delete` commands  
+  - Applies to `playlist show`, `playlist play`, and `playlist delete` commands
   - Follows app philosophy: "Keep it simple for the listener to enjoy music"
   - Reduces unnecessary user interactions for single-playlist scenarios
 
@@ -70,7 +70,7 @@ All notable changes to this project will be documented in this file.
   - Persistent storage of disliked songs in `dislikes.json`
   - Automatic filtering of disliked songs from:
     - Search results
-    - Radio playlists  
+    - Radio playlists
     - Local playlist playback
   - Privacy-focused: `dislikes.json` added to `.gitignore`
 

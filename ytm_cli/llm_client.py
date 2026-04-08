@@ -17,8 +17,12 @@ logger = logging.getLogger(__name__)
 class LLMResponse:
     action: str  # "search", "playlist", "recommend", "create_playlist", etc.
     query: str
-    parameters: dict = field(default_factory=dict)  # Additional parameters like limit, filters, notes, fallback, etc.
-    songs: List[dict] = field(default_factory=list)  # For create_playlist: list of {"title": ..., "artist": ...}
+    parameters: dict = field(
+        default_factory=dict
+    )  # Additional parameters like limit, filters, notes, fallback, etc.
+    songs: List[dict] = field(
+        default_factory=list
+    )  # For create_playlist: list of {"title": ..., "artist": ...}
 
 
 def _load_vertex_credentials():
@@ -64,12 +68,14 @@ class LLMClient:
                     songs = playlist_data.get("songs", [])
 
                     for song in songs:
-                        recent_songs.append({
-                            "title": song.get("title", "Unknown"),
-                            "artist": song.get("artist", "Unknown Artist"),
-                            "added_at": song.get("added_at", ""),
-                            "playlist": playlist_name
-                        })
+                        recent_songs.append(
+                            {
+                                "title": song.get("title", "Unknown"),
+                                "artist": song.get("artist", "Unknown Artist"),
+                                "added_at": song.get("added_at", ""),
+                                "playlist": playlist_name,
+                            }
+                        )
                 except Exception:
                     continue
 
@@ -95,11 +101,13 @@ class LLMClient:
 
             recent = []
             for song in songs[:limit]:
-                recent.append({
-                    "title": song.get("title", "Unknown"),
-                    "artist": song.get("artist", "Unknown Artist"),
-                    "disliked_at": song.get("disliked_at", "")
-                })
+                recent.append(
+                    {
+                        "title": song.get("title", "Unknown"),
+                        "artist": song.get("artist", "Unknown Artist"),
+                        "disliked_at": song.get("disliked_at", ""),
+                    }
+                )
 
             return recent
 
@@ -116,7 +124,9 @@ class LLMClient:
         if recent_added:
             added_lines = []
             for song in recent_added:
-                added_lines.append(f"  - \"{song['title']}\" by {song['artist']} (playlist: {song['playlist']})")
+                added_lines.append(
+                    f'  - "{song["title"]}" by {song["artist"]} (playlist: {song["playlist"]})'
+                )
             added_context = "\n".join(added_lines)
         else:
             added_context = "  (none)"
@@ -126,7 +136,7 @@ class LLMClient:
         if recent_disliked:
             disliked_lines = []
             for song in recent_disliked:
-                disliked_lines.append(f"  - \"{song['title']}\" by {song['artist']}")
+                disliked_lines.append(f'  - "{song["title"]}" by {song["artist"]}')
             disliked_context = "\n".join(disliked_lines)
         else:
             disliked_context = "  (none)"
@@ -165,16 +175,12 @@ Task:
 
         added_context = "  (none)"
         if recent_added:
-            added_lines = [
-                f'  - "{s["title"]}" by {s["artist"]}' for s in recent_added
-            ]
+            added_lines = [f'  - "{s["title"]}" by {s["artist"]}' for s in recent_added]
             added_context = "\n".join(added_lines)
 
         disliked_context = "  (none)"
         if recent_disliked:
-            disliked_lines = [
-                f'  - "{s["title"]}" by {s["artist"]}' for s in recent_disliked
-            ]
+            disliked_lines = [f'  - "{s["title"]}" by {s["artist"]}' for s in recent_disliked]
             disliked_context = "\n".join(disliked_lines)
 
         return f"""Context:
@@ -203,7 +209,9 @@ Task:
 
   Only output JSON—no additional text."""
 
-    def generate_playlist(self, prompt: str, num_songs: int = 15, verbose: bool = False) -> Optional[LLMResponse]:
+    def generate_playlist(
+        self, prompt: str, num_songs: int = 15, verbose: bool = False
+    ) -> Optional[LLMResponse]:
         """Generate a playlist of songs from LLM based on a description"""
         try:
             context_prompt = self._build_create_playlist_prompt(prompt, num_songs)
@@ -242,7 +250,7 @@ Task:
             "recent_added_count": len(recent_added),
             "recent_disliked_count": len(recent_disliked),
             "recent_added": recent_added,
-            "recent_disliked": recent_disliked
+            "recent_disliked": recent_disliked,
         }
 
     def generate(self, prompt: str, verbose: bool = False) -> Optional[LLMResponse]:
@@ -338,12 +346,9 @@ Task:
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a music recommendation assistant. You provide structured JSON responses based on user context and preferences. Never recommend disliked artists or songs."
+                    "content": "You are a music recommendation assistant. You provide structured JSON responses based on user context and preferences. Never recommend disliked artists or songs.",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             "temperature": self.temperature,
         }
@@ -387,12 +392,7 @@ Task:
         payload = {
             "model": self.model,
             "system": "You are a music recommendation assistant. You provide structured JSON responses based on user context and preferences. Never recommend disliked artists or songs.",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "temperature": self.temperature,
             "max_tokens": 500,
         }

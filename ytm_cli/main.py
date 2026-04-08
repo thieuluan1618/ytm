@@ -835,14 +835,10 @@ During music playback:
         help="AI-powered music assistant",
         description="Use AI to search, recommend and play music based on natural language requests",
     )
-    llm_subparsers = llm_parser.add_subparsers(
-        dest="llm_command", help="LLM operations"
-    )
+    llm_subparsers = llm_parser.add_subparsers(dest="llm_command", help="LLM operations")
 
     # llm ask (default behavior)
-    llm_ask_parser = llm_subparsers.add_parser(
-        "ask", help="Ask AI for music recommendations"
-    )
+    llm_ask_parser = llm_subparsers.add_parser("ask", help="Ask AI for music recommendations")
     llm_ask_parser.add_argument(
         "prompt", help="Natural language request for music (e.g. 'play upbeat pop songs')"
     )
@@ -989,7 +985,9 @@ During music playback:
 
         if args.llm_command == "playlist":
             llm_create_playlist_command(
-                llm_client, args.prompt, args.songs,
+                llm_client,
+                args.prompt,
+                args.songs,
                 getattr(args, "play", False),
                 getattr(args, "verbose", False),
             )
