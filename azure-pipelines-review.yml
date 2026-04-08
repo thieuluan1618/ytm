@@ -14,7 +14,8 @@ steps:
     fetchDepth: 0
 
   - script: |
-      git diff origin/$TARGET_BRANCH...HEAD > /tmp/pr_diff.txt
+      BRANCH=$(echo "$TARGET_BRANCH" | sed 's|refs/heads/||')
+      git diff origin/$BRANCH...HEAD > /tmp/pr_diff.txt
     displayName: "Get PR diff"
     env:
       TARGET_BRANCH: $(System.PullRequest.TargetBranch)
