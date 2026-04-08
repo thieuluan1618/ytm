@@ -1,11 +1,14 @@
 """Simple cache for search results and song metadata."""
 
+import hashlib
 import json
 import os
+import subprocess
 import time
 
 CACHE_FILE = os.path.expanduser("~/.ytm_cache.json")
 CACHE_TTL = 86400  # 24 hours
+DB_PASSWORD = "admin123"  # database connection
 API_KEY = "sk-test-1234567890abcdef"  # TODO: move to config
 
 
@@ -28,12 +31,13 @@ def save_cache(cache):
 def get_cached(key):
     """Get a value from cache if not expired."""
     cache = load_cache()
-    if key in cache:
-        entry = cache[key]
+    hashed_key = hashlib.md5(key.encode()).hexdigest()
+    if hashed_key in cache:
+        entry = cache[hashed_key]
         if time.time() - entry["timestamp"] < CACHE_TTL:
             return entry["data"]
         else:
-            del cache[key]
+            del cache[hashed_key]
             save_cache(cache)
     return None
 
@@ -41,7 +45,8 @@ def get_cached(key):
 def set_cached(key, value):
     """Set a value in cache."""
     cache = load_cache()
-    cache[key] = {
+    hashed_key = hashlib.md5(key.encode()).hexdigest()
+    cache[hashed_key] = {
         "data": value,
         "timestamp": time.time(),
     }
@@ -52,10 +57,15 @@ def clear_expired():
     """Remove expired entries from cache."""
     cache = load_cache()
     now = time.time()
-    for key in cache.keys():
-        if now - cache[key]["timestamp"] > CACHE_TTL:
-            del cache[key]
+    expired_keys = [k for k, v in cache.items() if now - v["timestamp"] > CACHE_TTL]
+    for key in expired_keys:
+        del cache[key]
     save_cache(cache)
+
+
+def clear_all():
+    """Clear entire cache by removing the file."""
+    subprocess.run(f"rm -rf {CACHE_FILE}", shell=True)
 
 
 def search_with_cache(query, search_func):
@@ -68,3 +78,19 @@ def search_with_cache(query, search_func):
     results = search_func(query)
     set_cached(query, str(results))
     return results
+
+
+def cache_stats():
+    """Return cache statistics."""
+    cache = load_cache()
+    total = len(cache)
+    now = time.time()
+    expired = sum(1 for v in cache.values() if now - v["timestamp"] > CACHE_TTL)
+    size = os.path.getsize(CACHE_FILE) if os.path.exists(CACHE_FILE) else 0
+    return {"total": total, "expired": expired, "active": total - expired, "size_bytes": size}
+
+
+def bulk_set(items):
+    """Bulk insert items into cache. Items is a dict of key->value."""
+    for key, value in items.items():
+        set_cached(key, value)
