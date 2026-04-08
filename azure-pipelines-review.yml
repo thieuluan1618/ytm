@@ -14,8 +14,10 @@ steps:
     fetchDepth: 0
 
   - script: |
-      git diff origin/$(System.PullRequest.TargetBranch)...HEAD > /tmp/pr_diff.txt
+      git diff origin/$TARGET_BRANCH...HEAD > /tmp/pr_diff.txt
     displayName: "Get PR diff"
+    env:
+      TARGET_BRANCH: $(System.PullRequest.TargetBranch)
 
   - script: |
       if [ -f CLAUDE.md ]; then
@@ -75,7 +77,7 @@ steps:
             messages: [{role: "user", content: $prompt}]
           }' | curl -s -w "\n%{http_code}" \
             https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $(ANTHROPIC_API_KEY)" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "content-type: application/json" \
             -H "anthropic-version: 2023-06-01" \
             -d @-)
@@ -105,10 +107,6 @@ steps:
       COMMENTS=$(echo "$REVIEW" | jq -c '.comments // []')
       NUM_COMMENTS=$(echo "$COMMENTS" | jq 'length')
 
-      ORG_URL="$(System.CollectionUri)"
-      PROJECT="$(System.TeamProject)"
-      REPO_ID="$(Build.Repository.ID)"
-      PR_ID="$(System.PullRequest.PullRequestId)"
       API_URL="${ORG_URL}${PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/threads?api-version=7.1"
 
       # Post summary as a PR thread
@@ -123,7 +121,7 @@ steps:
         }')
 
       curl -s -X POST "$API_URL" \
-        -H "Authorization: Bearer $(System.AccessToken)" \
+        -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
         -H "Content-Type: application/json" \
         -d "$SUMMARY_BODY"
 
@@ -162,7 +160,7 @@ steps:
             }')
 
           curl -s -X POST "$API_URL" \
-            -H "Authorization: Bearer $(System.AccessToken)" \
+            -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
             -H "Content-Type: application/json" \
             -d "$THREAD_BODY"
         done
@@ -170,3 +168,7 @@ steps:
     displayName: "Post review comments"
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      ORG_URL: $(System.CollectionUri)
+      PROJECT: $(System.TeamProject)
+      REPO_ID: $(Build.Repository.ID)
+      PR_ID: $(System.PullRequest.PullRequestId)
