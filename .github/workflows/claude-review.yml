@@ -3,71 +3,32 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   review:
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
+      issues: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Get PR diff
-        id: diff
-        run: |
-          DIFF=$(git diff origin/${{ github.event.pull_request.base.ref }}...HEAD)
-          # Save to file to avoid shell escaping issues
-          echo "$DIFF" > /tmp/pr_diff.txt
-
-      - name: Review with Claude API
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          DIFF=$(cat /tmp/pr_diff.txt)
-
-          # Read CLAUDE.md for project conventions if it exists
-          CONVENTIONS=""
-          if [ -f CLAUDE.md ]; then
-            CONVENTIONS=$(head -c 2000 CLAUDE.md)
-          fi
-
-          # Build the prompt
-          PROMPT=$(cat <<'PROMPT_END'
-          You are a code reviewer. Review the following PR diff for:
-          1. Code quality and correctness
-          2. Security issues
-          3. Performance concerns
-          4. Adherence to project conventions
-
-          Be concise. Only comment on real issues. Use markdown formatting.
-          If the change is trivial and looks good, say so briefly.
-
-          Project conventions:
-          PROMPT_END
-          )
-
-          # Call Claude API directly
-          RESPONSE=$(jq -n \
-            --arg prompt "$PROMPT"$'\n'"$CONVENTIONS"$'\n\n'"Diff:"$'\n'"$DIFF" \
-            '{
-              model: "claude-sonnet-4-20250514",
-              max_tokens: 2048,
-              messages: [{role: "user", content: $prompt}]
-            }' | curl -s https://api.anthropic.com/v1/messages \
-              -H "x-api-key: $ANTHROPIC_API_KEY" \
-              -H "content-type: application/json" \
-              -H "anthropic-version: 2023-06-01" \
-              -d @-)
-
-          # Extract the text content
-          REVIEW=$(echo "$RESPONSE" | jq -r '.content[0].text // .error.message // "Failed to get review"')
-
-          # Post as PR comment
-          gh pr comment "$PR_NUMBER" --body "## 🤖 Claude Code Review
-
-          $REVIEW"
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request for code quality, correctness, security,
+            and adherence to project conventions in CLAUDE.md.
+            Analyze the diff and post findings as review comments.
+          claude_args: "--max-turns 5"
