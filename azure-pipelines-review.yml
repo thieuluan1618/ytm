@@ -7,7 +7,7 @@ pr:
       - develop
 
 pool:
-  vmImage: "ubuntu-latest"
+  name: "Default"
 
 steps:
   - checkout: self
