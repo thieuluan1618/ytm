@@ -167,7 +167,7 @@ class SearchView(Widget):
             self.app.notify(f"✓ Found {len(filtered_results)} songs", severity="information")
 
         except Exception as e:
-            self.app.notify(f"Search error: {str(e)}", severity="error")
+            self.app.notify(f"Search error: {str(e)}. Check your connection.", severity="error")
 
     @on(DataTable.RowSelected, "#search-results")
     def handle_row_selected(self, event: DataTable.RowSelected) -> None:

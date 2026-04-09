@@ -46,7 +46,13 @@ def search_and_play(query=None, auto_select=None):
     log_step("Searching YouTube Music", query)
     log_api_call("ytmusic.search", {"query": query, "filter": "songs"})
 
-    results = ytmusic.search(query, filter="songs")
+    try:
+        results = ytmusic.search(query, filter="songs")
+    except Exception as e:
+        print(f"[red]Network error while searching: {e}[/red]")
+        print("[yellow]Please check your internet connection and try again.[/yellow]")
+        return
+
     if not results:
         print("[red]No songs found.[/red]")
         return
@@ -121,34 +127,38 @@ def search_and_play(query=None, auto_select=None):
     song = results[selected_index]
     playlist = [song]
 
-    print("\n[yellow]🎶 Fetching Radio...[/yellow]")
+    # Fetch radio in background so the first song starts immediately
+    import threading
 
-    log_step("Fetching radio playlist", f"videoId: {song['videoId']}")
-    log_api_call("ytmusic.get_watch_playlist", {"videoId": song["videoId"]})
+    def fetch_radio():
+        log_step("Fetching radio playlist", f"videoId: {song['videoId']}")
+        log_api_call("ytmusic.get_watch_playlist", {"videoId": song["videoId"]})
+        try:
+            radio = ytmusic.get_watch_playlist(videoId=song["videoId"])
+            radio_tracks = radio["tracks"][1:]  # Skip first track (the selected song)
 
-    try:
-        radio = ytmusic.get_watch_playlist(videoId=song["videoId"])
-        radio_tracks = radio["tracks"][1:]  # Skip first track (the selected song)
+            log_success(f"Radio returned {len(radio_tracks)} tracks")
 
-        log_success(f"Radio returned {len(radio_tracks)} tracks")
+            # Filter out disliked songs from radio
+            original_radio_count = len(radio_tracks)
+            filtered_radio = dislike_manager.filter_disliked_songs(radio_tracks)
+            filtered_radio_count = original_radio_count - len(filtered_radio)
 
-        # Filter out disliked songs from radio
-        original_radio_count = len(radio_tracks)
-        filtered_radio = dislike_manager.filter_disliked_songs(radio_tracks)
-        filtered_radio_count = original_radio_count - len(filtered_radio)
+            # Log radio generation details
+            log_radio_generation(song["videoId"], original_radio_count, filtered_radio_count)
 
-        # Log radio generation details
-        log_radio_generation(song["videoId"], original_radio_count, filtered_radio_count)
+            playlist.extend(filtered_radio)
+            log_success(f"Final playlist ready: {len(playlist)} tracks")
 
-        playlist.extend(filtered_radio)
-        log_success(f"Final playlist ready: {len(playlist)} tracks")
+            # Log playlist composition
+            log_playlist_composition(playlist, 0)
 
-        # Log playlist composition
-        log_playlist_composition(playlist, 0)
+        except Exception as e:
+            log_warning(f"Error fetching radio: {e}")
+            log_warning(f"Exception details: {str(e)}")
 
-    except Exception as e:
-        print(f"[red]Error fetching radio: {e}[/red]")
-        log_warning(f"Exception details: {str(e)}")
+    radio_thread = threading.Thread(target=fetch_radio, daemon=True)
+    radio_thread.start()
 
     play_music_with_controls(playlist)
 
@@ -999,13 +1009,13 @@ During music playback:
                 return
 
             if response.action == "search":
-                search_and_play(response.query, auto_select=response.parameters.get("limit", None))
+                search_and_play(response.query, auto_select=response.parameters.get("limit", 1))
             elif response.action == "playlist":
                 playlist_play_command(response.query)
             else:
                 print(f"[yellow]Unsupported LLM action: {response.action}[/yellow]")
                 print(f"[cyan]Try:[/cyan] {response.query}")
-                search_and_play(response.query)
+                search_and_play(response.query, auto_select=1)
         else:
             print("Available llm commands: ask, playlist")
     elif args.command == "tui":

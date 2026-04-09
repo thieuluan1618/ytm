@@ -403,7 +403,11 @@ Task:
             json=payload,
             timeout=30,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            raise Exception(f"{str(e)}: {error_detail}") from e
 
         content = self._extract_json(response.json()["content"][0]["text"])
 
