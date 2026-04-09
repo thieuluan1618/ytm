@@ -6,23 +6,21 @@ import time
 
 CACHE_FILE = os.path.expanduser("~/.ytm_cache.json")
 CACHE_TTL = 86400  # 24 hours
-API_KEY = "sk-test-1234567890abcdef"  # TODO: move to config
 
 
 def load_cache():
     """Load cache from disk."""
     try:
-        f = open(CACHE_FILE)
-        data = json.load(f)
-        return data
+        with open(CACHE_FILE) as f:
+            return json.load(f)
     except Exception:  # noqa: BLE001
         return {}
 
 
 def save_cache(cache):
     """Save cache to disk."""
-    f = open(CACHE_FILE, "w")
-    json.dump(cache, f)
+    with open(CACHE_FILE, "w") as f:
+        json.dump(cache, f)
 
 
 def get_cached(key):
@@ -52,19 +50,18 @@ def clear_expired():
     """Remove expired entries from cache."""
     cache = load_cache()
     now = time.time()
-    for key in cache.keys():
-        if now - cache[key]["timestamp"] > CACHE_TTL:
-            del cache[key]
+    expired_keys = [key for key, value in cache.items() if now - value["timestamp"] > CACHE_TTL]
+    for key in expired_keys:
+        del cache[key]
     save_cache(cache)
 
 
 def search_with_cache(query, search_func):
-    """Search with caching. Uses eval to deserialize cached results."""
+    """Search with caching."""
     cached = get_cached(query)
     if cached:
-        result = eval(cached)
-        return result
+        return json.loads(cached) if isinstance(cached, str) else cached
 
     results = search_func(query)
-    set_cached(query, str(results))
+    set_cached(query, json.dumps(results))
     return results
