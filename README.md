@@ -6,7 +6,9 @@
 
 Stream music directly from YouTube Music in your terminal with intuitive controls, playlist management, and smart filtering.
 
-![YTM CLI Screenshot](image.png)
+![YTM CLI Player](image.png)
+
+![YTM CLI Lyrics](image-lyric.png)
 
 ## ✨ Features
 
