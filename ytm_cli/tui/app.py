@@ -118,7 +118,9 @@ class YTMApp(App):
                 self.notify(f"✓ Ready to play: {len(self.playlist)} songs", severity="information")
 
             except Exception as e:
-                self.notify(f"Error fetching radio: {str(e)}", severity="error")
+                self.notify(
+                    f"Error fetching radio: {str(e)}. Playing selected song only.", severity="error"
+                )
 
             # Start playback
             self.play_song(song)

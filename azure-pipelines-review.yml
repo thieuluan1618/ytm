@@ -1,0 +1,175 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  name: "Default"
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - script: |
+      BRANCH=$(echo "$TARGET_BRANCH" | sed 's|refs/heads/||')
+      git diff origin/$BRANCH...HEAD > /tmp/pr_diff.txt
+    displayName: "Get PR diff"
+    env:
+      TARGET_BRANCH: $(System.PullRequest.TargetBranch)
+
+  - script: |
+      if [ -f CLAUDE.md ]; then
+        head -c 3000 CLAUDE.md > /tmp/conventions.txt
+      else
+        echo "No CLAUDE.md found" > /tmp/conventions.txt
+      fi
+    displayName: "Read project conventions"
+
+  - script: |
+      DIFF=$(cat /tmp/pr_diff.txt)
+      CONVENTIONS=$(cat /tmp/conventions.txt)
+
+      if [ -z "$DIFF" ]; then
+        echo '{"summary":"No code changes to review.","comments":[]}' > /tmp/review.json
+        exit 0
+      fi
+
+      PROMPT=$(cat <<'EOF'
+      You are a code reviewer. Review the following PR diff and return a JSON response.
+
+      Return ONLY valid JSON with this exact structure, no markdown:
+      {
+        "summary": "Brief overall summary of the review",
+        "comments": [
+          {
+            "path": "path/to/file.py",
+            "line": 10,
+            "severity": "critical|warning|suggestion",
+            "body": "Description of the issue and suggested fix"
+          }
+        ]
+      }
+
+      Rules:
+      - "line" must be a line number from the NEW file (lines with + in the diff)
+      - "path" must match the file path from the diff header (after b/)
+      - Only comment on real issues: security, bugs, performance, correctness
+      - If everything looks good, return empty comments array
+
+      EOF
+      )
+
+      FULL_PROMPT="$PROMPT
+
+      Project conventions:
+      $CONVENTIONS
+
+      Diff:
+      $DIFF"
+
+      for i in 1 2 3; do
+        RESPONSE=$(jq -n --arg prompt "$FULL_PROMPT" \
+          '{
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 4096,
+            messages: [{role: "user", content: $prompt}]
+          }' | curl -s -w "\n%{http_code}" \
+            https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "content-type: application/json" \
+            -H "anthropic-version: 2023-06-01" \
+            -d @-)
+
+        HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+        BODY=$(echo "$RESPONSE" | sed '$d')
+
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "$BODY" | jq -r '.content[0].text' > /tmp/review.json
+          break
+        fi
+
+        echo "Attempt $i failed with HTTP $HTTP_CODE, retrying in $((i * 30))s..."
+        sleep $((i * 30))
+      done
+
+      if [ "$HTTP_CODE" != "200" ]; then
+        echo '{"summary":"Claude API failed after 3 attempts.","comments":[]}' > /tmp/review.json
+      fi
+    displayName: "Review with Claude API"
+    env:
+      ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
+
+  - script: |
+      REVIEW=$(cat /tmp/review.json)
+      SUMMARY=$(echo "$REVIEW" | jq -r '.summary // "No summary"')
+      COMMENTS=$(echo "$REVIEW" | jq -c '.comments // []')
+      NUM_COMMENTS=$(echo "$COMMENTS" | jq 'length')
+
+      API_URL="${ORG_URL}${PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/threads?api-version=7.1"
+
+      # Post summary as a PR thread
+      SUMMARY_BODY=$(jq -n --arg body "## 🤖 Claude Code Review\n\n$SUMMARY" \
+        '{
+          comments: [{
+            parentCommentId: 0,
+            content: $body,
+            commentType: 1
+          }],
+          status: 1
+        }')
+
+      curl -s -X POST "$API_URL" \
+        -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
+        -H "Content-Type: application/json" \
+        -d "$SUMMARY_BODY"
+
+      # Post inline comments
+      if [ "$NUM_COMMENTS" -gt 0 ]; then
+        echo "$COMMENTS" | jq -c '.[]' | while read -r comment; do
+          FILE_PATH=$(echo "$comment" | jq -r '.path')
+          LINE=$(echo "$comment" | jq -r '.line')
+          SEVERITY=$(echo "$comment" | jq -r '.severity')
+          BODY=$(echo "$comment" | jq -r '.body')
+
+          if [ "$SEVERITY" = "critical" ]; then
+            PREFIX="🚨 **Critical**:"
+          elif [ "$SEVERITY" = "warning" ]; then
+            PREFIX="⚠️ **Warning**:"
+          else
+            PREFIX="💡 **Suggestion**:"
+          fi
+
+          THREAD_BODY=$(jq -n \
+            --arg content "$PREFIX $BODY" \
+            --arg path "/$FILE_PATH" \
+            --argjson line "$LINE" \
+            '{
+              comments: [{
+                parentCommentId: 0,
+                content: $content,
+                commentType: 1
+              }],
+              threadContext: {
+                filePath: $path,
+                rightFileStart: { line: $line, offset: 1 },
+                rightFileEnd: { line: $line, offset: 1 }
+              },
+              status: 1
+            }')
+
+          curl -s -X POST "$API_URL" \
+            -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$THREAD_BODY"
+        done
+      fi
+    displayName: "Post review comments"
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      ORG_URL: $(System.CollectionUri)
+      PROJECT: $(System.TeamProject)
+      REPO_ID: $(Build.Repository.ID)
+      PR_ID: $(System.PullRequest.PullRequestId)

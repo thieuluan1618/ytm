@@ -363,7 +363,7 @@ Task:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             error_detail = response.text
-            raise Exception(f"{str(e)}: {error_detail}") from e
+            raise requests.exceptions.RequestException(f"{str(e)}: {error_detail}") from e
 
         response_text = response.json()["choices"][0]["message"]["content"].strip()
         content = self._extract_json(response_text)
@@ -403,7 +403,11 @@ Task:
             json=payload,
             timeout=30,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            raise requests.exceptions.RequestException(f"{str(e)}: {error_detail}") from e
 
         content = self._extract_json(response.json()["content"][0]["text"])
 
