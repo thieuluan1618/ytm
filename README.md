@@ -6,7 +6,9 @@
 
 Stream music directly from YouTube Music in your terminal with intuitive controls, playlist management, and smart filtering.
 
-![YTM CLI Screenshot](image.png)
+![YTM CLI Player](image.png)
+
+![YTM CLI Lyrics](image-lyric.png)
 
 ## ✨ Features
 
@@ -17,6 +19,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 - **👎 Smart Filtering**: Dislike songs to filter them from future results
 - **📜 Lyrics Display**: View lyrics while listening (press `l`)
 - **🎯 Radio Mode**: Automatic playlist generation based on your selection
+- **🤖 AI-Powered**: Natural language music requests and AI-generated playlists
 
 ## 🚀 Quick Start
 
@@ -133,6 +136,25 @@ ytm playlist delete "My Songs" # Delete playlist
 - Press `a` during song selection or playback
 - Choose existing playlist or create new one
 - Song added without interrupting playback
+
+## 🤖 AI Music Assistant
+
+Use natural language to search and create playlists powered by AI (supports Google Gemini, OpenAI, Anthropic):
+
+```bash
+ytm llm ask "play something chill for studying"       # AI picks and auto-plays
+ytm llm ask "upbeat pop songs for a workout"           # Natural language search
+ytm llm playlist "lo-fi beats for rainy days" --play   # AI-generated playlist
+ytm llm playlist "90s rock classics" -n 20             # 20-song playlist
+```
+
+Configure your provider in `config.ini`:
+
+```ini
+[llm]
+provider = google       # google, openai, or anthropic
+model = gemini-2.5-pro
+```
 
 ## 🛠️ Configuration
 
