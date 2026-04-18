@@ -35,44 +35,43 @@ Stream music directly from YouTube Music in your terminal with intuitive control
    cd ytm
    ```
 
-2. **Set up virtual environment**
+2. **Run the one-shot setup script**
 
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Quick alias setup (Optional but recommended)**
-
-   For easier access with just `ytm` command:
+   This creates the virtual environment, installs dependencies, and configures the `ytm` command for you.
 
    **Linux/macOS:**
 
    ```bash
-   ./setup_alias.sh
+   ./setup.sh
    source ~/.zshrc  # or ~/.bashrc for bash
    ```
 
    **Windows PowerShell:**
 
    ```powershell
-   .\setup_alias.ps1
+   .\setup.ps1
    . $PROFILE
    ```
 
    **Windows Command Prompt:**
 
    ```cmd
-   setup_alias.bat
+   setup.bat
    ```
 
-   After setup, use `ytm` from anywhere instead of `python -m ytm_cli`
+   After setup, use `ytm` from anywhere instead of `python -m ytm_cli`.
+
+   <details>
+   <summary>Manual install (if you prefer)</summary>
+
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ./setup_alias.sh          # or setup_alias.ps1 / setup_alias.bat
+   ```
+
+   </details>
 
 ### Basic Usage
 
