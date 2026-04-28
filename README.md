@@ -102,25 +102,25 @@ pip install -r requirements.txt
 **Interactive search:**
 
 ```bash
-ytm
+ytm-cli
 # Enter search query when prompted
 ```
 
 **Direct search:**
 
 ```bash
-ytm "your favorite song"
+ytm-cli "your favorite song"
 ```
 
 **Non-interactive mode (automation/scripting):**
 
 ```bash
-ytm search "song name" --select 1           # Auto-select first result
-ytm search "song" -s 1 -v                   # With verbose output
-ytm search "song" -s 1 -v --log-file debug.log  # Save debug logs
+ytm-cli search "song name" --select 1           # Auto-select first result
+ytm-cli search "song" -s 1 -v                   # With verbose output
+ytm-cli search "song" -s 1 -v --log-file debug.log  # Save debug logs
 ```
 
-> **Note:** If you haven't set up the alias, use `ytm-cli` or `python -m ytm_cli` instead of `ytm`
+> **Tip:** Set up the shell alias to use `ytm` as a shortcut for `ytm-cli`. See the setup scripts above.
 
 ## 🎮 Controls
 
@@ -145,11 +145,11 @@ ytm search "song" -s 1 -v --log-file debug.log  # Save debug logs
 **Create and manage playlists:**
 
 ```bash
-ytm playlist list              # List all playlists
-ytm playlist create            # Create new playlist
-ytm playlist show "My Songs"   # View playlist contents
-ytm playlist play "My Songs"   # Play entire playlist
-ytm playlist delete "My Songs" # Delete playlist
+ytm-cli playlist list              # List all playlists
+ytm-cli playlist create            # Create new playlist
+ytm-cli playlist show "My Songs"   # View playlist contents
+ytm-cli playlist play "My Songs"   # Play entire playlist
+ytm-cli playlist delete "My Songs" # Delete playlist
 ```
 
 **Add songs to playlists:**
@@ -163,10 +163,10 @@ ytm playlist delete "My Songs" # Delete playlist
 Use natural language to search and create playlists powered by AI (supports Google Gemini, OpenAI, Anthropic):
 
 ```bash
-ytm llm ask "play something chill for studying"       # AI picks and auto-plays
-ytm llm ask "upbeat pop songs for a workout"           # Natural language search
-ytm llm playlist "lo-fi beats for rainy days" --play   # AI-generated playlist
-ytm llm playlist "90s rock classics" -n 20             # 20-song playlist
+ytm-cli llm ask "play something chill for studying"       # AI picks and auto-plays
+ytm-cli llm ask "upbeat pop songs for a workout"           # Natural language search
+ytm-cli llm playlist "lo-fi beats for rainy days" --play   # AI-generated playlist
+ytm-cli llm playlist "90s rock classics" -n 20             # 20-song playlist
 ```
 
 Configure your provider in `config.ini`:
@@ -216,7 +216,7 @@ Having issues? Check out the [**Troubleshooting Guide**](TROUBLESHOOTING.md) for
 
 ```bash
 # Enable verbose logging to see what's happening
-ytm search "test" -s 1 -v --log-file debug.log
+ytm-cli search "test" -s 1 -v --log-file debug.log
 
 # Check versions
 mpv --version
