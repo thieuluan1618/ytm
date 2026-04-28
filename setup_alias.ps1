@@ -1,35 +1,49 @@
 # PowerShell setup script for Windows
 # Creates 'ytm' function in PowerShell profile
+# Uses uv for dependency management (falls back to venv if uv not available)
 
 $ErrorActionPreference = "Stop"
 
 # Get the directory where this script is located
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$VenvPath = Join-Path $ScriptDir "venv"
-$VenvActivate = Join-Path $VenvPath "Scripts\Activate.ps1"
 
 Write-Host "🔍 YTM CLI Setup for PowerShell" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if venv exists
-if (-not (Test-Path $VenvPath)) {
-    Write-Host "❌ Virtual environment not found at: $VenvPath" -ForegroundColor Red
+# Check if uv is available
+$HasUv = $null -ne (Get-Command uv -ErrorAction SilentlyContinue)
+
+if ($HasUv) {
+    Write-Host "✅ Found uv — using uv run for function" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Please run:" -ForegroundColor Yellow
-    Write-Host "  python -m venv venv"
-    Write-Host "  .\venv\Scripts\Activate.ps1"
-    Write-Host "  pip install -r requirements.txt"
-    exit 1
-}
+    $FunctionCode = @"
 
-# Check if PowerShell profile exists
-if (-not (Test-Path $PROFILE)) {
-    Write-Host "📝 Creating PowerShell profile at: $PROFILE" -ForegroundColor Yellow
-    New-Item -Path $PROFILE -Type File -Force | Out-Null
+# YTM CLI - YouTube Music CLI Tool
+function ytm {
+    uv run --project '$ScriptDir' ytm `$args
 }
+"@
+} else {
+    Write-Host "⚠️  uv not found — falling back to venv" -ForegroundColor Yellow
+    Write-Host "   Install uv for a better experience: https://docs.astral.sh/uv/" -ForegroundColor Yellow
+    Write-Host ""
 
-# Define the function
-$FunctionCode = @"
+    $VenvPath = Join-Path $ScriptDir "venv"
+    $VenvActivate = Join-Path $VenvPath "Scripts\Activate.ps1"
+
+    if (-not (Test-Path $VenvPath)) {
+        Write-Host "❌ Virtual environment not found at: $VenvPath" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Please install uv or create a venv:" -ForegroundColor Yellow
+        Write-Host "  pip install uv"
+        Write-Host "  # or"
+        Write-Host "  python -m venv venv"
+        Write-Host "  .\venv\Scripts\Activate.ps1"
+        Write-Host "  pip install -r requirements.txt"
+        exit 1
+    }
+
+    $FunctionCode = @"
 
 # YTM CLI - YouTube Music CLI Tool
 function ytm {
@@ -39,6 +53,13 @@ function ytm {
     Pop-Location
 }
 "@
+}
+
+# Check if PowerShell profile exists
+if (-not (Test-Path $PROFILE)) {
+    Write-Host "📝 Creating PowerShell profile at: $PROFILE" -ForegroundColor Yellow
+    New-Item -Path $PROFILE -Type File -Force | Out-Null
+}
 
 # Check if function already exists
 $ProfileContent = Get-Content $PROFILE -Raw -ErrorAction SilentlyContinue

@@ -23,55 +23,79 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 
 ### Requirements
 
-- Python 3.7+
+- Python 3.8+
 - [mpv media player](https://mpv.io/installation/) (must be installed system-wide)
 
 ### Installation
 
-1. **Clone the repository**
+**One command with [uv](https://docs.astral.sh/uv/) (recommended):**
 
-   ```bash
-   git clone https://github.com/thieuluan1618/ytm.git
-   cd ytm
-   ```
+```bash
+# Install from PyPI
+uvx ytm-cli "song name"
 
-2. **Run the one-shot setup script**
+# Or from source (no clone needed)
+uvx --from git+https://github.com/thieuluan1618/ytm.git ytm "song name"
+```
 
-   This creates the virtual environment, installs dependencies, and configures the `ytm` command for you.
+<details>
+<summary>Alternative: clone and run locally</summary>
 
-   **Linux/macOS:**
+```bash
+git clone https://github.com/thieuluan1618/ytm.git
+cd ytm
+uv run ytm "song name"
+```
 
-   ```bash
-   ./setup.sh
-   source ~/.zshrc  # or ~/.bashrc for bash
-   ```
+</details>
 
-   **Windows PowerShell:**
+<details>
+<summary>Alternative: one-shot setup scripts</summary>
 
-   ```powershell
-   .\setup.ps1
-   . $PROFILE
-   ```
+```bash
+git clone https://github.com/thieuluan1618/ytm.git
+cd ytm
+```
 
-   **Windows Command Prompt:**
+These create the virtual environment, install dependencies, and configure the `ytm` command globally.
 
-   ```cmd
-   setup.bat
-   ```
+**Linux/macOS:**
 
-   After setup, use `ytm` from anywhere instead of `python -m ytm_cli`.
+```bash
+./setup.sh
+source ~/.zshrc  # or ~/.bashrc for bash
+```
 
-   <details>
-   <summary>Manual install (if you prefer)</summary>
+**Windows PowerShell:**
 
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ./setup_alias.sh          # or setup_alias.ps1 / setup_alias.bat
-   ```
+```powershell
+.\setup.ps1
+. $PROFILE
+```
 
-   </details>
+**Windows Command Prompt:**
+
+```cmd
+setup.bat
+```
+
+After setup, use `ytm` from anywhere instead of `python -m ytm_cli`.
+
+</details>
+
+<details>
+<summary>Alternative: manual install</summary>
+
+```bash
+git clone https://github.com/thieuluan1618/ytm.git
+cd ytm
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+./setup_alias.sh          # or setup_alias.ps1 / setup_alias.bat
+```
+
+</details>
 
 ### Basic Usage
 

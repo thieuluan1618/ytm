@@ -7,7 +7,26 @@ name = "ytm-cli"
 version = "0.5.0"
 description = "YouTube Music CLI tool with interactive terminal interface"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.8"
+authors = [
+    { name = "thieuluan", email = "thieuluan.dark@gmail.com" },
+]
+keywords = ["youtube-music", "cli", "terminal", "music-player", "mpv"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Players",
+]
 dependencies = [
     "ytmusicapi",
     "rich",
@@ -15,6 +34,17 @@ dependencies = [
     "requests",
     "pyperclip",
 ]
+
+[project.urls]
+Homepage = "https://github.com/thieuluan1618/ytm"
+Repository = "https://github.com/thieuluan1618/ytm"
+Issues = "https://github.com/thieuluan1618/ytm/issues"
+
+[project.scripts]
+ytm = "ytm_cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["ytm_cli*"]
 
 [tool.ruff]
 # Set line length to match pylint (100 characters)
