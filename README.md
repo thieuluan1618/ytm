@@ -44,7 +44,7 @@ uvx --from git+https://github.com/thieuluan1618/ytm.git ytm "song name"
 ```bash
 git clone https://github.com/thieuluan1618/ytm.git
 cd ytm
-uv run ytm "song name"
+uv run ytm-cli "song name"
 ```
 
 </details>
@@ -79,7 +79,7 @@ source ~/.zshrc  # or ~/.bashrc for bash
 setup.bat
 ```
 
-After setup, use `ytm` from anywhere instead of `python -m ytm_cli`.
+After setup, use `ytm` (alias for `ytm-cli`) from anywhere.
 
 </details>
 
@@ -120,7 +120,7 @@ ytm search "song" -s 1 -v                   # With verbose output
 ytm search "song" -s 1 -v --log-file debug.log  # Save debug logs
 ```
 
-> **Note:** If you haven't set up the alias, use `python -m ytm_cli` instead of `ytm`
+> **Note:** If you haven't set up the alias, use `ytm-cli` or `python -m ytm_cli` instead of `ytm`
 
 ## 🎮 Controls
 

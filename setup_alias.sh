@@ -17,8 +17,8 @@ echo ""
 if command -v uv &> /dev/null; then
     echo "✅ Found uv — using uv run for alias"
     echo ""
-    ALIAS_CMD="uv run --project $SCRIPT_DIR ytm"
-    FISH_ALIAS_CMD="uv run --project $SCRIPT_DIR ytm"
+    ALIAS_CMD="uv run --project $SCRIPT_DIR ytm-cli"
+    FISH_ALIAS_CMD="uv run --project $SCRIPT_DIR ytm-cli"
 else
     echo "⚠️  uv not found — falling back to venv"
     echo "   Install uv for a better experience: https://docs.astral.sh/uv/"

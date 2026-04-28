@@ -20,7 +20,7 @@ if ($HasUv) {
 
 # YTM CLI - YouTube Music CLI Tool
 function ytm {
-    uv run --project '$ScriptDir' ytm `$args
+    uv run --project '$ScriptDir' ytm-cli `$args
 }
 "@
 } else {

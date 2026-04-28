@@ -67,7 +67,7 @@ if %USE_UV% equ 1 (
     (
         echo @echo off
         echo REM YTM CLI - YouTube Music CLI Tool
-        echo uv run --project "%SCRIPT_DIR%" ytm %%*
+        echo uv run --project "%SCRIPT_DIR%" ytm-cli %%*
     ) > "%WRAPPER_FILE%"
 ) else (
     (
