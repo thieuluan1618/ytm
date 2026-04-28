@@ -1,5 +1,6 @@
 """Tests for ytm_cli.ui module"""
 
+import io
 from unittest.mock import patch
 
 # Mock curses before importing ui module
@@ -9,125 +10,104 @@ with patch("curses.curs_set"), patch("curses.use_default_colors"), patch("curses
     from ytm_cli.ui import display_player_status
 
 
+def _capture_status_output(*args, width=80, terminal_size_error=False, **kwargs):
+    """Helper: invoke display_player_status and return its rendered stdout."""
+    buf = io.StringIO()
+    if terminal_size_error:
+        size_patch = patch("os.get_terminal_size", side_effect=OSError("No terminal"))
+    else:
+        size_patch = patch("os.get_terminal_size")
+    with size_patch as mock_size, patch("sys.stdout", buf):
+        if not terminal_size_error:
+            mock_size.return_value.columns = width
+        display_player_status(*args, **kwargs)
+    return buf.getvalue()
+
+
 class TestDisplayPlayerStatus:
-    """Tests for display_player_status function"""
+    """Tests for display_player_status function.
+
+    The function writes a single screen frame to ``sys.stdout`` consisting of:
+      * an ANSI clear-screen escape (``\\033[H\\033[2J``)
+      * a centered status line ("▶️  Playing" or "⏸️  Paused")
+      * a centered title line (sliced to terminal width)
+      * blank lines for the optional visualizer / progress bar
+      * a centered controls hint line
+    There is no platform-specific clear-screen call (no ``os.system``).
+    """
 
     def test_display_player_status_playing(self):
-        """Test display player status when playing"""
-        with patch("os.system") as mock_system, patch(
-            "os.get_terminal_size"
-        ) as mock_terminal_size, patch("builtins.print") as mock_print:
-            mock_terminal_size.return_value.columns = 80
+        out = _capture_status_output("Test Song - Test Artist", False, width=80)
 
-            display_player_status("Test Song - Test Artist", False)
-
-            # Should clear screen
-            mock_system.assert_called_once_with("clear")
-
-            # Should print status
-            expected_status = "▶️ Playing: Test Song - Test Artist"
-            mock_print.assert_any_call(expected_status.center(80))
+        # Clears the screen via ANSI escape (no os.system call)
+        assert "\033[H\033[2J" in out
+        # Renders the "Playing" status and the title
+        assert "\u25b6\ufe0f  Playing" in out
+        assert "Test Song - Test Artist" in out
+        assert "Paused" not in out
 
     def test_display_player_status_paused(self):
-        """Test display player status when paused"""
-        with patch("os.system") as mock_system, patch(
-            "os.get_terminal_size"
-        ) as mock_terminal_size, patch("builtins.print") as mock_print:
-            mock_terminal_size.return_value.columns = 80
+        out = _capture_status_output("Test Song - Test Artist", True, width=80)
 
-            display_player_status("Test Song - Test Artist", True)
-
-            # Should clear screen
-            mock_system.assert_called_once_with("clear")
-
-            # Should print paused status
-            expected_status = "⏸️ Paused: Test Song - Test Artist"
-            mock_print.assert_any_call(expected_status.center(80))
+        assert "\u23f8\ufe0f  Paused" in out
+        assert "Test Song - Test Artist" in out
+        assert "Playing" not in out
 
     def test_display_player_status_long_title(self):
-        """Test display player status with very long title"""
+        """Each rendered line must fit within the terminal width."""
         long_title = "Very Long Song Title That Exceeds Terminal Width" * 3
+        out = _capture_status_output(long_title, False, width=80)
 
-        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
-            "builtins.print"
-        ) as mock_print:
-            mock_terminal_size.return_value.columns = 80
-
-            display_player_status(long_title, False)
-
-            # Should truncate long titles
-            printed_calls = [call for call in mock_print.call_args_list if call[0]]
-            status_call = None
-            for call in printed_calls:
-                if "▶️ Playing:" in str(call[0][0]):
-                    status_call = call
-                    break
-
-            assert status_call is not None
-            printed_text = status_call[0][0]
-            assert len(printed_text) <= 80
+        # Strip the ANSI clear-screen escape before measuring line widths
+        rendered = out.replace("\033[H\033[2J", "")
+        for line in rendered.split("\n"):
+            assert len(line) <= 80, f"line exceeds width: {line!r}"
 
     def test_display_player_status_narrow_terminal(self):
-        """Test display player status with narrow terminal"""
-        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
-            "builtins.print"
-        ) as mock_print:
-            mock_terminal_size.return_value.columns = 40
+        out = _capture_status_output("Test Song", False, width=40)
 
-            display_player_status("Test Song", False)
-
-            # Should center text for narrow terminal
-            expected_status = "▶️ Playing: Test Song"
-            mock_print.assert_any_call(expected_status.center(40))
+        rendered = out.replace("\033[H\033[2J", "")
+        # Title is centered within the narrow width (sliced to <= width chars)
+        title_lines = [ln for ln in rendered.split("\n") if "Test Song" in ln]
+        assert title_lines, "title was not rendered"
+        for ln in title_lines:
+            assert len(ln) <= 40
 
     def test_display_player_status_terminal_size_error(self):
-        """Test display player status when terminal size cannot be determined"""
-        with patch("os.system"), patch(
-            "os.get_terminal_size", side_effect=OSError("No terminal")
-        ), patch("builtins.print") as mock_print:
-            display_player_status("Test Song", False)
+        """Falls back to width 80 when ``os.get_terminal_size`` raises OSError."""
+        out = _capture_status_output("Test Song", False, terminal_size_error=True)
 
-            # Should use fallback width of 80
-            expected_status = "▶️ Playing: Test Song"
-            mock_print.assert_any_call(expected_status.center(80))
+        rendered = out.replace("\033[H\033[2J", "")
+        for line in rendered.split("\n"):
+            assert len(line) <= 80
+        assert "Test Song" in rendered
+        assert "Playing" in rendered
 
-    def test_display_player_status_windows(self):
-        """Test display player status on Windows"""
-        with patch("os.name", "nt"), patch("os.system") as mock_system, patch(
-            "os.get_terminal_size"
-        ) as mock_terminal_size, patch("builtins.print"):
-            mock_terminal_size.return_value.columns = 80
+    def test_display_player_status_track_index(self):
+        """Track index/total are appended to the status line when provided."""
+        out = _capture_status_output("Test Song", False, width=80, track_index=3, track_total=10)
 
-            display_player_status("Test Song", False)
-
-            # Should use 'cls' command on Windows
-            mock_system.assert_called_once_with("cls")
+        assert "[3/10]" in out
+        assert "Playing" in out
 
     def test_display_player_status_controls_display(self):
-        """Test that controls are displayed correctly"""
-        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
-            "builtins.print"
-        ) as mock_print:
-            mock_terminal_size.return_value.columns = 120
+        out = _capture_status_output("Test Song", False, width=120)
 
-            display_player_status("Test Song", False)
-
-            # Should print controls
-            controls_text = "  ⏮️ (b)  ⏯️ (space)  ⏭️ (n)  📜 (l)  ❤️ (a)    👎 (d)    🚪 (q)"
-            mock_print.assert_any_call(controls_text.center(120))
+        # All control hint glyphs/letters are present
+        for token in ["b", "space", "n", "l", "a", "d", "q"]:
+            assert token in out
+        # A few of the emoji icons too
+        assert "\u23ee\ufe0f" in out  # ⏮
+        assert "\u23ef\ufe0f" in out  # ⏯
+        assert "\u23ed\ufe0f" in out  # ⏭
 
     def test_display_player_status_empty_title(self):
-        """Test display player status with empty title"""
-        with patch("os.system"), patch("os.get_terminal_size") as mock_terminal_size, patch(
-            "builtins.print"
-        ) as mock_print:
-            mock_terminal_size.return_value.columns = 80
+        """Empty title must not raise and still renders the status + controls."""
+        out = _capture_status_output("", False, width=80)
 
-            display_player_status("", False)
-
-            # Should handle empty title gracefully
-            expected_status = "▶️ Playing: "
-            mock_print.assert_any_call(expected_status.center(80))
+        assert "Playing" in out
+        # Controls line still rendered even with an empty title
+        assert "space" in out
 
 
 class TestUIHelpers:
