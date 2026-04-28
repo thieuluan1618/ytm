@@ -35,7 +35,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 uvx ytm-cli "song name"
 
 # Or from source (no clone needed)
-uvx --from git+https://github.com/thieuluan1618/ytm.git ytm "song name"
+uvx --from git+https://github.com/thieuluan1618/ytm.git ytm-cli "song name"
 ```
 
 <details>
