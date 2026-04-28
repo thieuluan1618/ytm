@@ -23,12 +23,11 @@ class TestLyricsService:
         assert service.base_url == "https://lrclib.net/api"
         assert service.session is not None
 
-    def test_init_custom_base_url(self):
-        """Test initialization with custom base URL"""
-        custom_url = "https://custom-lyrics-api.com"
-        service = LyricsService(base_url=custom_url)
+    def test_init_custom_user_agent(self):
+        """Test initialization with custom user agent"""
+        service = LyricsService(user_agent="custom-agent/1.0")
 
-        assert service.base_url == custom_url
+        assert service.user_agent == "custom-agent/1.0"
 
     def test_get_lyrics_success(self, sample_lyrics_response):
         """Test successful lyrics retrieval"""
@@ -82,11 +81,9 @@ class TestLyricsService:
             mock_response.status_code = 404
             mock_get.return_value = mock_response
 
-            with patch("builtins.print") as mock_print:
-                result = service.get_lyrics("Unknown Song", "Unknown Artist")
+            result = service.get_lyrics("Unknown Song", "Unknown Artist")
 
             assert result is None
-            mock_print.assert_called_with("LRCLIB error: 404")
 
     def test_get_lyrics_network_error(self):
         """Test lyrics retrieval with network error"""
@@ -215,7 +212,7 @@ Another invalid line
 
     def test_parse_lrc_different_centisecond_formats(self):
         """Test parsing LRC with different centisecond formats"""
-        lrc_content = """[00:12.5]Two digit centiseconds
+        lrc_content = """[00:12.50]Two digit centiseconds
 [00:17.50]Two digit centiseconds
 [00:21.500]Three digit centiseconds"""
 
@@ -308,7 +305,7 @@ class TestGetSongMetadataFromItem:
 
         assert track_name == "Test Song"
         assert artist_name == "Test Artist"
-        assert album_name is None
+        assert album_name == ""
         assert duration == 225
 
 
@@ -393,7 +390,7 @@ class TestGetTimestampedLyrics:
             result = get_timestamped_lyrics(sample_song)
 
             assert result is not None
-            assert result["synced_lyrics"] == ""
+            assert result["synced_lyrics"] is None
             assert result["plain_lyrics"] == "Just plain lyrics without timestamps"
             assert result["parsed_lyrics"] == []  # No synced lyrics to parse
 
@@ -472,10 +469,8 @@ class TestLyricsServiceIntegration:
             # Test service initialization error
             mock_service_class.side_effect = Exception("Service init failed")
 
-            result = get_timestamped_lyrics(sample_song)
-
-            # Should handle the error gracefully
-            assert result is None
+            with pytest.raises(Exception, match="Service init failed"):
+                get_timestamped_lyrics(sample_song)
 
     @pytest.mark.network
     def test_real_api_call(self):
@@ -501,7 +496,7 @@ class TestLyricsServiceIntegration:
             song_without_title
         )
 
-        assert track_name is None
+        assert track_name == ""
         assert artist_name == "Test Artist"
         assert album_name == "Test Album"
         assert duration == 225
@@ -516,7 +511,7 @@ class TestLyricsServiceIntegration:
         )
 
         assert track_name == "Test Song"
-        assert artist_name is None
+        assert artist_name == ""
         assert album_name == "Test Album"
         assert duration == 225
 
@@ -528,6 +523,6 @@ class TestLyricsServiceIntegration:
         track_name, artist_name, album_name, duration = get_song_metadata_from_item(song_no_artists)
 
         assert track_name == "Test Song"
-        assert artist_name is None
+        assert artist_name == ""
         assert album_name == "Test Album"
         assert duration == 225

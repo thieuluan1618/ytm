@@ -104,7 +104,9 @@ class TestGetch:
             # Verify terminal settings are saved and restored
             mock_get.assert_called_once_with(mock_fd)
             mock_setraw.assert_called_once_with(mock_fd)
-            mock_set.assert_called_once_with(mock_fd, "TCSADRAIN", mock_old_settings)
+            import termios as _termios
+
+            mock_set.assert_called_once_with(mock_fd, _termios.TCSADRAIN, mock_old_settings)
 
     def test_getch_restores_settings_on_exception(self):
         """Test that getch restores settings even if an exception occurs"""
@@ -120,7 +122,9 @@ class TestGetch:
                 getch()
 
             # Verify settings are restored even after exception
-            mock_set.assert_called_once_with(mock_fd, "TCSADRAIN", mock_old_settings)
+            import termios as _termios
+
+            mock_set.assert_called_once_with(mock_fd, _termios.TCSADRAIN, mock_old_settings)
 
 
 class TestUtilsIntegration:

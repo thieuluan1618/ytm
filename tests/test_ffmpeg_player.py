@@ -5,15 +5,15 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-from ytm_cli.tui.ffmpeg_player import FFmpegPlayerService
+from ytm_cli.ffmpeg_player import FFmpegPlayerService
 
 
 class TestFFmpegPlayerServiceInitialization(unittest.TestCase):
     """Test FFmpegPlayerService initialization"""
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_info")
     @patch("builtins.print")
     def test_init_success(self, mock_print, mock_log, mock_ffmpeg_check):
         """Should initialize successfully when FFmpeg is available"""
@@ -29,7 +29,7 @@ class TestFFmpegPlayerServiceInitialization(unittest.TestCase):
         mock_log.assert_called_once()
         mock_print.assert_called_once()
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=False)
     def test_init_failure_no_ffmpeg(self, mock_ffmpeg_check):
         """Should raise ImportError when FFmpeg is not available"""
@@ -39,9 +39,9 @@ class TestFFmpegPlayerServiceInitialization(unittest.TestCase):
         assert "FFmpeg is not installed" in str(cm.exception)
         mock_ffmpeg_check.assert_called_once()
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", False)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", False)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_warning")
+    @patch("ytm_cli.ffmpeg_player.log_warning")
     @patch("builtins.print")
     def test_init_warning_no_ytdlp(self, mock_print, mock_log_warning, mock_ffmpeg_check):
         """Should warn when yt-dlp is not available but still initialize"""
@@ -104,9 +104,9 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
             self.mock_player
         )
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_info")
     @patch("builtins.print")
     def test_play_success(self, mock_print, mock_log, mock_ffmpeg_check):
         """Should start playback successfully"""
@@ -126,9 +126,9 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
                 mock_thread.assert_called_once()
                 mock_thread_instance.start.assert_called_once()
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_info")
     @patch("builtins.print")
     def test_play_not_initialized(self, mock_print, mock_log, mock_ffmpeg_check):
         """Should return False when player is not initialized"""
@@ -139,10 +139,10 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
 
         assert result is False
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
-    @patch("ytm_cli.tui.ffmpeg_player.log_error")
+    @patch("ytm_cli.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_error")
     @patch("builtins.print")
     def test_play_setup_exception(self, mock_print, mock_log_error, mock_log, mock_ffmpeg_check):
         """Should handle exceptions during play setup (not thread execution)"""
@@ -156,7 +156,7 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
             assert player.is_playing is False
             mock_log_error.assert_called_once()
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     def test_get_stream_url_success(self):
         """Should extract stream URL successfully"""
         with patch("yt_dlp.YoutubeDL") as mock_ytdlp:
@@ -179,7 +179,7 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
             assert stream_url == "http://example.com/stream.mp3"
             assert headers == {"User-Agent": "TestAgent"}
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", False)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", False)
     def test_get_stream_url_no_ytdlp(self):
         """Should return None when yt-dlp is not available"""
         with patch("builtins.print"):
@@ -190,7 +190,7 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
         assert stream_url is None
         assert headers is None
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     def test_get_stream_url_extraction_failure(self):
         """Should handle extraction failures gracefully"""
         with patch("yt_dlp.YoutubeDL") as mock_ytdlp:
@@ -206,11 +206,11 @@ class TestFFmpegPlayerServicePlayback(unittest.TestCase):
             assert stream_url is None
             assert headers is None
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     def test_get_stream_url_exception(self):
         """Should handle exceptions during stream URL extraction"""
         with patch("yt_dlp.YoutubeDL", side_effect=Exception("yt-dlp error")):
-            with patch("ytm_cli.tui.ffmpeg_player.log_error"), patch("builtins.print"):
+            with patch("ytm_cli.ffmpeg_player.log_error"), patch("builtins.print"):
                 stream_url, headers = FFmpegPlayerService._get_stream_url(
                     None, "http://youtube.com/watch?v=test"
                 )
@@ -224,9 +224,9 @@ class TestFFmpegPlayerServiceControls(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
             FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
+        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_pause_success(self):
@@ -284,7 +284,7 @@ class TestFFmpegPlayerServiceControls(unittest.TestCase):
         # Should not attempt to send signal
         assert self.player.is_paused is False
 
-    @patch("ytm_cli.tui.ffmpeg_player.log_error")
+    @patch("ytm_cli.ffmpeg_player.log_error")
     def test_pause_exception(self, mock_log_error):
         """Should handle exceptions during pause"""
         mock_process = Mock()
@@ -297,7 +297,7 @@ class TestFFmpegPlayerServiceControls(unittest.TestCase):
 
         mock_log_error.assert_called_once()
 
-    @patch("ytm_cli.tui.ffmpeg_player.log_error")
+    @patch("ytm_cli.ffmpeg_player.log_error")
     def test_resume_exception(self, mock_log_error):
         """Should handle exceptions during resume"""
         mock_process = Mock()
@@ -316,9 +316,9 @@ class TestFFmpegPlayerServiceState(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
             FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
+        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_is_playing_now_true(self):
@@ -369,9 +369,9 @@ class TestFFmpegPlayerServiceVolume(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
             FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
+        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_get_volume(self):
@@ -379,7 +379,7 @@ class TestFFmpegPlayerServiceVolume(unittest.TestCase):
         result = self.player.get_volume()
         assert result == 1.0
 
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_info")
     def test_set_volume(self, mock_log):
         """Should log volume set attempt (not implemented)"""
         self.player.set_volume(0.5)
@@ -394,9 +394,9 @@ class TestFFmpegPlayerServiceCleanup(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
             FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
+        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_cleanup(self):
@@ -411,7 +411,7 @@ class TestFFmpegPlayerServiceCleanup(unittest.TestCase):
             mock_stop.assert_called_once()
             assert self.player.is_initialized is False
 
-    @patch("ytm_cli.tui.ffmpeg_player.log_error")
+    @patch("ytm_cli.ffmpeg_player.log_error")
     def test_cleanup_exception(self, mock_log_error):
         """Should handle exceptions during cleanup"""
         with patch.object(self.player, "stop", side_effect=Exception("Stop error")):
@@ -425,9 +425,9 @@ class TestFFmpegPlayerServiceStop(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
+        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
             FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.tui.ffmpeg_player.log_info"), patch("builtins.print"):
+        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
             self.player = FFmpegPlayerService()
 
     def test_stop_no_process(self):
@@ -479,7 +479,7 @@ class TestFFmpegPlayerServiceStop(unittest.TestCase):
         mock_process.terminate.assert_called_once()
         mock_process.kill.assert_called_once()
 
-    @patch("ytm_cli.tui.ffmpeg_player.log_error")
+    @patch("ytm_cli.ffmpeg_player.log_error")
     def test_stop_process_exception(self, mock_log_error):
         """Should handle exceptions during process termination"""
         mock_process = Mock()
@@ -496,10 +496,10 @@ class TestFFmpegPlayerServiceStop(unittest.TestCase):
 class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
     """Test FFmpegPlayerService _play_stream method"""
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
-    @patch("ytm_cli.tui.ffmpeg_player.log_section")
+    @patch("ytm_cli.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_section")
     @patch("builtins.print")
     def test_play_stream_stopped_early(
         self, mock_print, mock_log_section, mock_log, mock_ffmpeg_check
@@ -514,10 +514,10 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
             # Should not attempt URL extraction
             mock_get_url.assert_not_called()
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
-    @patch("ytm_cli.tui.ffmpeg_player.log_section")
+    @patch("ytm_cli.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_section")
     @patch("builtins.print")
     def test_play_stream_no_url(self, mock_print, mock_log_section, mock_log, mock_ffmpeg_check):
         """Should handle failure to get stream URL"""
@@ -528,10 +528,10 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
 
             assert player.is_playing is False
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
-    @patch("ytm_cli.tui.ffmpeg_player.log_section")
+    @patch("ytm_cli.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_section")
     @patch("builtins.print")
     @patch("subprocess.Popen")
     def test_play_stream_process_start_failure(
@@ -548,10 +548,10 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
 
             assert player.is_playing is False
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
-    @patch("ytm_cli.tui.ffmpeg_player.log_section")
+    @patch("ytm_cli.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_section")
     @patch("builtins.print")
     @patch("subprocess.Popen")
     @patch("time.sleep")
@@ -582,10 +582,10 @@ class TestFFmpegPlayerServicePlayStream(unittest.TestCase):
 
             assert player.is_playing is False
 
-    @patch("ytm_cli.tui.ffmpeg_player.YTDLP_AVAILABLE", True)
+    @patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True)
     @patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True)
-    @patch("ytm_cli.tui.ffmpeg_player.log_info")
-    @patch("ytm_cli.tui.ffmpeg_player.log_section")
+    @patch("ytm_cli.ffmpeg_player.log_info")
+    @patch("ytm_cli.ffmpeg_player.log_section")
     @patch("builtins.print")
     def test_play_stream_exception(self, mock_print, mock_log_section, mock_log, mock_ffmpeg_check):
         """Should handle exceptions in _play_stream"""

@@ -157,13 +157,12 @@ class TestConfigModule:
 
     def test_auth_manager_initialization(self):
         """Test that AuthManager is properly initialized"""
-        with patch("ytm_cli.config.configparser.ConfigParser"), patch(
-            "ytm_cli.config.AuthManager"
-        ) as mock_auth_manager_class:
-            mock_auth_manager = Mock()
-            mock_auth_manager_class.return_value = mock_auth_manager
-            mock_auth_manager.get_ytmusic_instance.return_value = Mock()
+        mock_auth_manager = Mock()
+        mock_auth_manager.get_ytmusic_instance.return_value = Mock()
 
+        with patch(
+            "ytm_cli.auth.AuthManager", return_value=mock_auth_manager
+        ) as mock_auth_manager_class:
             # Re-import to trigger initialization
             import importlib
 

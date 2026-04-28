@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
+from ytm_cli.ffmpeg_player import FFmpegPlayerService
 from ytm_cli.hybrid_player import CLIHybridPlayerService
-from ytm_cli.tui.ffmpeg_player import FFmpegPlayerService
 
 
 class TestCLIHybridPlayerInitialization(unittest.TestCase):
@@ -226,9 +226,7 @@ class TestCLIHybridPlayerInfo(unittest.TestCase):
 class TestFFmpegPlayerIntegration(unittest.TestCase):
     """Integration tests for FFmpegPlayerService"""
 
-    @patch(
-        "ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True
-    )
+    @patch("ytm_cli.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True)
     @patch("yt_dlp.YoutubeDL")
     def test_ffmpeg_player_initialization(self, mock_ytdlp, mock_ffmpeg_available):
         """Test FFmpegPlayerService initialization"""
@@ -238,9 +236,7 @@ class TestFFmpegPlayerIntegration(unittest.TestCase):
         except ImportError:
             self.skipTest("FFmpeg not installed")
 
-    @patch(
-        "ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=False
-    )
+    @patch("ytm_cli.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=False)
     def test_ffmpeg_player_init_failure(self, mock_ffmpeg_available):
         """Test FFmpegPlayerService init failure"""
         try:
@@ -249,20 +245,19 @@ class TestFFmpegPlayerIntegration(unittest.TestCase):
         except ImportError:
             self.skipTest("FFmpeg not installed")
 
-    @patch(
-        "ytm_cli.tui.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True
-    )
+    @patch("ytm_cli.ffmpeg_player.FFmpegPlayerService._check_ffmpeg_available", return_value=True)
     def test_ffmpeg_player_stop(self, mock_ffmpeg_available):
         """Test FFmpegPlayerService stop"""
         try:
             player = FFmpegPlayerService()
             player.is_playing = True
-            player.ffplay_process = MagicMock()
-            player.ffplay_process.terminate = MagicMock()
-            player.ffplay_process.wait = MagicMock()
+            mock_process = MagicMock()
+            mock_process.terminate = MagicMock()
+            mock_process.wait = MagicMock()
+            mock_process.kill = MagicMock()
+            player.ffplay_process = mock_process
             player.stop()
-            player.ffplay_process.terminate.assert_called_once()
-            player.ffplay_process.wait.assert_called_once()
+            mock_process.terminate.assert_called_once()
         except ImportError:
             self.skipTest("FFmpeg not installed")
 

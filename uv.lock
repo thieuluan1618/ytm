@@ -375,7 +375,7 @@ wheels = [
 
 [[package]]
 name = "ytm-cli"
-version = "0.5.0"
+version = "0.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "mpv", version = "1.0.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },

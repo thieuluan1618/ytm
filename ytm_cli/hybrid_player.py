@@ -10,7 +10,7 @@ import time
 from typing import Optional
 
 from .config import get_mpv_flags
-from .tui.ffmpeg_player import FFmpegPlayerService
+from .ffmpeg_player import FFmpegPlayerService
 from .verbose_logger import log_error, log_info, log_section
 
 
