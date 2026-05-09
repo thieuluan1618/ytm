@@ -116,9 +116,6 @@ class DislikeManager:
                 continue
             filtered.append(song)
 
-        if filtered_count > 0:
-            print(f"[yellow]Filtered out {filtered_count} disliked song(s)[/yellow]")
-
         return filtered
 
     def get_disliked_songs(self) -> list[dict[str, Any]]:

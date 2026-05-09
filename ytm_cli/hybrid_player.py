@@ -79,7 +79,12 @@ class CLIHybridPlayerService:
 
             url = f"https://music.youtube.com/watch?v={video_id}"
             mpv_flags = get_mpv_flags()
-            mpv_flags.extend([f"--input-ipc-server={self.socket_path}"])
+            mpv_flags.extend(
+                [
+                    f"--input-ipc-server={self.socket_path}",
+                    "--af-append=@vstats:lavfi=[astats=metadata=1:reset=1:length=0.1]",
+                ]
+            )
 
             log_info(f"Starting MPV playback: {title or video_id}")
             self.mpv_process = subprocess.Popen(

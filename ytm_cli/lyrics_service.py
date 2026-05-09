@@ -43,16 +43,14 @@ class LyricsService:
             params["duration"] = duration
 
         try:
-            response = self.session.get(f"{self.base_url}/get", params=params, timeout=10)
+            response = self.session.get(f"{self.base_url}/get", params=params, timeout=5)
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 404:
                 return None
             else:
-                print(f"LRCLIB API error: {response.status_code}")
                 return None
-        except requests.RequestException as e:
-            print(f"Error fetching lyrics from LRCLIB: {e}")
+        except requests.RequestException:
             return None
 
     def search_lyrics(self, track_name: str) -> list[dict]:
@@ -68,14 +66,12 @@ class LyricsService:
         params = {"track_name": track_name}
 
         try:
-            response = self.session.get(f"{self.base_url}/search", params=params, timeout=10)
+            response = self.session.get(f"{self.base_url}/search", params=params, timeout=5)
             if response.status_code == 200:
                 return response.json()
             else:
-                print(f"LRCLIB search error: {response.status_code}")
                 return []
-        except requests.RequestException as e:
-            print(f"Error searching lyrics from LRCLIB: {e}")
+        except requests.RequestException:
             return []
 
 

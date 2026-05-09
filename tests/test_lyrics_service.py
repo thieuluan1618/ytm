@@ -50,7 +50,7 @@ class TestLyricsService:
                     "album_name": "Test Album",
                     "duration": 225,
                 },
-                timeout=10,
+                timeout=5,
             )
 
     def test_get_lyrics_without_optional_params(self, sample_lyrics_response):
@@ -69,7 +69,7 @@ class TestLyricsService:
             mock_get.assert_called_once_with(
                 f"{service.base_url}/get",
                 params={"track_name": "Test Song", "artist_name": "Test Artist"},
-                timeout=10,
+                timeout=5,
             )
 
     def test_get_lyrics_not_found(self):
@@ -94,11 +94,9 @@ class TestLyricsService:
             "get",
             side_effect=requests.RequestException("Network error"),
         ):
-            with patch("builtins.print") as mock_print:
-                result = service.get_lyrics("Test Song", "Test Artist")
+            result = service.get_lyrics("Test Song", "Test Artist")
 
             assert result is None
-            mock_print.assert_called_with("Error fetching lyrics from LRCLIB: Network error")
 
     def test_search_lyrics_success(self):
         """Test successful lyrics search"""
@@ -120,7 +118,7 @@ class TestLyricsService:
             mock_get.assert_called_once_with(
                 f"{service.base_url}/search",
                 params={"track_name": "Test Song"},
-                timeout=10,
+                timeout=5,
             )
 
     def test_search_lyrics_no_results(self):
@@ -146,11 +144,9 @@ class TestLyricsService:
             mock_response.status_code = 500
             mock_get.return_value = mock_response
 
-            with patch("builtins.print") as mock_print:
-                result = service.search_lyrics("Test Song")
+            result = service.search_lyrics("Test Song")
 
             assert result == []
-            mock_print.assert_called_with("LRCLIB search error: 500")
 
     def test_search_lyrics_network_error(self):
         """Test lyrics search with network error"""
@@ -161,11 +157,9 @@ class TestLyricsService:
             "get",
             side_effect=requests.RequestException("Network error"),
         ):
-            with patch("builtins.print") as mock_print:
-                result = service.search_lyrics("Test Song")
+            result = service.search_lyrics("Test Song")
 
             assert result == []
-            mock_print.assert_called_with("Error searching lyrics from LRCLIB: Network error")
 
 
 class TestLRCParser:

@@ -1,8 +1,8 @@
 """MPV player functionality for YTM CLI"""
 
+import curses
 import json
 import os
-import select
 import shutil
 import socket
 import subprocess
@@ -154,6 +154,26 @@ def get_mpv_duration(socket_path):
     return result if result is not None else 0
 
 
+def get_mpv_audio_level(socket_path):
+    """Get current audio RMS level from mpv's astats filter.
+    Returns float 0.0-1.0, or None if unavailable."""
+    result = _mpv_ipc(
+        socket_path,
+        {"command": ["get_property", "af-metadata/vstats"]},
+        expect_response=True,
+    )
+    if not isinstance(result, dict):
+        return None
+    rms_str = result.get("lavfi.astats.Overall.RMS_level")
+    if rms_str is None:
+        return None
+    try:
+        db = float(rms_str)
+        return max(0.0, min(1.0, (db + 60) / 60))
+    except ValueError, TypeError:
+        return None
+
+
 def add_song_to_playlist_interactive(song_data):
     """Interactive playlist selection and song addition during playback"""
     import curses
@@ -281,9 +301,12 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
         }
 
         # Extract artist from title if present
+        artist_name = None
         if " - " in title:
             artist_name = title.split(" - ", 1)[1]
             song_item["artists"] = [{"name": artist_name}]
+
+        song_title = title.split(" - ")[0] if " - " in title else title
 
         timestamped_lyrics = get_timestamped_lyrics(song_item)
 
@@ -291,7 +314,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
             timestamped_lyrics.get("synced_lyrics") or timestamped_lyrics.get("plain_lyrics")
         ):
             display_lyrics_with_curses(
-                timestamped_lyrics, title, socket_path, get_mpv_time_position
+                timestamped_lyrics, song_title, artist_name, socket_path, get_mpv_time_position
             )
             return True
 
@@ -311,7 +334,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
                     "source": "YouTube Music",
                 }
                 display_lyrics_with_curses(
-                    fallback_lyrics, title, socket_path, get_mpv_time_position
+                    fallback_lyrics, song_title, artist_name, socket_path, get_mpv_time_position
                 )
                 return True
             else:
@@ -329,7 +352,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
 
 
 def play_music_with_controls(playlist, playlist_name=None):
-    """Play music with keyboard controls using hybrid player
+    """Play music with keyboard controls using curses-based UI
 
     Args:
         playlist: List of songs to play
@@ -343,203 +366,197 @@ def play_music_with_controls(playlist, playlist_name=None):
     if playlist_name:
         log_info(f"Playing from user playlist: {playlist_name}")
 
-    # Initialize hybrid player
     player = CLIHybridPlayerService()
     if not player.is_available():
         print("❌ No audio player available. Install mpv or FFmpeg")
         return
 
-    current_song_index = 0
-    is_paused = False
-    last_pause_check = 0
+    if not sys.stdin.isatty():
+        _play_non_interactive(player, playlist)
+        return
 
-    # Audio visualizer (disabled — not smooth enough yet)
-    visualizer = CavaVisualizer()
-    vis_available = False  # visualizer.start()
+    quit_pressed = False
 
-    # Check if we're in a TTY environment
-    is_tty = sys.stdin.isatty()
+    def _curses_main(stdscr):
+        nonlocal quit_pressed
+        from .ui import draw_player, init_player_colors
 
-    if is_tty:
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
+        init_player_colors()
+        curses.curs_set(0)
+        stdscr.timeout(200)
+
+        current_song_index = 0
+        is_paused = False
+        frame = 0
+        toast_msg = None
+        toast_expire = 0
+
+        def fire(msg):
+            nonlocal toast_msg, toast_expire
+            toast_msg = msg
+            toast_expire = time.time() + 1.8
+
         try:
-            tty.setraw(sys.stdin.fileno())
-        except termios.error as e:
-            print(f"Warning: Could not set raw terminal mode: {e}")
-            is_tty = False
+            while 0 <= current_song_index < len(playlist):
+                item = playlist[current_song_index]
+                video_id = item["videoId"]
 
-    try:
-        while 0 <= current_song_index < len(playlist):
-            from .verbose_logger import (
-                log_info as vlog_info,
-            )
-            from .verbose_logger import (
-                log_song_change as vlog_song_change,
-            )
-
-            item = playlist[current_song_index]
-            video_id = item["videoId"]
-
-            title = item.get("title", "Unknown Title")
-            artist = "Unknown Artist"
-
-            if "artists" in item and item["artists"] and item["artists"][0].get("name"):
-                artist = item["artists"][0]["name"]
-                title = f"{title} - {artist}"
-
-            # Log song change
-            vlog_song_change(current_song_index, len(playlist), item)
-
-            def cleanup():
-                visualizer.stop()
-                player.cleanup()
-                if is_tty:
-                    try:
-                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                    except termios.error:
-                        pass  # Ignore errors during cleanup
-
-            track_num = current_song_index + 1
-            track_total = len(playlist)
-
-            def update_display(
-                current_title, current_paused, _track_num=track_num, _track_total=track_total
-            ):
-                from .ui import display_player_status
-
-                elapsed = None
-                duration = None
-                if player.player_type == "mpv" and player.socket_path:
-                    elapsed = get_mpv_time_position(player.socket_path)
-                    duration = get_mpv_duration(player.socket_path)
-                vis_bars = visualizer.read_bars() if vis_available else None
-                display_player_status(
-                    current_title,
-                    current_paused,
-                    track_index=_track_num,
-                    track_total=_track_total,
-                    elapsed=elapsed,
-                    duration=duration,
-                    visualizer_bars=vis_bars,
+                song_title = item.get("title", "Unknown Title")
+                artist = "Unknown Artist"
+                if "artists" in item and item["artists"] and item["artists"][0].get("name"):
+                    artist = item["artists"][0]["name"]
+                display_title = (
+                    f"{song_title} - {artist}" if artist != "Unknown Artist" else song_title
                 )
 
-            update_display(title, is_paused)
+                track_num = current_song_index + 1
+                track_total = len(playlist)
 
-            # Start playback with hybrid player
-            if not player.play(video_id, title):
-                print(f"Failed to play: {title}")
-                current_song_index += 1
-                continue
+                draw_player(
+                    stdscr,
+                    song_title,
+                    artist,
+                    is_paused,
+                    track_num,
+                    track_total,
+                    None,
+                    None,
+                    frame,
+                    toast_msg,
+                    toast_expire,
+                )
 
-            # Log player start
-            player_info = player.get_player_info()
-            vlog_info(f"Started playback with {player_info['type']} player")
-            is_paused = False
-            last_pause_check = 0  # Reset pause check timer for new song
-
-            while True:
-                is_playing = player.is_playing()
-                if not is_playing:
-                    # Song finished or error occurred
-                    vlog_info(
-                        f"Song ended: player.is_playing() = {is_playing}, process poll = {player.mpv_process.poll() if player.player_type == 'mpv' and player.mpv_process else 'N/A'}"
-                    )
+                if not player.play(video_id, display_title):
+                    fire(f"Failed: {song_title}")
                     current_song_index += 1
-                    break
+                    continue
 
-                # Refresh display periodically for progress bar
-                current_time = time.time()
-                if current_time - last_pause_check > 0.5:
-                    last_pause_check = current_time
-                    update_display(title, is_paused)
+                is_paused = False
 
-                # Handle keyboard input only if in TTY
-                if is_tty:
-                    rlist, _, _ = select.select([sys.stdin], [], [], 0.2)
-                    if rlist:
-                        key = sys.stdin.read(1)
-                        if key == " ":  # Space bar for play/pause
-                            is_paused = not is_paused
-                            if is_paused:
-                                player.pause()
+                while True:
+                    if not player.is_playing():
+                        current_song_index += 1
+                        break
+
+                    elapsed = duration = audio_level = None
+                    if player.player_type == "mpv" and player.socket_path:
+                        elapsed = get_mpv_time_position(player.socket_path)
+                        duration = get_mpv_duration(player.socket_path)
+                        audio_level = get_mpv_audio_level(player.socket_path)
+
+                    draw_player(
+                        stdscr,
+                        song_title,
+                        artist,
+                        is_paused,
+                        track_num,
+                        track_total,
+                        elapsed,
+                        duration,
+                        frame,
+                        toast_msg,
+                        toast_expire,
+                        audio_level=audio_level,
+                    )
+                    frame += 1
+
+                    key = stdscr.getch()
+                    if key == -1 or key == curses.KEY_RESIZE:
+                        continue
+
+                    if key == ord(" "):
+                        is_paused = not is_paused
+                        if is_paused:
+                            player.pause()
+                        else:
+                            player.resume()
+                    elif key == ord("n"):
+                        player.stop()
+                        current_song_index += 1
+                        fire("Next →")
+                        break
+                    elif key == ord("b"):
+                        player.stop()
+                        if current_song_index > 0:
+                            current_song_index -= 1
+                        fire("← Prev")
+                        break
+                    elif key == ord("l"):
+                        socket_path = None
+                        if player.player_type == "mpv" and player.socket_path:
+                            socket_path = player.socket_path
+                        curses.endwin()
+                        get_and_display_lyrics(video_id, display_title, socket_path)
+                        stdscr.refresh()
+                        curses.curs_set(0)
+                        stdscr.timeout(200)
+                    elif key == ord("a"):
+                        curses.endwin()
+                        add_song_to_playlist_interactive(item)
+                        stdscr.refresh()
+                        curses.curs_set(0)
+                        stdscr.timeout(200)
+                        fire("+ playlist")
+                    elif key == ord("d"):
+                        vid = item.get("videoId")
+                        stitle = item.get("title", "Unknown")
+
+                        if playlist_name and vid:
+                            if dislike_manager.is_disliked(vid):
+                                fire("Already disliked")
+                            elif playlist_manager.remove_song_from_playlist_by_id(
+                                playlist_name, vid
+                            ):
+                                fire("Removed from playlist. D again = global dislike")
                             else:
-                                player.resume()
-                            update_display(title, is_paused)
-                        elif key == "n":
+                                dislike_manager.dislike_song(item)
+                                fire(f"Disliked: {stitle}")
+                                player.stop()
+                                current_song_index += 1
+                                break
+                        else:
+                            dislike_manager.dislike_song(item)
+                            fire(f"Disliked: {stitle}")
                             player.stop()
                             current_song_index += 1
                             break
-                        elif key == "b":
-                            if current_song_index > 0:
-                                player.stop()
-                                current_song_index -= 1
-                            break
-                        elif key == "l":
-                            # Show lyrics - for mpv we need socket path
-                            socket_path = None
-                            if player.player_type == "mpv" and player.socket_path:
-                                socket_path = player.socket_path
-                            get_and_display_lyrics(video_id, title, socket_path)
-                            update_display(title, is_paused)
-                        elif key == "a":
-                            # Add current song to playlist
-                            add_song_to_playlist_interactive(item)
-                            update_display(title, is_paused)
-                        elif key == "d":
-                            # Smart two-step dislike system
-                            video_id = item.get("videoId")
-                            song_title = item.get("title", "Unknown")
+                    elif key == ord("q") or key == 3:
+                        quit_pressed = True
+                        return
+        finally:
+            pass
 
-                            if playlist_name and video_id:
-                                # Playing from a user playlist - two-step process
-                                from .playlists import playlist_manager
-
-                                # Check if song is already globally disliked
-                                if dislike_manager.is_disliked(video_id):
-                                    print(
-                                        f"⏭️  '{song_title}' already disliked globally, skipping..."
-                                    )
-                                else:
-                                    # Try to remove from playlist first
-                                    if playlist_manager.remove_song_from_playlist_by_id(
-                                        playlist_name, video_id
-                                    ):
-                                        print(
-                                            f"📝 Removed '{song_title}' from playlist '{playlist_name}'"
-                                        )
-                                        print("   💡 Press 'd' again to add to global dislikes")
-                                        time.sleep(
-                                            1.5
-                                        )  # Give user time to read and potentially press 'd' again
-                                    else:
-                                        # Song not in playlist anymore or couldn't remove, add to global dislikes
-                                        dislike_manager.dislike_song(item)
-                                        print(f"👎 Disliked '{song_title}' globally")
-                                        current_song_index += 1
-                                        time.sleep(0.8)  # Brief pause to show message
-                                        break
-                            else:
-                                # Playing from search/radio - direct dislike
-                                dislike_manager.dislike_song(item)
-                                song_title = item.get("title", "Unknown")
-                                print(f"👎 Disliked '{song_title}' globally")
-                                current_song_index += 1
-                                time.sleep(0.8)  # Brief pause to show message
-                                break
-                        elif key == "q" or key == "\x03":
-                            cleanup()
-                            goodbye_message()
-                            return
-                else:
-                    # Non-TTY mode: just play through the playlist without interaction
-                    time.sleep(0.5)  # Check playback status every 0.5 seconds
-
+    try:
+        curses.wrapper(_curses_main)
     finally:
-        visualizer.stop()
-        if is_tty:
-            try:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            except termios.error:
-                pass  # Ignore errors during cleanup
+        player.cleanup()
+
+    if quit_pressed:
+        goodbye_message()
+
+
+def _play_non_interactive(player, playlist):
+    """Play through playlist without keyboard interaction (non-TTY fallback)."""
+    from .ui import display_player_status
+
+    try:
+        for i, item in enumerate(playlist):
+            video_id = item["videoId"]
+            title = item.get("title", "Unknown Title")
+            if "artists" in item and item["artists"] and item["artists"][0].get("name"):
+                title = f"{title} - {item['artists'][0]['name']}"
+
+            display_player_status(
+                title,
+                False,
+                track_index=i + 1,
+                track_total=len(playlist),
+            )
+
+            if not player.play(video_id, title):
+                continue
+
+            while player.is_playing():
+                time.sleep(0.5)
+    finally:
         player.cleanup()
