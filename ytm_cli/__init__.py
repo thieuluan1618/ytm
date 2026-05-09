@@ -1,3 +1,3 @@
 """YouTube Music CLI - A terminal interface for YouTube Music"""
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"
