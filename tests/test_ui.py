@@ -4,8 +4,11 @@ import io
 from unittest.mock import patch
 
 # Mock curses before importing ui module
-with patch("curses.curs_set"), patch("curses.use_default_colors"), patch("curses.init_pair"), patch(
-    "curses.color_pair"
+with (
+    patch("curses.curs_set"),
+    patch("curses.use_default_colors"),
+    patch("curses.init_pair"),
+    patch("curses.color_pair"),
 ):
     from ytm_cli.ui import display_player_status
 

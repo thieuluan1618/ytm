@@ -308,9 +308,10 @@ class TestUndislikeSong:
 
         manager = DislikeManager(dislikes_file)
 
-        with patch("builtins.open", side_effect=OSError("Permission denied")), patch(
-            "ytm_cli.dislikes.print"
-        ) as mock_print:
+        with (
+            patch("builtins.open", side_effect=OSError("Permission denied")),
+            patch("ytm_cli.dislikes.print") as mock_print,
+        ):
             result = manager.remove_dislike("disliked_song_1")
 
             # remove_dislike still returns True because in-memory state is updated
@@ -361,9 +362,10 @@ class TestClearAllDislikes:
 
         manager = DislikeManager(dislikes_file)
 
-        with patch("os.remove", side_effect=OSError("Permission denied")), patch(
-            "ytm_cli.dislikes.print"
-        ) as mock_print:
+        with (
+            patch("os.remove", side_effect=OSError("Permission denied")),
+            patch("ytm_cli.dislikes.print") as mock_print,
+        ):
             result = manager.clear_all_dislikes()
 
             assert result is False

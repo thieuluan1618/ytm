@@ -72,7 +72,7 @@ class CavaVisualizer:
                 values = [int(v) for v in last_line.split(";") if v.strip()]
                 if values:
                     self.bars = values
-        except (BlockingIOError, ValueError):
+        except BlockingIOError, ValueError:
             pass
         return self.bars
 
@@ -115,7 +115,7 @@ def _mpv_ipc(socket_path, command, expect_response=False):
                         continue
                     try:
                         data = json.loads(line.decode())
-                    except (json.JSONDecodeError, UnicodeDecodeError):
+                    except json.JSONDecodeError, UnicodeDecodeError:
                         continue
                     if "event" in data:
                         continue
@@ -127,7 +127,7 @@ def _mpv_ipc(socket_path, command, expect_response=False):
             sock.close()
             return None
         sock.close()
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError, TimeoutError):
+    except OSError, json.JSONDecodeError, UnicodeDecodeError, TimeoutError:
         return None
 
 

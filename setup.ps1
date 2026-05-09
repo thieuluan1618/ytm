@@ -9,10 +9,10 @@ Write-Host "YTM CLI Setup" -ForegroundColor Cyan
 Write-Host "=============" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Check Python (>= 3.7)
+# 1. Check Python (>= 3.14)
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
-    Write-Host "Python not found. Please install Python 3.7+ from https://python.org" -ForegroundColor Red
+    Write-Host "Python not found. Please install Python 3.14+ from https://python.org" -ForegroundColor Red
     exit 1
 }
 $pyVersion = & python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
@@ -20,9 +20,9 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to query Python version" -ForegroundColor Red
     exit 1
 }
-& python -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)"
+& python -c "import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)"
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Python 3.7+ required, found $pyVersion" -ForegroundColor Red
+    Write-Host "Python 3.14+ required, found $pyVersion" -ForegroundColor Red
     exit 1
 }
 Write-Host "Python $pyVersion detected" -ForegroundColor Green

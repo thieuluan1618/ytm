@@ -5,7 +5,7 @@ import glob
 import json
 import os
 import webbrowser
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from rich import print
 from ytmusicapi import YTMusic
@@ -39,7 +39,7 @@ class AuthManager:
         """Get the configured authentication method"""
         return self.config.get("auth", "method", fallback="none")
 
-    def scan_for_credential_files(self) -> List[Tuple[str, Dict[str, str]]]:
+    def scan_for_credential_files(self) -> list[tuple[str, dict[str, str]]]:
         """Scan for Google Cloud credential files"""
         credential_files = []
 
@@ -73,7 +73,7 @@ class AuthManager:
 
         return unique_files
 
-    def parse_credential_file(self, file_path: str) -> Optional[Dict[str, str]]:
+    def parse_credential_file(self, file_path: str) -> dict[str, str] | None:
         """Parse Google Cloud credential JSON file"""
         try:
             with open(file_path) as f:
@@ -105,12 +105,12 @@ class AuthManager:
 
             return None
 
-        except (json.JSONDecodeError, FileNotFoundError, KeyError):
+        except json.JSONDecodeError, FileNotFoundError, KeyError:
             return None
 
     def select_credential_file(
-        self, credential_files: List[Tuple[str, Dict[str, str]]]
-    ) -> Optional[Dict[str, str]]:
+        self, credential_files: list[tuple[str, dict[str, str]]]
+    ) -> dict[str, str] | None:
         """Interactive selection of credential file"""
         if not credential_files:
             return None
@@ -345,7 +345,7 @@ class AuthManager:
                         "[yellow]⚠️  Expected format: -H 'header-name: value' or 'header-name: value'[/yellow]"
                     )
 
-            except (EOFError, KeyboardInterrupt):
+            except EOFError, KeyboardInterrupt:
                 break
 
         if not headers_lines:
@@ -615,7 +615,7 @@ class AuthManager:
             print("[yellow]Falling back to unauthenticated access[/yellow]")
             return YTMusic()
 
-    def get_auth_status(self) -> Dict[str, Any]:
+    def get_auth_status(self) -> dict[str, Any]:
         """Get current authentication status"""
         status = {
             "enabled": self.is_auth_enabled(),
@@ -636,7 +636,7 @@ class AuthManager:
         with open(self.config_path, "w") as f:
             self.config.write(f)
 
-    def _parse_headers(self, headers_raw: str) -> Dict[str, Any]:
+    def _parse_headers(self, headers_raw: str) -> dict[str, Any]:
         """Parse headers from cURL or raw format"""
         auth_data = {}
 
@@ -648,7 +648,7 @@ class AuthManager:
 
         return auth_data
 
-    def _parse_curl_headers(self, curl_command: str) -> Dict[str, Any]:
+    def _parse_curl_headers(self, curl_command: str) -> dict[str, Any]:
         """Parse headers from cURL command"""
         import re
 
@@ -673,7 +673,7 @@ class AuthManager:
 
         return auth_data
 
-    def _parse_raw_headers(self, headers_raw: str) -> Dict[str, Any]:
+    def _parse_raw_headers(self, headers_raw: str) -> dict[str, Any]:
         """Parse headers from raw format"""
         auth_data = {}
 

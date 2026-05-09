@@ -5,9 +5,13 @@ from unittest.mock import patch
 import pytest
 
 # Mock the imports before importing main to avoid initialization issues
-with patch("ytm_cli.main.get_songs_to_display"), patch("ytm_cli.main.ytmusic"), patch(
-    "ytm_cli.main.dislike_manager"
-), patch("ytm_cli.main.playlist_manager"), patch("ytm_cli.main.setup_signal_handler"):
+with (
+    patch("ytm_cli.main.get_songs_to_display"),
+    patch("ytm_cli.main.ytmusic"),
+    patch("ytm_cli.main.dislike_manager"),
+    patch("ytm_cli.main.playlist_manager"),
+    patch("ytm_cli.main.setup_signal_handler"),
+):
     from ytm_cli.main import (
         main,
         playlist_create_command,
@@ -24,13 +28,14 @@ class TestSearchAndPlay:
 
     def test_search_and_play_with_query(self, sample_songs):
         """Test search and play with provided query"""
-        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch(
-            "ytm_cli.main.dislike_manager"
-        ) as mock_dislike_manager, patch(
-            "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch("ytm_cli.main.wrapper", return_value=0), patch(
-            "ytm_cli.main.play_music_with_controls"
-        ), patch("ytm_cli.main.print") as mock_print:
+        with (
+            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
+            patch("ytm_cli.main.get_songs_to_display", return_value=5),
+            patch("ytm_cli.main.wrapper", return_value=0),
+            patch("ytm_cli.main.play_music_with_controls"),
+            patch("ytm_cli.main.print") as mock_print,
+        ):
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.return_value = {"tracks": []}
@@ -42,13 +47,14 @@ class TestSearchAndPlay:
 
     def test_search_and_play_no_query_prompts_input(self, sample_songs):
         """Test search and play without query prompts for input"""
-        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch(
-            "ytm_cli.main.dislike_manager"
-        ) as mock_dislike_manager, patch(
-            "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch("ytm_cli.main.wrapper", return_value=0), patch(
-            "ytm_cli.main.play_music_with_controls"
-        ), patch("builtins.input", return_value="user input query"):
+        with (
+            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
+            patch("ytm_cli.main.get_songs_to_display", return_value=5),
+            patch("ytm_cli.main.wrapper", return_value=0),
+            patch("ytm_cli.main.play_music_with_controls"),
+            patch("builtins.input", return_value="user input query"),
+        ):
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.return_value = {"tracks": []}
@@ -59,9 +65,10 @@ class TestSearchAndPlay:
 
     def test_search_and_play_no_results(self):
         """Test search and play when no results found"""
-        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch(
-            "ytm_cli.main.print"
-        ) as mock_print:
+        with (
+            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.print") as mock_print,
+        ):
             mock_ytmusic.search.return_value = []
 
             search_and_play("no results query")
@@ -70,9 +77,11 @@ class TestSearchAndPlay:
 
     def test_search_and_play_all_filtered_out(self, sample_songs):
         """Test search and play when all results are filtered out"""
-        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch(
-            "ytm_cli.main.dislike_manager"
-        ) as mock_dislike_manager, patch("ytm_cli.main.print") as mock_print:
+        with (
+            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
+            patch("ytm_cli.main.print") as mock_print,
+        ):
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = []
 
@@ -82,13 +91,13 @@ class TestSearchAndPlay:
 
     def test_search_and_play_user_quits(self, sample_songs):
         """Test search and play when user quits selection"""
-        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch(
-            "ytm_cli.main.dislike_manager"
-        ) as mock_dislike_manager, patch(
-            "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch("ytm_cli.main.wrapper", return_value=None), patch(
-            "ytm_cli.main.play_music_with_controls"
-        ) as mock_play:
+        with (
+            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
+            patch("ytm_cli.main.get_songs_to_display", return_value=5),
+            patch("ytm_cli.main.wrapper", return_value=None),
+            patch("ytm_cli.main.play_music_with_controls") as mock_play,
+        ):
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
 
@@ -99,13 +108,14 @@ class TestSearchAndPlay:
 
     def test_search_and_play_radio_fetch_error(self, sample_songs):
         """Test search and play when radio fetch fails"""
-        with patch("ytm_cli.main.ytmusic") as mock_ytmusic, patch(
-            "ytm_cli.main.dislike_manager"
-        ) as mock_dislike_manager, patch(
-            "ytm_cli.main.get_songs_to_display", return_value=5
-        ), patch("ytm_cli.main.wrapper", return_value=0), patch(
-            "ytm_cli.main.play_music_with_controls"
-        ) as mock_play, patch("ytm_cli.main.print"):
+        with (
+            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
+            patch("ytm_cli.main.get_songs_to_display", return_value=5),
+            patch("ytm_cli.main.wrapper", return_value=0),
+            patch("ytm_cli.main.play_music_with_controls") as mock_play,
+            patch("ytm_cli.main.print"),
+        ):
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.side_effect = Exception("Radio error")
@@ -136,8 +146,9 @@ class TestPlaylistCommands:
             },
         ]
 
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "builtins.print"
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("builtins.print"),
         ):
             mock_playlist_manager.list_playlists.return_value = sample_playlists
 
@@ -147,9 +158,10 @@ class TestPlaylistCommands:
 
     def test_playlist_list_command_empty(self):
         """Test playlist list command with no playlists"""
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "ytm_cli.main.print"
-        ) as mock_print:
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("ytm_cli.main.print") as mock_print,
+        ):
             mock_playlist_manager.list_playlists.return_value = []
 
             playlist_list_command()
@@ -158,8 +170,9 @@ class TestPlaylistCommands:
 
     def test_playlist_create_command_success(self):
         """Test successful playlist creation command"""
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "builtins.print"
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("builtins.print"),
         ):
             mock_playlist_manager.create_playlist.return_value = True
 
@@ -171,8 +184,9 @@ class TestPlaylistCommands:
 
     def test_playlist_create_command_prompt_for_name(self):
         """Test playlist creation command that prompts for name"""
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "builtins.input", side_effect=["User Playlist", "User description"]
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("builtins.input", side_effect=["User Playlist", "User description"]),
         ):
             mock_playlist_manager.create_playlist.return_value = True
 
@@ -184,8 +198,9 @@ class TestPlaylistCommands:
 
     def test_playlist_show_command_success(self, sample_playlist_data):
         """Test successful playlist show command"""
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "builtins.print"
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("builtins.print"),
         ):
             mock_playlist_manager.get_playlist.return_value = sample_playlist_data
 
@@ -195,9 +210,10 @@ class TestPlaylistCommands:
 
     def test_playlist_show_command_not_found(self):
         """Test playlist show command for non-existent playlist"""
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "ytm_cli.main.print"
-        ) as mock_print:
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("ytm_cli.main.print") as mock_print,
+        ):
             mock_playlist_manager.get_playlist.return_value = None
 
             playlist_show_command("Non-existent")
@@ -206,9 +222,11 @@ class TestPlaylistCommands:
 
     def test_playlist_play_command_success(self, sample_playlist_data):
         """Test successful playlist play command"""
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "ytm_cli.main.dislike_manager"
-        ) as mock_dislike_manager, patch("ytm_cli.main.play_music_with_controls") as mock_play:
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
+            patch("ytm_cli.main.play_music_with_controls") as mock_play,
+        ):
             mock_playlist_manager.get_playlist.return_value = sample_playlist_data
             mock_dislike_manager.filter_disliked_songs.return_value = [
                 {
@@ -228,8 +246,9 @@ class TestPlaylistCommands:
 
     def test_playlist_delete_command_success(self):
         """Test successful playlist delete command"""
-        with patch("ytm_cli.main.playlist_manager") as mock_playlist_manager, patch(
-            "builtins.input", return_value="y"
+        with (
+            patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
+            patch("builtins.input", return_value="y"),
         ):
             mock_playlist_manager.get_playlist_names.return_value = ["Test Playlist"]
             mock_playlist_manager.delete_playlist.return_value = True
@@ -246,9 +265,10 @@ class TestMainFunction:
         """Test main function with backward compatibility for direct search"""
         test_args = ["ytm_cli", "test song query"]
 
-        with patch("sys.argv", test_args), patch(
-            "ytm_cli.main.search_and_play"
-        ) as mock_search_and_play:
+        with (
+            patch("sys.argv", test_args),
+            patch("ytm_cli.main.search_and_play") as mock_search_and_play,
+        ):
             main()
 
             mock_search_and_play.assert_called_once_with("test song query")
@@ -257,9 +277,10 @@ class TestMainFunction:
         """Test main function with search command"""
         test_args = ["ytm_cli", "search", "test query"]
 
-        with patch("sys.argv", test_args), patch(
-            "ytm_cli.main.search_and_play"
-        ) as mock_search_and_play:
+        with (
+            patch("sys.argv", test_args),
+            patch("ytm_cli.main.search_and_play") as mock_search_and_play,
+        ):
             main()
 
             mock_search_and_play.assert_called_once_with("test query", auto_select=None)
@@ -268,9 +289,10 @@ class TestMainFunction:
         """Test main function with playlist list command"""
         test_args = ["ytm_cli", "playlist", "list"]
 
-        with patch("sys.argv", test_args), patch(
-            "ytm_cli.main.playlist_list_command"
-        ) as mock_playlist_list:
+        with (
+            patch("sys.argv", test_args),
+            patch("ytm_cli.main.playlist_list_command") as mock_playlist_list,
+        ):
             main()
 
             mock_playlist_list.assert_called_once()
@@ -286,9 +308,10 @@ class TestMainFunction:
             "Test desc",
         ]
 
-        with patch("sys.argv", test_args), patch(
-            "ytm_cli.main.playlist_create_command"
-        ) as mock_playlist_create:
+        with (
+            patch("sys.argv", test_args),
+            patch("ytm_cli.main.playlist_create_command") as mock_playlist_create,
+        ):
             main()
 
             mock_playlist_create.assert_called_once_with("New Playlist", "Test desc")
@@ -297,9 +320,10 @@ class TestMainFunction:
         """Test main function with no command prompts for search"""
         test_args = ["ytm_cli"]
 
-        with patch("sys.argv", test_args), patch(
-            "ytm_cli.main.search_and_play"
-        ) as mock_search_and_play:
+        with (
+            patch("sys.argv", test_args),
+            patch("ytm_cli.main.search_and_play") as mock_search_and_play,
+        ):
             main()
 
             mock_search_and_play.assert_called_once_with()
@@ -320,9 +344,11 @@ class TestMainIntegration:
 
     def test_signal_handler_setup(self):
         """Test that signal handler is set up on main execution"""
-        with patch("ytm_cli.main.setup_signal_handler") as mock_setup_signal, patch(
-            "sys.argv", ["ytm_cli"]
-        ), patch("ytm_cli.main.search_and_play"):
+        with (
+            patch("ytm_cli.main.setup_signal_handler") as mock_setup_signal,
+            patch("sys.argv", ["ytm_cli"]),
+            patch("ytm_cli.main.search_and_play"),
+        ):
             main()
 
             mock_setup_signal.assert_called_once()

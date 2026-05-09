@@ -224,9 +224,12 @@ class TestFFmpegPlayerServiceControls(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
-            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
+        with (
+            patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True),
+            patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True),
+            patch("ytm_cli.ffmpeg_player.log_info"),
+            patch("builtins.print"),
+        ):
             self.player = FFmpegPlayerService()
 
     def test_pause_success(self):
@@ -316,9 +319,12 @@ class TestFFmpegPlayerServiceState(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
-            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
+        with (
+            patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True),
+            patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True),
+            patch("ytm_cli.ffmpeg_player.log_info"),
+            patch("builtins.print"),
+        ):
             self.player = FFmpegPlayerService()
 
     def test_is_playing_now_true(self):
@@ -369,9 +375,12 @@ class TestFFmpegPlayerServiceVolume(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
-            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
+        with (
+            patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True),
+            patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True),
+            patch("ytm_cli.ffmpeg_player.log_info"),
+            patch("builtins.print"),
+        ):
             self.player = FFmpegPlayerService()
 
     def test_get_volume(self):
@@ -394,9 +403,12 @@ class TestFFmpegPlayerServiceCleanup(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
-            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
+        with (
+            patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True),
+            patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True),
+            patch("ytm_cli.ffmpeg_player.log_info"),
+            patch("builtins.print"),
+        ):
             self.player = FFmpegPlayerService()
 
     def test_cleanup(self):
@@ -425,9 +437,12 @@ class TestFFmpegPlayerServiceStop(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        with patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True), patch.object(
-            FFmpegPlayerService, "_check_ffmpeg_available", return_value=True
-        ), patch("ytm_cli.ffmpeg_player.log_info"), patch("builtins.print"):
+        with (
+            patch("ytm_cli.ffmpeg_player.YTDLP_AVAILABLE", True),
+            patch.object(FFmpegPlayerService, "_check_ffmpeg_available", return_value=True),
+            patch("ytm_cli.ffmpeg_player.log_info"),
+            patch("builtins.print"),
+        ):
             self.player = FFmpegPlayerService()
 
     def test_stop_no_process(self):

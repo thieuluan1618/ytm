@@ -4,7 +4,6 @@ import signal
 import subprocess
 import threading
 import time
-from typing import Optional
 
 try:
     import yt_dlp
@@ -35,9 +34,9 @@ class FFmpegPlayerService:
         self.is_initialized = True
         self.is_playing = False
         self.is_paused = False
-        self.current_video_id: Optional[str] = None
-        self.ffplay_process: Optional[subprocess.Popen] = None
-        self.playback_thread: Optional[threading.Thread] = None
+        self.current_video_id: str | None = None
+        self.ffplay_process: subprocess.Popen | None = None
+        self.playback_thread: threading.Thread | None = None
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
 
@@ -51,7 +50,7 @@ class FFmpegPlayerService:
                 ["ffplay", "-version"], capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+        except subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError:
             return False
 
     def play(self, video_id: str, title: str = "") -> bool:
@@ -98,7 +97,7 @@ class FFmpegPlayerService:
                 self.is_playing = False
             return False
 
-    def _get_stream_url(self, youtube_url: str) -> tuple[Optional[str], Optional[dict]]:
+    def _get_stream_url(self, youtube_url: str) -> tuple[str | None, dict | None]:
         """Extract audio stream URL and headers using yt-dlp"""
         try:
             if not YTDLP_AVAILABLE:

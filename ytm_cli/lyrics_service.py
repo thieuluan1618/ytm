@@ -3,7 +3,6 @@ Lyrics service module for fetching timestamped lyrics from LRCLIB API
 """
 
 import re
-from typing import Dict, List, Optional, Tuple
 
 import requests
 
@@ -23,7 +22,7 @@ class LyricsService:
         artist_name: str,
         album_name: str = None,
         duration: int = None,
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """
         Get lyrics by track details
 
@@ -56,7 +55,7 @@ class LyricsService:
             print(f"Error fetching lyrics from LRCLIB: {e}")
             return None
 
-    def search_lyrics(self, track_name: str) -> List[Dict]:
+    def search_lyrics(self, track_name: str) -> list[dict]:
         """
         Search for lyrics by track name
 
@@ -84,7 +83,7 @@ class LRCParser:
     """Parser for LRC format lyrics with timestamps"""
 
     @staticmethod
-    def parse_lrc(lrc_content: str) -> List[Tuple[float, str]]:
+    def parse_lrc(lrc_content: str) -> list[tuple[float, str]]:
         """
         Parse LRC format lyrics into list of (timestamp, text) tuples
 
@@ -123,7 +122,7 @@ class LRCParser:
         return lines
 
     @staticmethod
-    def get_current_line_index(parsed_lyrics: List[Tuple[float, str]], current_time: float) -> int:
+    def get_current_line_index(parsed_lyrics: list[tuple[float, str]], current_time: float) -> int:
         """
         Get the index of the current line based on playback time
 
@@ -147,7 +146,7 @@ class LRCParser:
         return current_index
 
 
-def get_song_metadata_from_item(item: Dict) -> Tuple[str, str, str, int]:
+def get_song_metadata_from_item(item: dict) -> tuple[str, str, str, int]:
     """
     Extract metadata from YouTube Music item for lyrics search
 
@@ -187,7 +186,7 @@ def get_song_metadata_from_item(item: Dict) -> Tuple[str, str, str, int]:
     return track_name, artist_name, album_name, duration
 
 
-def get_timestamped_lyrics(item: Dict) -> Optional[Dict]:
+def get_timestamped_lyrics(item: dict) -> dict | None:
     """
     Get timestamped lyrics for a YouTube Music item
 

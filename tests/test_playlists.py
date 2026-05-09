@@ -158,9 +158,10 @@ class TestAddSongToPlaylist:
         manager = PlaylistManager(temp_dir)
         manager.create_playlist("Test Playlist")
 
-        with patch("builtins.open", side_effect=OSError("Disk full")), patch(
-            "ytm_cli.playlists.print"
-        ) as mock_print:
+        with (
+            patch("builtins.open", side_effect=OSError("Disk full")),
+            patch("ytm_cli.playlists.print") as mock_print,
+        ):
             result = manager.add_song_to_playlist("Test Playlist", sample_song)
 
             assert result is False
@@ -278,9 +279,10 @@ class TestGetPlaylist:
         manager = PlaylistManager(temp_dir)
         manager.create_playlist("Test Playlist")
 
-        with patch("builtins.open", side_effect=OSError("Permission denied")), patch(
-            "ytm_cli.playlists.print"
-        ) as mock_print:
+        with (
+            patch("builtins.open", side_effect=OSError("Permission denied")),
+            patch("ytm_cli.playlists.print") as mock_print,
+        ):
             result = manager.get_playlist("Test Playlist")
 
             assert result is None
@@ -320,9 +322,10 @@ class TestDeletePlaylist:
         manager = PlaylistManager(temp_dir)
         manager.create_playlist("Test Playlist")
 
-        with patch("os.remove", side_effect=OSError("Permission denied")), patch(
-            "ytm_cli.playlists.print"
-        ) as mock_print:
+        with (
+            patch("os.remove", side_effect=OSError("Permission denied")),
+            patch("ytm_cli.playlists.print") as mock_print,
+        ):
             result = manager.delete_playlist("Test Playlist")
 
             assert result is False

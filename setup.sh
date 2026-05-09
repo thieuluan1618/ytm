@@ -11,15 +11,15 @@ echo "🎵 YTM CLI Setup"
 echo "================"
 echo ""
 
-# 1. Check Python (>= 3.7)
+# 1. Check Python (>= 3.14)
 if ! command -v python3 >/dev/null 2>&1; then
-    echo "❌ python3 not found. Please install Python 3.7+ first."
+    echo "❌ python3 not found. Please install Python 3.14+ first."
     exit 1
 fi
 
-if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)'; then
+if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)'; then
     FOUND=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")')
-    echo "❌ Python 3.7+ required, found $FOUND"
+    echo "❌ Python 3.14+ required, found $FOUND"
     exit 1
 fi
 

@@ -4,7 +4,6 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 import requests
 
@@ -20,7 +19,7 @@ class LLMResponse:
     parameters: dict = field(
         default_factory=dict
     )  # Additional parameters like limit, filters, notes, fallback, etc.
-    songs: List[dict] = field(
+    songs: list[dict] = field(
         default_factory=list
     )  # For create_playlist: list of {"title": ..., "artist": ...}
 
@@ -47,7 +46,7 @@ class LLMClient:
         self.playlists_dir = playlists_dir
         self.dislikes_file = dislikes_file
 
-    def _get_recent_playlist_additions(self, limit: int = 10) -> List[dict]:
+    def _get_recent_playlist_additions(self, limit: int = 10) -> list[dict]:
         """Get recently added songs from all playlists"""
         recent_songs = []
 
@@ -86,7 +85,7 @@ class LLMClient:
         except Exception:
             return []
 
-    def _get_recent_dislikes(self, limit: int = 10) -> List[dict]:
+    def _get_recent_dislikes(self, limit: int = 10) -> list[dict]:
         """Get recently disliked songs"""
         try:
             if not os.path.exists(self.dislikes_file):
@@ -211,7 +210,7 @@ Task:
 
     def generate_playlist(
         self, prompt: str, num_songs: int = 15, verbose: bool = False
-    ) -> Optional[LLMResponse]:
+    ) -> LLMResponse | None:
         """Generate a playlist of songs from LLM based on a description"""
         try:
             context_prompt = self._build_create_playlist_prompt(prompt, num_songs)
@@ -253,7 +252,7 @@ Task:
             "recent_disliked": recent_disliked,
         }
 
-    def generate(self, prompt: str, verbose: bool = False) -> Optional[LLMResponse]:
+    def generate(self, prompt: str, verbose: bool = False) -> LLMResponse | None:
         """Send prompt to LLM and return structured response with context
 
         Args:

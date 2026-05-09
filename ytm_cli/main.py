@@ -118,7 +118,7 @@ def search_and_play(query=None, auto_select=None):
                 if selected_index < 0 or selected_index >= len(results[:songs_to_display]):
                     print("[red]Invalid selection.[/red]")
                     return
-            except (ValueError, KeyboardInterrupt):
+            except ValueError, KeyboardInterrupt:
                 return
 
         if selected_index is None:
@@ -239,7 +239,7 @@ def playlist_show_command(name):
                         return
                 else:
                     name = choice
-            except (ValueError, KeyboardInterrupt):
+            except ValueError, KeyboardInterrupt:
                 return
 
     playlist = playlist_manager.get_playlist(name)
@@ -303,7 +303,7 @@ def playlist_play_command(name):
                         return
                 else:
                     name = choice
-            except (ValueError, KeyboardInterrupt):
+            except ValueError, KeyboardInterrupt:
                 return
 
     playlist = playlist_manager.get_playlist(name)
@@ -373,7 +373,7 @@ def playlist_delete_command(name):
                         return
                 else:
                     name = choice
-            except (ValueError, KeyboardInterrupt):
+            except ValueError, KeyboardInterrupt:
                 return
 
     # Confirm deletion

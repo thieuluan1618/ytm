@@ -8,7 +8,7 @@ version = "0.5.1"
 description = "YouTube Music CLI tool with interactive terminal interface"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.14"
 authors = [
     { name = "thieuluan", email = "thieuluan.dark@gmail.com" },
 ]
@@ -19,12 +19,7 @@ classifiers = [
     "Intended Audience :: End Users/Desktop",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Sound/Audio :: Players",
 ]
 dependencies = [
@@ -49,7 +44,7 @@ include = ["ytm_cli*"]
 [tool.ruff]
 # Set line length to match pylint (100 characters)
 line-length = 100
-target-version = "py38"
+target-version = "py314"
 
 [tool.ruff.lint]
 # Enable flake8 rules and other important checks

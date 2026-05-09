@@ -340,7 +340,7 @@ def add_song_to_playlist_ui(stdscr, song):
     try:
         input_bytes = stdscr.getstr(current_line, 4, max_x - 6)
         input_str = input_bytes.decode("utf-8").strip()
-    except (curses.error, UnicodeDecodeError):
+    except curses.error, UnicodeDecodeError:
         input_str = ""
     finally:
         curses.noecho()
@@ -356,7 +356,7 @@ def add_song_to_playlist_ui(stdscr, song):
             if 0 <= playlist_index < len(playlists):
                 playlist_name = playlists[playlist_index]
                 return playlist_manager.add_song_to_playlist(playlist_name, song)
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             pass
 
     # Treat as new playlist name

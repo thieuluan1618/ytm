@@ -4,7 +4,7 @@ import json
 import os
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from rich import print
 
@@ -49,7 +49,7 @@ class PlaylistManager:
             print(f"[red]Error creating playlist: {e}[/red]")
             return False
 
-    def add_song_to_playlist(self, playlist_name: str, song: Dict[str, Any]) -> bool:
+    def add_song_to_playlist(self, playlist_name: str, song: dict[str, Any]) -> bool:
         """Add a song to an existing playlist"""
         try:
             playlist_path = self._get_playlist_path(playlist_name)
@@ -95,7 +95,7 @@ class PlaylistManager:
             print(f"[red]Error adding song to playlist: {e}[/red]")
             return False
 
-    def list_playlists(self) -> List[Dict[str, Any]]:
+    def list_playlists(self) -> list[dict[str, Any]]:
         """List all available playlists"""
         playlists = []
 
@@ -132,7 +132,7 @@ class PlaylistManager:
             print(f"[red]Error listing playlists: {e}[/red]")
             return []
 
-    def get_playlist(self, playlist_name: str) -> Optional[Dict[str, Any]]:
+    def get_playlist(self, playlist_name: str) -> dict[str, Any] | None:
         """Get a specific playlist by name"""
         try:
             playlist_path = self._get_playlist_path(playlist_name)
@@ -223,7 +223,7 @@ class PlaylistManager:
             print(f"[red]Error removing song from playlist: {e}[/red]")
             return False
 
-    def get_playlist_names(self) -> List[str]:
+    def get_playlist_names(self) -> list[str]:
         """Get list of playlist names for quick selection"""
         playlists = self.list_playlists()
         return [p["name"] for p in playlists]
@@ -235,7 +235,7 @@ class PlaylistManager:
         safe_name = safe_name.strip(". ")  # Remove leading/trailing dots and spaces
         return safe_name or "unnamed_playlist"
 
-    def _get_playlist_path(self, playlist_name: str) -> Optional[str]:
+    def _get_playlist_path(self, playlist_name: str) -> str | None:
         """Get the file path for a playlist by name"""
         # Try exact safe filename match first
         safe_name = self._safe_filename(playlist_name)
@@ -254,7 +254,7 @@ class PlaylistManager:
                             data = json.load(f)
                         if data.get("name", "").lower() == playlist_name.lower():
                             return filepath
-                    except (json.JSONDecodeError, FileNotFoundError):
+                    except json.JSONDecodeError, FileNotFoundError:
                         continue
         except OSError:
             pass

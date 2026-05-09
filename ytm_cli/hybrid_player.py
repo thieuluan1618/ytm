@@ -7,7 +7,6 @@ import socket
 import subprocess
 import tempfile
 import time
-from typing import Optional
 
 from .config import get_mpv_flags
 from .ffmpeg_player import FFmpegPlayerService
@@ -18,10 +17,10 @@ class CLIHybridPlayerService:
     """Hybrid player for CLI mode that uses mpv by default, falls back to FFmpeg if needed"""
 
     def __init__(self):
-        self.mpv_process: Optional[subprocess.Popen] = None
-        self.ffmpeg_player: Optional[FFmpegPlayerService] = None
+        self.mpv_process: subprocess.Popen | None = None
+        self.ffmpeg_player: FFmpegPlayerService | None = None
         self.player_type: str = "none"
-        self.socket_path: Optional[str] = None
+        self.socket_path: str | None = None
         self._initialize_player()
 
     def _initialize_player(self) -> None:
@@ -166,7 +165,7 @@ class CLIHybridPlayerService:
                 parsed = json.loads(line)
                 if "event" not in parsed and parsed.get("error") == "success":
                     return parsed.get("data")
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        except OSError, json.JSONDecodeError, UnicodeDecodeError:
             pass
         return None
 

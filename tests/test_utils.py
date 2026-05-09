@@ -36,9 +36,10 @@ class TestSetupSignalHandler:
 
     def test_signal_handler_calls_goodbye_message(self):
         """Test that the registered signal handler calls goodbye_message"""
-        with patch("signal.signal") as mock_signal, patch(
-            "ytm_cli.utils.goodbye_message"
-        ) as mock_goodbye:
+        with (
+            patch("signal.signal") as mock_signal,
+            patch("ytm_cli.utils.goodbye_message") as mock_goodbye,
+        ):
             setup_signal_handler()
 
             # Get the registered handler function
@@ -80,10 +81,12 @@ class TestGetch:
 
     def test_getch_returns_character(self):
         """Test that getch returns a character"""
-        with patch("sys.stdin.fileno", return_value=0), patch(
-            "termios.tcgetattr", return_value="old_settings"
-        ), patch("tty.setraw"), patch("sys.stdin.read", return_value="a"), patch(
-            "termios.tcsetattr"
+        with (
+            patch("sys.stdin.fileno", return_value=0),
+            patch("termios.tcgetattr", return_value="old_settings"),
+            patch("tty.setraw"),
+            patch("sys.stdin.read", return_value="a"),
+            patch("termios.tcsetattr"),
         ):
             result = getch()
 
@@ -94,11 +97,13 @@ class TestGetch:
         mock_fd = 0
         mock_old_settings = "old_settings"
 
-        with patch("sys.stdin.fileno", return_value=mock_fd), patch(
-            "termios.tcgetattr", return_value=mock_old_settings
-        ) as mock_get, patch("tty.setraw") as mock_setraw, patch(
-            "sys.stdin.read", return_value="x"
-        ), patch("termios.tcsetattr") as mock_set:
+        with (
+            patch("sys.stdin.fileno", return_value=mock_fd),
+            patch("termios.tcgetattr", return_value=mock_old_settings) as mock_get,
+            patch("tty.setraw") as mock_setraw,
+            patch("sys.stdin.read", return_value="x"),
+            patch("termios.tcsetattr") as mock_set,
+        ):
             getch()
 
             # Verify terminal settings are saved and restored
@@ -113,11 +118,13 @@ class TestGetch:
         mock_fd = 0
         mock_old_settings = "old_settings"
 
-        with patch("sys.stdin.fileno", return_value=mock_fd), patch(
-            "termios.tcgetattr", return_value=mock_old_settings
-        ), patch("tty.setraw"), patch("sys.stdin.read", side_effect=KeyboardInterrupt), patch(
-            "termios.tcsetattr"
-        ) as mock_set:
+        with (
+            patch("sys.stdin.fileno", return_value=mock_fd),
+            patch("termios.tcgetattr", return_value=mock_old_settings),
+            patch("tty.setraw"),
+            patch("sys.stdin.read", side_effect=KeyboardInterrupt),
+            patch("termios.tcsetattr") as mock_set,
+        ):
             with pytest.raises(KeyboardInterrupt):
                 getch()
 
@@ -132,9 +139,11 @@ class TestUtilsIntegration:
 
     def test_signal_handler_integration(self):
         """Test that signal handler integration works correctly"""
-        with patch("signal.signal") as mock_signal, patch("builtins.print") as mock_print, patch(
-            "sys.exit"
-        ) as mock_exit:
+        with (
+            patch("signal.signal") as mock_signal,
+            patch("builtins.print") as mock_print,
+            patch("sys.exit") as mock_exit,
+        ):
             # Setup signal handler
             setup_signal_handler()
 

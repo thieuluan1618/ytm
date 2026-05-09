@@ -1,7 +1,7 @@
 """Enhanced verbose logging for YTM CLI with rich formatting"""
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -14,7 +14,7 @@ _VERBOSE = False
 _VERBOSE_FILE = None
 
 
-def set_verbose(enabled: bool, log_file: Optional[str] = None):
+def set_verbose(enabled: bool, log_file: str | None = None):
     """Set verbose mode and optional log file"""
     global _VERBOSE, _VERBOSE_FILE
     _VERBOSE = enabled
@@ -103,7 +103,7 @@ def log_error(message: str):
     log_to_file(f"{timestamp}   ✗ {message}")
 
 
-def log_search_results(query: str, results: List[Dict], filtered_count: int = 0):
+def log_search_results(query: str, results: list[dict], filtered_count: int = 0):
     """Log search results in a formatted table"""
     if not _VERBOSE:
         return
@@ -157,7 +157,7 @@ def log_radio_generation(video_id: str, radio_tracks: int, filtered: int = 0):
         log_info(f"Final radio playlist: {radio_tracks - filtered} tracks")
 
 
-def log_playlist_composition(playlist: List[Dict], selected_song_index: int = 0):
+def log_playlist_composition(playlist: list[dict], selected_song_index: int = 0):
     """Log the final playlist composition"""
     if not _VERBOSE:
         return
@@ -215,7 +215,7 @@ def log_mpv_stop(exit_code: int, reason: str = ""):
         log_info(f"Reason: {reason}")
 
 
-def log_song_change(index: int, total: int, song: Dict):
+def log_song_change(index: int, total: int, song: dict):
     """Log song change in playlist"""
     if not _VERBOSE:
         return
@@ -266,7 +266,7 @@ def log_playlist_add(song_title: str, song_artist: str, playlist_name: str):
     log_user_action("Added to playlist", f'"{song_title}" → "{playlist_name}"')
 
 
-def log_api_call(endpoint: str, params: Dict[str, Any] = None):
+def log_api_call(endpoint: str, params: dict[str, Any] = None):
     """Log YouTube Music API call"""
     if not _VERBOSE:
         return

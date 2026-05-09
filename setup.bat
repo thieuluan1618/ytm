@@ -10,10 +10,10 @@ echo YTM CLI Setup
 echo =============
 echo.
 
-REM 1. Check Python (>= 3.7)
+REM 1. Check Python (>= 3.14)
 where python >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python not found. Please install Python 3.7+ from https://python.org
+    echo [ERROR] Python not found. Please install Python 3.14+ from https://python.org
     exit /b 1
 )
 for /f "delims=" %%v in ('python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')" 2^>nul') do set "PY_VERSION=%%v"
@@ -21,9 +21,9 @@ if not defined PY_VERSION (
     echo [ERROR] Failed to query Python version
     exit /b 1
 )
-python -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)"
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)"
 if errorlevel 1 (
-    echo [ERROR] Python 3.7+ required, found %PY_VERSION%
+    echo [ERROR] Python 3.14+ required, found %PY_VERSION%
     exit /b 1
 )
 echo [OK] Python %PY_VERSION% detected

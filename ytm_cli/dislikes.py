@@ -3,7 +3,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from rich import print
 
@@ -31,7 +31,7 @@ class DislikeManager:
             print(f"[yellow]Warning: Could not load dislikes: {e}[/yellow]")
             self._disliked_ids = set()
 
-    def _save_dislikes(self, songs_data: List[Dict[str, Any]]):
+    def _save_dislikes(self, songs_data: list[dict[str, Any]]):
         """Save disliked songs data to file"""
         try:
             data = {
@@ -44,7 +44,7 @@ class DislikeManager:
         except Exception as e:
             print(f"[red]Error saving dislikes: {e}[/red]")
 
-    def dislike_song(self, song: Dict[str, Any]) -> bool:
+    def dislike_song(self, song: dict[str, Any]) -> bool:
         """Add a song to dislikes"""
         try:
             video_id = song.get("videoId", "")
@@ -63,7 +63,7 @@ class DislikeManager:
                     with open(self.dislikes_file, encoding="utf-8") as f:
                         data = json.load(f)
                         existing_songs = data.get("songs", [])
-                except (json.JSONDecodeError, FileNotFoundError):
+                except json.JSONDecodeError, FileNotFoundError:
                     pass
 
             # Create dislike entry
@@ -101,7 +101,7 @@ class DislikeManager:
         """Check if a song is disliked"""
         return video_id in self._disliked_ids
 
-    def filter_disliked_songs(self, songs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def filter_disliked_songs(self, songs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter out disliked songs from a list"""
         if not self._disliked_ids:
             return songs
@@ -121,7 +121,7 @@ class DislikeManager:
 
         return filtered
 
-    def get_disliked_songs(self) -> List[Dict[str, Any]]:
+    def get_disliked_songs(self) -> list[dict[str, Any]]:
         """Get all disliked songs"""
         try:
             if not os.path.exists(self.dislikes_file):
