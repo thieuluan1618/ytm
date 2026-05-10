@@ -12,6 +12,7 @@ coverage>=7.0.0
 pytest>=9.0.3
 pytest-cov>=6.0.0
 pytest-mock>=3.15.0
+yt-dlp>=2024.0.0
 
 # Version management
 bump2version>=1.0.0
