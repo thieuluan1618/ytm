@@ -7,6 +7,7 @@ from curses import wrapper
 
 from rich import print
 
+from . import __version__
 from .config import get_songs_to_display, ytmusic
 from .dislikes import dislike_manager
 from .player import play_music_with_controls
@@ -479,8 +480,13 @@ During music playback:
 
     # Global options (available for all commands)
     parser.add_argument(
-        "--verbose",
+        "--version",
         "-v",
+        action="version",
+        version=f"ytm-cli {__version__}",
+    )
+    parser.add_argument(
+        "--verbose",
         action="store_true",
         help="Enable verbose output with detailed logging",
     )
@@ -510,7 +516,6 @@ During music playback:
     )
     search_parser.add_argument(
         "--verbose",
-        "-v",
         action="store_true",
         help="Enable verbose output with detailed logging",
     )
@@ -543,9 +548,7 @@ During music playback:
     llm_ask_parser.add_argument(
         "prompt", help="Natural language request for music (e.g. 'play upbeat pop songs')"
     )
-    llm_ask_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output"
-    )
+    llm_ask_parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
 
     # llm playlist - AI-generated playlist
     llm_playlist_parser = llm_subparsers.add_parser(
@@ -560,9 +563,7 @@ During music playback:
     llm_playlist_parser.add_argument(
         "--play", "-p", action="store_true", help="Start playing after creation"
     )
-    llm_playlist_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output"
-    )
+    llm_playlist_parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
 
     playlist_subparsers.add_parser(
         "list",
