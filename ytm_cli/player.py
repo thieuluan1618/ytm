@@ -154,9 +154,28 @@ def get_mpv_duration(socket_path):
     return result if result is not None else 0
 
 
-def get_mpv_audio_level(socket_path):
-    """Get current audio RMS level from mpv's astats filter.
-    Returns float 0.0-1.0, or None if unavailable."""
+def get_mpv_resolved_url(socket_path):
+    """Return the direct media URL mpv resolved via yt-dlp, or None.
+
+    `stream-open-filename` exposes the post-resolution URL ffmpeg can fetch.
+    """
+    result = _mpv_ipc(
+        socket_path,
+        {"command": ["get_property", "stream-open-filename"]},
+        expect_response=True,
+    )
+    if isinstance(result, str) and result.startswith(("http://", "https://")):
+        return result
+    return None
+
+
+def get_mpv_audio_levels(socket_path):
+    """Get normalized audio levels from mpv's astats filter.
+
+    Returns dict {peak, rms, left, right} with floats 0.0-1.0, or None.
+    Each value derives from a per-frame astats reading (length=0.1s window)
+    so bars track real MP3 dynamics — no microphone, no FFT.
+    """
     result = _mpv_ipc(
         socket_path,
         {"command": ["get_property", "af-metadata/vstats"]},
@@ -164,14 +183,33 @@ def get_mpv_audio_level(socket_path):
     )
     if not isinstance(result, dict):
         return None
-    rms_str = result.get("lavfi.astats.Overall.RMS_level")
-    if rms_str is None:
-        return None
-    try:
-        db = float(rms_str)
-        return max(0.0, min(1.0, (db + 60) / 60))
-    except ValueError, TypeError:
-        return None
+
+    def _norm(key, floor_db=-60.0):
+        raw = result.get(key)
+        if raw is None:
+            return None
+        try:
+            db = float(raw)
+        except ValueError, TypeError:
+            return None
+        if db != db or db <= floor_db:  # NaN or -inf / silence
+            return 0.0
+        if db >= 0.0:
+            return 1.0
+        return (db - floor_db) / (-floor_db)
+
+    return {
+        "peak": _norm("lavfi.astats.Overall.Peak_level"),
+        "rms": _norm("lavfi.astats.Overall.RMS_level"),
+        "left": _norm("lavfi.astats.1.RMS_level"),
+        "right": _norm("lavfi.astats.2.RMS_level"),
+    }
+
+
+def get_mpv_audio_level(socket_path):
+    """Back-compat: overall RMS as float 0..1, or None."""
+    levels = get_mpv_audio_levels(socket_path)
+    return levels.get("rms") if levels else None
 
 
 def add_song_to_playlist_interactive(song_data):
@@ -379,9 +417,11 @@ def play_music_with_controls(playlist, playlist_name=None):
 
     def _curses_main(stdscr):
         nonlocal quit_pressed
-        from .ui import draw_player, init_player_colors
+        from .spectrum import SpectrumAnalyzer
+        from .ui import draw_player, init_player_colors, push_wave_sample, reset_wave_history
 
         init_player_colors()
+        spectrum = SpectrumAnalyzer(n_bands=24) if SpectrumAnalyzer.available() else None
         curses.curs_set(0)
         stdscr.timeout(200)
 
@@ -398,6 +438,10 @@ def play_music_with_controls(playlist, playlist_name=None):
 
         try:
             while 0 <= current_song_index < len(playlist):
+                reset_wave_history()
+                if spectrum is not None:
+                    spectrum.stop()
+                spectrum_started = False
                 item = playlist[current_song_index]
                 video_id = item["videoId"]
 
@@ -447,11 +491,21 @@ def play_music_with_controls(playlist, playlist_name=None):
                         current_song_index += 1
                         break
 
-                    elapsed = duration = audio_level = None
+                    elapsed = duration = audio_levels = None
                     if player.player_type == "mpv" and player.socket_path:
                         elapsed = get_mpv_time_position(player.socket_path)
                         duration = get_mpv_duration(player.socket_path)
-                        audio_level = get_mpv_audio_level(player.socket_path)
+                        audio_levels = get_mpv_audio_levels(player.socket_path)
+
+                        if spectrum is not None and not spectrum_started:
+                            resolved = get_mpv_resolved_url(player.socket_path)
+                            if resolved:
+                                spectrum_started = spectrum.start(resolved)
+
+                    if audio_levels and not is_paused:
+                        push_wave_sample(audio_levels)
+
+                    bands = spectrum.get_bands() if spectrum is not None else None
 
                     draw_player(
                         stdscr,
@@ -465,7 +519,8 @@ def play_music_with_controls(playlist, playlist_name=None):
                         frame,
                         toast_msg,
                         toast_expire,
-                        audio_level=audio_level,
+                        audio_levels=audio_levels,
+                        bands=bands,
                     )
                     frame += 1
 
@@ -534,7 +589,8 @@ def play_music_with_controls(playlist, playlist_name=None):
                         quit_pressed = True
                         return
         finally:
-            pass
+            if spectrum is not None:
+                spectrum.stop()
 
     try:
         curses.wrapper(_curses_main)

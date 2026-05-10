@@ -28,6 +28,7 @@ dependencies = [
     "mpv",
     "requests",
     "pyperclip",
+    "numpy",
 ]
 
 [project.urls]

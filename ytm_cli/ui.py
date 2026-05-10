@@ -5,6 +5,7 @@ import math
 import os
 import sys
 import time
+from collections import deque
 from curses import wrapper
 
 from .playlists import playlist_manager
@@ -427,6 +428,17 @@ def _format_time(seconds):
 
 # Block characters for visualizer (index 0 = empty, 8 = full)
 _VIS_BLOCKS = " ▁▂▃▄▅▆▇█"
+_WAVE_ROWS = 4  # vertical rows per bar; total resolution = _WAVE_ROWS * 8 sub-units
+
+
+def _draw_bar(scr, bottom_row, x, level, rows, attr):
+    """Render a vertical bar at column x ending at bottom_row, `rows` tall."""
+    total_units = rows * 8
+    units = max(0, min(total_units, int(round(level * total_units))))
+    for r_off in range(rows):
+        cell = max(0, min(8, units - r_off * 8))
+        ch = "█" if cell == 8 else _BLOCKS[cell]
+        _safe_addstr(scr, bottom_row - r_off, x, ch, attr)
 
 
 def _render_visualizer(bars, width):
@@ -515,6 +527,40 @@ _WAVE_SEEDS = [
 ]
 _BLOCKS = " \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"
 
+# Rolling history of real audio samples driving the visualizer.
+# Each entry is (left, right) in 0..1 \u2014 newest on the right.
+_WAVE_HISTORY: deque[tuple[float, float]] = deque(maxlen=_WAVE_BARS * 2)
+_WAVE_PREV_PEAK = 0.0
+
+
+def reset_wave_history():
+    """Clear visualizer history (call on track change)."""
+    global _WAVE_PREV_PEAK
+    _WAVE_HISTORY.clear()
+    _WAVE_PREV_PEAK = 0.0
+
+
+def push_wave_sample(levels):
+    """Append a real audio sample from get_mpv_audio_levels output."""
+    global _WAVE_PREV_PEAK
+    if not levels:
+        return
+    peak = levels.get("peak")
+    if peak is None:
+        peak = levels.get("rms") or 0.0
+    # Light smoothing keeps bars from flickering between adjacent ticks.
+    smoothed = max(peak, _WAVE_PREV_PEAK * 0.6)
+    _WAVE_PREV_PEAK = smoothed
+    left = levels.get("left")
+    right = levels.get("right")
+    if left is None:
+        left = smoothed
+    if right is None:
+        right = smoothed
+    # Bias each channel by current peak so silent stretches still drop to 0.
+    _WAVE_HISTORY.append((min(1.0, left), min(1.0, right)))
+
+
 _CP_ACCENT = 10
 _CP_DIM = 11
 _CP_TEXT = 12
@@ -555,7 +601,8 @@ def draw_player(
     frame=0,
     toast_msg=None,
     toast_expire=0,
-    audio_level=None,
+    audio_levels=None,
+    bands=None,
 ):
     """Render full-screen player UI."""
     scr.erase()
@@ -571,7 +618,7 @@ def draw_player(
     cw = min(w - 4, 70)
     lm = (w - cw) // 2
 
-    r = max(1, (h - 16) // 2)
+    r = max(1, (h - 19) // 2)
 
     # \u2500\u2500 Header \u2500\u2500
     _safe_addstr(scr, r, lm, "ytm", accent)
@@ -586,30 +633,66 @@ def draw_player(
     r += 1
     _safe_addstr(scr, r, lm, "\u2500" * cw, bdr)
 
-    # \u2500\u2500 Waveform \u2500\u2500
-    r += 2
+    # \u2500\u2500 Waveform / Spectrum \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    # Priority: real FFT spectrum (ffmpeg+numpy) > stereo oscilloscope (astats)
+    # > synthesized fallback (no audio backend reporting yet).
+    r += 1
     nbars = min(_WAVE_BARS, (cw - 4 + 1) // 2)
     ww = nbars * 2 - 1
     wx = cx - ww // 2
-    for i in range(nbars):
-        if audio_level is not None:
-            seed = _WAVE_SEEDS[i % len(_WAVE_SEEDS)]
-            phase = frame * 0.7 + i * 0.65
-            variation = 0.5 + 0.5 * math.sin(phase)
-            height = int(audio_level * 8 * (seed / 30.0 + 0.2) * variation)
-            height = max(0, min(8, height))
+    half = nbars // 2
+
+    bar_bottom = r + _WAVE_ROWS - 1
+    bar_attr = accent_n if not is_paused else dim
+
+    history = list(_WAVE_HISTORY)
+    have_real = bool(history) and audio_levels is not None
+
+    if bands:
+        mode_label = "spectrum"
+        n_in = len(bands)
+        for i in range(nbars):
+            lo = int(i * n_in / nbars)
+            hi = max(lo + 1, int((i + 1) * n_in / nbars))
+            level = max(bands[lo:hi])
             if is_paused:
-                height = max(1, height // 3)
-        elif not is_paused:
-            seed = _WAVE_SEEDS[i % len(_WAVE_SEEDS)]
-            phase = frame * 0.7 + i * 0.65
-            val = 0.5 + 0.5 * math.sin(phase)
-            lo = seed / 5.0
-            hi = (40 - seed / 2) / 5.0
-            height = max(1, min(8, int(lo + (hi - lo) * val)))
-        else:
-            height = 1
-        _safe_addstr(scr, r, wx + i * 2, _BLOCKS[height], accent_n if not is_paused else dim)
+                level *= 0.3
+            _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
+    elif have_real:
+        mode_label = "stereo"
+        recent = history[-half:] if half else []
+        recent = [(0.0, 0.0)] * max(0, half - len(recent)) + recent
+
+        for i in range(nbars):
+            if i < half:
+                level = recent[i][0]
+            elif nbars % 2 == 1 and i == half:
+                lch, rch = recent[-1] if recent else (0.0, 0.0)
+                level = (lch + rch) / 2.0
+            else:
+                level = recent[nbars - 1 - i][1]
+
+            if is_paused:
+                level *= 0.3
+            _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
+    else:
+        mode_label = "sim"
+        for i in range(nbars):
+            if not is_paused:
+                seed = _WAVE_SEEDS[i % len(_WAVE_SEEDS)]
+                phase = frame * 0.7 + i * 0.65
+                val = 0.5 + 0.5 * math.sin(phase)
+                level = (seed / 40.0) * (0.4 + 0.6 * val)
+            else:
+                level = 0.05
+            _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
+
+    # Mode indicator: lets you confirm which visualizer pipeline is live.
+    label_row = bar_bottom + 1
+    label_x = lm + cw - len(mode_label)
+    _safe_addstr(scr, label_row, label_x, mode_label, dim)
+
+    r = label_row
 
     # \u2500\u2500 Song info \u2500\u2500
     r += 2
