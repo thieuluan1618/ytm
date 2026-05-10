@@ -433,8 +433,17 @@ def play_music_with_controls(playlist, playlist_name=None):
 
                 is_paused = False
 
+                lyrics_just_viewed = False
+
                 while True:
-                    if not player.is_playing():
+                    if player.is_playing():
+                        # Reset the post-lyrics guard once the player confirms it's still alive.
+                        lyrics_just_viewed = False
+                    elif lyrics_just_viewed:
+                        # Don't auto-advance immediately after returning from the lyrics view;
+                        # is_playing() can briefly report False during curses re-init.
+                        lyrics_just_viewed = False
+                    else:
                         current_song_index += 1
                         break
 
@@ -490,6 +499,7 @@ def play_music_with_controls(playlist, playlist_name=None):
                         stdscr.refresh()
                         curses.curs_set(0)
                         stdscr.timeout(200)
+                        lyrics_just_viewed = True
                     elif key == ord("a"):
                         curses.endwin()
                         add_song_to_playlist_interactive(item)

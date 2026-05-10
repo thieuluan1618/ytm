@@ -229,6 +229,7 @@ When enabled, shows:
 - `search_and_play()`: Main entry point for search and playback workflow
 - `selection_ui()`: Curses-based interactive song selection interface
 - `play_music_with_controls()`: Media playback with keyboard controls (space=pause, n=next, b=previous, l=lyrics, a=add to playlist, d=dislike, q=quit)
+- `display_lyrics_with_curses()`: Synced lyrics viewer with three-state highlighting (active/past/future), auto-scroll centering, and manual scroll override
 - `send_mpv_command()`: IPC communication with mpv player via Unix socket
 
 ### Configuration
@@ -414,5 +415,6 @@ When adding new features, follow these principles:
 
 - **During Playback**: Single letter keys for immediate actions (space, n, b, l, a, d, q)
 - **During Selection**: Same vim-like navigation everywhere (j/k, ↑↓, Enter, q)
+- **During Lyrics**: j/k scroll, space re-enables auto-scroll, q/Esc exits back to player
 - **Consistent**: Same keys do the same things across different screens
 - **Memorable**: Use logical letters (a=add, d=dislike, l=lyrics, q=quit, etc.)

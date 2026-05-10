@@ -59,10 +59,14 @@ def display_lyrics_with_curses(
 
         wrapped_lines = []
         timestamp_map = {}
+        # Map each wrapped line index → original lyric index, so all sub-lines
+        # of a wrapped lyric share the same active/past/future state.
+        wrapped_to_orig = {}
 
         for orig_idx, line in enumerate(lines):
             if len(line) <= cw - 6:
                 wrapped_lines.append(line)
+                wrapped_to_orig[len(wrapped_lines) - 1] = orig_idx
                 if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
                     timestamp_map[len(wrapped_lines) - 1] = timestamped_lyrics[orig_idx][0]
             else:
@@ -79,12 +83,14 @@ def display_lyrics_with_curses(
                         current_line += " " + word if current_line else word
                     else:
                         wrapped_lines.append(current_line)
+                        wrapped_to_orig[len(wrapped_lines) - 1] = orig_idx
                         if ts is not None and first_sub:
                             timestamp_map[len(wrapped_lines) - 1] = ts
                             first_sub = False
                         current_line = word
                 if current_line:
                     wrapped_lines.append(current_line)
+                    wrapped_to_orig[len(wrapped_lines) - 1] = orig_idx
                     if ts is not None and first_sub:
                         timestamp_map[len(wrapped_lines) - 1] = ts
 
@@ -98,9 +104,12 @@ def display_lyrics_with_curses(
             stdscr.erase()
 
             current_highlighted_line = -1
+            active_orig_idx = -1
             current_time = 0
             if socket_path and get_mpv_time_position_func:
-                current_time = get_mpv_time_position_func(socket_path)
+                pos = get_mpv_time_position_func(socket_path)
+                if pos is not None:
+                    current_time = pos
 
                 if timestamped_lyrics and current_time > 0:
                     for line_idx, ts in sorted_ts:
@@ -108,13 +117,10 @@ def display_lyrics_with_curses(
                             current_highlighted_line = line_idx
                         else:
                             break
-                elif current_time > 0:
-                    non_empty_lines = [i for i, line in enumerate(lines) if line.strip()]
-                    line_duration = 3.0
-                    if non_empty_lines:
-                        estimated_line_index = int(current_time / line_duration)
-                        if estimated_line_index < len(non_empty_lines):
-                            current_highlighted_line = non_empty_lines[estimated_line_index]
+                    if current_highlighted_line >= 0:
+                        active_orig_idx = wrapped_to_orig.get(
+                            current_highlighted_line, current_highlighted_line
+                        )
 
             if current_highlighted_line >= 0 and not manual_scroll:
                 target = max(0, current_highlighted_line - content_height // 2)
@@ -139,19 +145,22 @@ def display_lyrics_with_curses(
                 line = lines[line_idx]
                 row = 2 + i
                 is_symbol = line.strip() == "♪"
+                display_text = "" if is_symbol else line
 
-                if line_idx == current_highlighted_line:
+                # All wrapped sub-lines of the active lyric share the active state.
+                line_orig_idx = wrapped_to_orig.get(line_idx, line_idx)
+                is_active = active_orig_idx >= 0 and line_orig_idx == active_orig_idx
+                is_past = active_orig_idx >= 0 and line_orig_idx < active_orig_idx
+
+                if is_active:
                     _safe_addstr(stdscr, row, lm, "│", accent_n)
                     _safe_addstr(stdscr, row, lm + 2, "♪", accent_n)
-                    display_text = "" if is_symbol else line
                     _safe_addstr(stdscr, row, lm + 4, display_text[: cw - 6], active_color)
-                elif line_idx < current_highlighted_line:
+                elif is_past:
                     _safe_addstr(stdscr, row, lm, " ", past_color)
-                    display_text = "" if is_symbol else line
                     _safe_addstr(stdscr, row, lm + 4, display_text[: cw - 6], past_color)
                 else:
                     _safe_addstr(stdscr, row, lm, " ", future_color)
-                    display_text = "" if is_symbol else line
                     _safe_addstr(stdscr, row, lm + 4, display_text[: cw - 6], future_color)
 
             # ── Footer ──

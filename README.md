@@ -15,7 +15,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 - **📱 Vim-like Navigation**: Use `j/k` keys or arrow keys to navigate
 - **📋 Local Playlists**: Create and manage personal playlists
 - **👎 Smart Filtering**: Dislike songs to filter them from future results
-- **📜 Lyrics Display**: View lyrics while listening (press `l`)
+- **📜 Synced Lyrics**: Live-highlighted lyrics with auto-scroll (press `l`)
 - **🎯 Radio Mode**: Automatic playlist generation based on your selection
 - **🤖 AI-Powered**: Natural language music requests and AI-generated playlists
 
@@ -135,10 +135,18 @@ ytm-cli search "song" -s 1 -v --log-file debug.log  # Save debug logs
 - `Space` - Play/pause
 - `n` - Next song
 - `b` - Previous song
-- `l` - Show lyrics
+- `l` - Show lyrics (synced highlighting with auto-scroll)
 - `a` - Add to playlist
 - `d` - Dislike song (skip and filter from future results)
 - `q` - Quit
+
+### During Lyrics View
+
+- `j/k` or `↑/↓` - Manual scroll
+- `Space` - Re-enable auto-scroll
+- `q` or `Esc` - Back to player
+- `PgUp/PgDn` - Page scroll
+- `Home/End` - Jump to top/bottom
 
 ## 📋 Playlist Management
 
