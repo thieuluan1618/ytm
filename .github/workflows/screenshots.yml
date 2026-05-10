@@ -32,12 +32,33 @@ jobs:
       - name: Install ffmpeg + mpv
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg mpv ttyd
+          sudo apt-get install -y ffmpeg mpv
+
+      - name: Install ttyd
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release view --repo tsl0922/ttyd --json tagName -q .tagName)
+          gh release download "$TAG" --repo tsl0922/ttyd \
+            --pattern 'ttyd.x86_64' --output /tmp/ttyd
+          sudo install -m 0755 /tmp/ttyd /usr/local/bin/ttyd
+          ttyd --version
+
+      - name: Install vhs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release view --repo charmbracelet/vhs --json tagName -q .tagName)
+          VERSION=${TAG#v}
+          gh release download "$TAG" --repo charmbracelet/vhs \
+            --pattern "vhs_${VERSION}_Linux_x86_64.tar.gz" --output /tmp/vhs.tar.gz
+          tar -xzf /tmp/vhs.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/vhs_${VERSION}_Linux_x86_64/vhs" /usr/local/bin/vhs
+          vhs --version
+          ffmpeg -version | head -1
 
       - name: Generate screenshots
-        uses: charmbracelet/vhs-action@v2
-        with:
-          path: screenshots/player.tape
+        run: vhs screenshots/player.tape
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
