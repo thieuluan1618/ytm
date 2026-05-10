@@ -428,7 +428,7 @@ def _format_time(seconds):
 
 # Block characters for visualizer (index 0 = empty, 8 = full)
 _VIS_BLOCKS = " ▁▂▃▄▅▆▇█"
-_WAVE_ROWS = 4  # vertical rows per bar; total resolution = _WAVE_ROWS * 8 sub-units
+_WAVE_ROWS = 3  # vertical rows per bar; total resolution = _WAVE_ROWS * 8 sub-units
 
 
 def _draw_bar(scr, bottom_row, x, level, rows, attr):
@@ -618,7 +618,7 @@ def draw_player(
     cw = min(w - 4, 70)
     lm = (w - cw) // 2
 
-    r = max(1, (h - 19) // 2)
+    r = max(1, (h - 18) // 2)
 
     # \u2500\u2500 Header \u2500\u2500
     _safe_addstr(scr, r, lm, "ytm", accent)
@@ -659,7 +659,7 @@ def draw_player(
                 level *= 0.3
             _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
     elif have_real:
-        mode_label = "stereo"
+        mode_label = ""
         recent = history[-half:] if half else []
         recent = [(0.0, 0.0)] * max(0, half - len(recent)) + recent
 
