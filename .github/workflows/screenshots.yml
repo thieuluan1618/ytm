@@ -58,7 +58,11 @@ jobs:
           ffmpeg -version | head -1
 
       - name: Generate screenshots
-        run: vhs screenshots/player.tape
+        run: |
+          for tape in screenshots/*.tape; do
+            echo "▶ Rendering $tape"
+            vhs "$tape"
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -78,5 +82,5 @@ jobs:
           message: |
             ### 📸 UI Screenshots
 
-            Generated from `screenshots/player.tape` against this PR.
+            Generated from every `screenshots/*.tape` against this PR.
             Download the `screenshots` artifact above for the gif / png / webm.

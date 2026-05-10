@@ -113,6 +113,42 @@ class DemoSpectrum:
         return bands
 
 
+DEMO_LYRICS = {
+    "source": "Demo / no network",
+    "plain_lyrics": "",
+    "synced_lyrics": "",
+    "parsed_lyrics": [
+        (0.0, "🎵 Demo lyrics — for screenshots"),
+        (2.5, "Synced highlighting tracks playback time"),
+        (5.0, "Press J / K to scroll the lyric list"),
+        (7.5, "♪"),
+        (9.5, "The spectrum bars are real FFT output"),
+        (12.0, "Bass on the left · treble on the right"),
+        (15.0, "Q or Esc returns to the player view"),
+        (18.0, "♪"),
+        (20.0, "Auto-scroll keeps the active line centered"),
+        (23.0, "Manual scroll pauses auto-centering until space"),
+        (26.0, "♪"),
+    ],
+}
+
+
+_lyrics_anchor: float | None = None
+
+
+def demo_get_position(_socket_path=None):
+    """Stand-in for `get_mpv_time_position` — anchors on first call."""
+    global _lyrics_anchor
+    if _lyrics_anchor is None:
+        _lyrics_anchor = time.time()
+    return time.time() - _lyrics_anchor
+
+
+def reset_lyrics_anchor() -> None:
+    global _lyrics_anchor
+    _lyrics_anchor = None
+
+
 def run_demo() -> None:
     """Boot the player with the demo fixture — entry point for `ytm-cli --demo`."""
     from .player import play_music_with_controls
