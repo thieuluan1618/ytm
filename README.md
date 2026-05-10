@@ -5,15 +5,14 @@
 Stream music directly from YouTube Music in your terminal with intuitive controls, playlist management, and smart filtering.
 
 <p align="center">
-  <video src="https://github.com/thieuluan1618/ytm/raw/main/screenshots/player.webm"
-         controls autoplay loop muted
-         width="800"
-         poster="screenshots/player.gif">
-  </video>
+  <a href="https://github.com/thieuluan1618/ytm/raw/main/screenshots/player.webm">
+    <img src="screenshots/player.gif" alt="ytm-cli player demo" width="800">
+  </a>
 </p>
 
 <p align="center">
-  <em>Player UI with the real-time FFT spectrum visualizer (synthetic demo capture).</em>
+  <em>Player UI with the real-time FFT spectrum visualizer (synthetic demo capture).
+  Click for the higher-quality .webm.</em>
 </p>
 
 ![YTM CLI Lyrics](image-lyric.png)
