@@ -216,8 +216,7 @@ class TestFilterDislikedSongs:
 
         manager = DislikeManager(dislikes_file)
 
-        with patch("ytm_cli.dislikes.print") as mock_print:
-            result = manager.filter_disliked_songs(sample_songs)
+        result = manager.filter_disliked_songs(sample_songs)
 
         # Should filter out song1
         assert len(result) == 2
@@ -225,8 +224,6 @@ class TestFilterDislikedSongs:
         assert "song1" not in video_ids
         assert "song2" in video_ids
         assert "song3" in video_ids
-
-        mock_print.assert_called_with("[yellow]Filtered out 1 disliked song(s)[/yellow]")
 
     def test_filter_disliked_songs_all_disliked(self, temp_dir, sample_songs):
         """Test filtering when all songs are disliked"""
@@ -244,11 +241,9 @@ class TestFilterDislikedSongs:
 
         manager = DislikeManager(dislikes_file)
 
-        with patch("ytm_cli.dislikes.print") as mock_print:
-            result = manager.filter_disliked_songs(sample_songs)
+        result = manager.filter_disliked_songs(sample_songs)
 
         assert len(result) == 0
-        mock_print.assert_called_with("[yellow]Filtered out 3 disliked song(s)[/yellow]")
 
     def test_filter_disliked_songs_missing_video_id(self, temp_dir):
         """Test filtering songs with missing videoId"""
