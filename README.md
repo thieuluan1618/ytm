@@ -112,9 +112,10 @@ ytm-cli "your favorite song"
 **Non-interactive mode (automation/scripting):**
 
 ```bash
-ytm-cli search "song name" --select 1           # Auto-select first result
-ytm-cli search "song" -s 1 -v                   # With verbose output
-ytm-cli search "song" -s 1 -v --log-file debug.log  # Save debug logs
+ytm-cli search "song name" --select 1                     # Auto-select first result
+ytm-cli search "song" -s 1 --verbose                      # With verbose output
+ytm-cli search "song" -s 1 --verbose --log-file debug.log # Save debug logs
+ytm-cli -v                                                # Print version
 ```
 
 > **Tip:** Set up the shell alias to use `ytm` as a shortcut for `ytm-cli`. See the setup scripts above.
@@ -221,7 +222,7 @@ Having issues? Check out the [**Troubleshooting Guide**](TROUBLESHOOTING.md) for
 
 ```bash
 # Enable verbose logging to see what's happening
-ytm-cli search "test" -s 1 -v --log-file debug.log
+ytm-cli search "test" -s 1 --verbose --log-file debug.log
 
 # Check versions
 mpv --version
