@@ -1,0 +1,61 @@
+name: Screenshots
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ytm_cli/**'
+      - 'screenshots/**.tape'
+      - '.github/workflows/screenshots.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ytm_cli/**'
+      - 'screenshots/**.tape'
+      - '.github/workflows/screenshots.yml'
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Sync deps
+        run: uv sync --no-dev
+
+      - name: Install ffmpeg + mpv
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg mpv ttyd
+
+      - name: Generate screenshots
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: screenshots/player.tape
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: |
+            screenshots/*.png
+            screenshots/*.gif
+            screenshots/*.webm
+          retention-days: 30
+
+      - name: Comment on PR with preview
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: screenshots
+          message: |
+            ### 📸 UI Screenshots
+
+            Generated from `screenshots/player.tape` against this PR.
+            Download the `screenshots` artifact above for the gif / png / webm.

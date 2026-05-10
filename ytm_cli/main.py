@@ -490,6 +490,11 @@ During music playback:
         action="store_true",
         help="Enable verbose output with detailed logging",
     )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run with a fake playlist + synthetic spectrum (for screenshots / docs)",
+    )
 
     # Create subcommands
     subparsers = parser.add_subparsers(
@@ -631,6 +636,12 @@ During music playback:
     # Show verbose mode banner
     if _VERBOSE:
         print_verbose_summary()
+
+    if getattr(args, "demo", False):
+        from .demo import run_demo
+
+        run_demo()
+        return
 
     if args.command == "playlist":
         if args.playlist_command == "list":

@@ -389,14 +389,15 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
         return False
 
 
-def play_music_with_controls(playlist, playlist_name=None):
+def play_music_with_controls(playlist, playlist_name=None, demo=False):
     """Play music with keyboard controls using curses-based UI
 
     Args:
         playlist: List of songs to play
         playlist_name: Name of user playlist (if playing from a user playlist)
+        demo: When True, use the demo player + synthetic spectrum (no audio,
+            no network) so screenshot tooling can capture deterministic frames.
     """
-    from .hybrid_player import CLIHybridPlayerService
     from .verbose_logger import log_info, log_section
 
     log_section("Playback Starting", "🎵")
@@ -404,7 +405,14 @@ def play_music_with_controls(playlist, playlist_name=None):
     if playlist_name:
         log_info(f"Playing from user playlist: {playlist_name}")
 
-    player = CLIHybridPlayerService()
+    if demo:
+        from .demo import DemoPlayer
+
+        player = DemoPlayer()
+    else:
+        from .hybrid_player import CLIHybridPlayerService
+
+        player = CLIHybridPlayerService()
     if not player.is_available():
         print("❌ No audio player available. Install mpv or FFmpeg")
         return
@@ -417,11 +425,17 @@ def play_music_with_controls(playlist, playlist_name=None):
 
     def _curses_main(stdscr):
         nonlocal quit_pressed
-        from .spectrum import SpectrumAnalyzer
         from .ui import draw_player, init_player_colors, push_wave_sample, reset_wave_history
 
         init_player_colors()
-        spectrum = SpectrumAnalyzer(n_bands=24) if SpectrumAnalyzer.available() else None
+        if demo:
+            from .demo import DemoSpectrum
+
+            spectrum = DemoSpectrum(n_bands=24)
+        else:
+            from .spectrum import SpectrumAnalyzer
+
+            spectrum = SpectrumAnalyzer(n_bands=24) if SpectrumAnalyzer.available() else None
         curses.curs_set(0)
         stdscr.timeout(200)
 
@@ -492,7 +506,12 @@ def play_music_with_controls(playlist, playlist_name=None):
                         break
 
                     elapsed = duration = audio_levels = None
-                    if player.player_type == "mpv" and player.socket_path:
+                    if demo:
+                        elapsed = (time.time() - player._start_time) if player._playing else 0
+                        duration = player._duration
+                        if spectrum is not None and not spectrum_started:
+                            spectrum_started = spectrum.start("demo")
+                    elif player.player_type == "mpv" and player.socket_path:
                         elapsed = get_mpv_time_position(player.socket_path)
                         duration = get_mpv_duration(player.socket_path)
                         audio_levels = get_mpv_audio_levels(player.socket_path)
