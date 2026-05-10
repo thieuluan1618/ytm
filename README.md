@@ -56,36 +56,16 @@ uv run ytm-cli "song name"
 </details>
 
 <details>
-<summary>Alternative: one-shot setup scripts</summary>
+<summary>Alternative: one-shot setup script (Linux / macOS)</summary>
 
 ```bash
 git clone https://github.com/thieuluan1618/ytm.git
 cd ytm
-```
-
-These create the virtual environment, install dependencies, and configure the `ytm` command globally.
-
-**Linux/macOS:**
-
-```bash
 ./setup.sh
-source ~/.zshrc  # or ~/.bashrc for bash
+source ~/.zshrc            # or ~/.bashrc for bash
 ```
 
-**Windows PowerShell:**
-
-```powershell
-.\setup.ps1
-. $PROFILE
-```
-
-**Windows Command Prompt:**
-
-```cmd
-setup.bat
-```
-
-After setup, use `ytm` (alias for `ytm-cli`) from anywhere.
+This creates the venv, installs runtime deps from `pyproject.toml`, and adds a `ytm` shell alias.
 
 </details>
 
@@ -96,11 +76,13 @@ After setup, use `ytm` (alias for `ytm-cli`) from anywhere.
 git clone https://github.com/thieuluan1618/ytm.git
 cd ytm
 uv sync                   # installs runtime deps from pyproject.toml + uv.lock
-./setup_alias.sh          # or setup_alias.ps1 / setup_alias.bat
+./setup_alias.sh          # optional: registers the `ytm` alias
 # Run with: uv run ytm-cli "song"
 ```
 
 </details>
+
+> **Windows users:** native Windows is not supported (the codebase uses POSIX-only `termios`/`tty`/`fcntl`). Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and follow the Linux instructions above.
 
 ### Basic Usage
 

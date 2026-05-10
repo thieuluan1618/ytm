@@ -28,27 +28,31 @@ Or with plain pip:
 
 ```bash
 python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install .                     # runtime deps from pyproject.toml
 pip install '.[dev]' || true      # if you need test/lint extras
 ```
 
+> **Platform support:** Linux, macOS, and WSL2 only. The codebase uses
+> POSIX-only modules (`termios`, `tty`, `fcntl`) and will not import on
+> native Windows — Windows users should run the project under WSL2.
+
 ### Quick Setup (Recommended)
 
-For easier access, set up the `ytm` command alias. Choose the appropriate setup script for your platform:
+For easier access, set up the `ytm` command alias.
 
-#### Linux / macOS
+#### Linux / macOS / WSL2
 
-Supports: **zsh**, **bash**, **fish** shells
+Supports: **zsh**, **bash**, **fish** shells.
 
 ```bash
 # Run the setup script
 ./setup_alias.sh
 
 # Reload your shell configuration
-source ~/.zshrc      # for zsh
-source ~/.bashrc     # for bash
-source ~/.config/fish/config.fish  # for fish
+source ~/.zshrc                       # for zsh
+source ~/.bashrc                      # for bash
+source ~/.config/fish/config.fish     # for fish
 
 # Now you can use ytm from anywhere
 ytm "song name"
@@ -57,49 +61,10 @@ ytm
 
 **What it does:**
 - Auto-detects your shell (zsh, bash, or fish)
-- Creates an alias `ytm` in your shell config
-- Automatically activates the virtual environment
-- Runs `python -m ytm_cli` with any arguments you provide
+- Creates a `ytm` alias in your shell config
+- Activates the project's virtualenv on call
+- Forwards arguments to `python -m ytm_cli`
 - Works from any directory
-
-#### Windows (PowerShell)
-
-```powershell
-# Run the setup script
-.\setup_alias.ps1
-
-# Reload your PowerShell profile
-. $PROFILE
-
-# Now you can use ytm from anywhere
-ytm "song name"
-ytm
-```
-
-**What it does:**
-- Creates a `ytm` function in your PowerShell profile
-- Automatically activates the virtual environment
-- Handles directory navigation automatically
-
-#### Windows (Command Prompt)
-
-```cmd
-REM Run the setup script
-setup_alias.bat
-
-REM Follow the on-screen instructions to add to PATH if needed
-
-REM Now you can use ytm from anywhere
-ytm "song name"
-ytm
-```
-
-**What it does:**
-- Creates a `ytm.bat` wrapper in `%USERPROFILE%\bin`
-- Automatically activates the virtual environment
-- Adds to PATH if not already present
-
-**Note:** If your shell is not detected, the script will show you the manual alias command to add.
 
 ### Running the Application
 
