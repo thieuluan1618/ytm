@@ -99,8 +99,8 @@ if ! pip install --quiet --upgrade pip; then
     exit 1
 fi
 
-if ! pip install --quiet -r requirements.txt; then
-    echo "❌ Failed to install dependencies from requirements.txt"
+if ! pip install --quiet .; then
+    echo "❌ Failed to install dependencies from pyproject.toml"
     exit 1
 fi
 echo "✅ Dependencies installed"

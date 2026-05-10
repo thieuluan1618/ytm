@@ -39,7 +39,7 @@ function ytm {
         Write-Host "  # or"
         Write-Host "  python -m venv venv"
         Write-Host "  .\venv\Scripts\Activate.ps1"
-        Write-Host "  pip install -r requirements.txt"
+        Write-Host "  pip install ."
         exit 1
     }
 

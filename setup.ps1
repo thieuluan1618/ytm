@@ -82,9 +82,9 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to upgrade pip" -ForegroundColor Red
     exit 1
 }
-& $VenvPython -m pip install --quiet -r requirements.txt
+& $VenvPython -m pip install --quiet .
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Failed to install dependencies from requirements.txt" -ForegroundColor Red
+    Write-Host "Failed to install dependencies from pyproject.toml" -ForegroundColor Red
     exit 1
 }
 Write-Host "Dependencies installed" -ForegroundColor Green

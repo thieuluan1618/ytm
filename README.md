@@ -86,10 +86,9 @@ After setup, use `ytm` (alias for `ytm-cli`) from anywhere.
 ```bash
 git clone https://github.com/thieuluan1618/ytm.git
 cd ytm
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+uv sync                   # installs runtime deps from pyproject.toml + uv.lock
 ./setup_alias.sh          # or setup_alias.ps1 / setup_alias.bat
+# Run with: uv run ytm-cli "song"
 ```
 
 </details>

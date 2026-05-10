@@ -78,9 +78,9 @@ if errorlevel 1 (
     echo [ERROR] Failed to upgrade pip
     exit /b 1
 )
-python -m pip install --quiet -r requirements.txt
+python -m pip install --quiet .
 if errorlevel 1 (
-    echo [ERROR] Failed to install dependencies from requirements.txt
+    echo [ERROR] Failed to install dependencies from pyproject.toml
     exit /b 1
 )
 echo [OK] Dependencies installed

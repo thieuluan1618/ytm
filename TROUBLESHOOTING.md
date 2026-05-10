@@ -290,7 +290,7 @@ brew upgrade yt-dlp
 pip install --upgrade yt-dlp
 
 # Update Python dependencies
-pip install --upgrade -r requirements.txt
+pip install --upgrade .   # or: uv sync --upgrade
 ```
 
 ### Reset/Fresh Start

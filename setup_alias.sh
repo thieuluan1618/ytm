@@ -32,7 +32,7 @@ else
         echo "  # or"
         echo "  python3 -m venv venv"
         echo "  source venv/bin/activate"
-        echo "  pip install -r requirements.txt"
+        echo "  pip install ."
         exit 1
     fi
     ALIAS_CMD="cd $SCRIPT_DIR && source $VENV_PATH/bin/activate && python -m ytm_cli"

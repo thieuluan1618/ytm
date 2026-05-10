@@ -12,15 +12,25 @@ This is a Python-based YouTube Music CLI tool that provides an interactive termi
 
 ### Environment Setup
 
-```bash
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # macOS/Linux
-# .\venv\Scripts\activate  # Windows PowerShell
-# venv\Scripts\activate.bat # Windows Command Prompt
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
-# Install dependencies
-pip install -r requirements.txt
+```bash
+# Install runtime + dev deps from pyproject.toml + uv.lock
+uv sync --group dev
+
+# Run any tool/script through the synced env
+uv run ytm-cli "song"
+uv run pytest
+uv run ruff check ytm_cli/ tests/
+```
+
+Or with plain pip:
+
+```bash
+python -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
+pip install .                     # runtime deps from pyproject.toml
+pip install '.[dev]' || true      # if you need test/lint extras
 ```
 
 ### Quick Setup (Recommended)
@@ -111,7 +121,7 @@ python -m ytm_cli search "artist name" --select 1 --verbose
 python -m ytm_cli search "song" --select 1 --verbose --log-file debug.log
 
 # Short form flags also work
-python -m ytm_cli search "song" -s 1 -v
+python -m ytm_cli search "song" -s 1 --verbose
 ```
 
 ### Dependencies Management
@@ -119,15 +129,17 @@ python -m ytm_cli search "song" -s 1 -v
 #### Manual Updates
 
 ```bash
-# Update requirements.txt after adding new dependencies
-pip freeze > requirements.txt
+# Add a runtime dep (writes to pyproject.toml + uv.lock)
+uv add some-package
 
-# Check for outdated packages
-pip list --outdated
+# Add a dev-only dep
+uv add --group dev some-package
 
-# Update specific package
-pip install --upgrade package-name
-pip freeze > requirements.txt
+# Refresh the lockfile / pull updates
+uv sync --upgrade
+
+# Inspect outdated packages
+uv pip list --outdated
 ```
 
 #### Automated Updates (Dependabot)
@@ -193,7 +205,7 @@ python -m ytm_cli search "query" --select N
 
 **Features:**
 - **--select N** or **-s N**: Auto-select song number N (1-based index) from search results
-- **--verbose** or **-v**: Enable detailed logging showing API calls, filtering, and playlist generation
+- **--verbose**: Enable detailed logging showing API calls, filtering, and playlist generation
 - **--log-file FILE**: Write verbose logs to file for debugging (requires --verbose)
 - Bypasses curses UI entirely
 - Perfect for scripts, cron jobs, or testing
@@ -209,10 +221,10 @@ When enabled, shows:
 - Logs written to both stdout and file (if --log-file specified)
 
 **Use Cases:**
-- Quick testing: `python -m ytm_cli search "test song" -s 1 -v`
+- Quick testing: `python -m ytm_cli search "test song" -s 1 --verbose`
 - Scripting: Auto-play first result without user interaction
 - CI/CD: Automated testing of playback functionality
-- Debugging playback issues: `python -m ytm_cli search "song" -s 1 -v --log-file debug.log`
+- Debugging playback issues: `python -m ytm_cli search "song" -s 1 --verbose --log-file debug.log`
 - Troubleshooting skipping songs: Check log file for MPV exit codes and errors
 
 ## Architecture
@@ -257,7 +269,7 @@ Configuration is managed through `config.ini`:
 
 ## Version Management
 
-Version is defined as `__version__ = "0.3.0"` in the main script. Use `bump2version` for version updates as indicated in requirements.txt.
+Version is defined as `__version__` in `ytm_cli/__init__.py` and `pyproject.toml`. Use `bump2version` (`uvx bump2version patch|minor|major`) for synchronized version bumps; the rules are in `.bumpversion.cfg`.
 
 ## Commit Message Standards
 

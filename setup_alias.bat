@@ -34,7 +34,7 @@ if %errorlevel% equ 0 (
         echo   REM or
         echo   python -m venv venv
         echo   venv\Scripts\activate.bat
-        echo   pip install -r requirements.txt
+        echo   pip install .
         exit /b 1
     )
 )
