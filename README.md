@@ -15,16 +15,6 @@ Stream music directly from YouTube Music in your terminal with intuitive control
   Click for the higher-quality .webm.</em>
 </p>
 
-<p align="center">
-  <a href="https://github.com/thieuluan1618/ytm/raw/main/screenshots/lyrics.webm">
-    <img src="screenshots/lyrics.gif" alt="ytm-cli synced lyrics demo" width="800">
-  </a>
-</p>
-
-<p align="center">
-  <em>Synced lyrics view (press <code>l</code>). Click for the higher-quality .webm.</em>
-</p>
-
 ## ✨ Features
 
 - **🔍 Smart Search**: Search and play any song from YouTube Music

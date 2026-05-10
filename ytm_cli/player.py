@@ -330,15 +330,6 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
     """Get and display lyrics for a song"""
     from .lyrics_service import get_timestamped_lyrics
 
-    if video_id.startswith("demo_"):
-        from .demo import DEMO_LYRICS, demo_get_position, reset_lyrics_anchor
-
-        reset_lyrics_anchor()
-        song_title = title.split(" - ")[0] if " - " in title else title
-        artist_name = title.split(" - ", 1)[1] if " - " in title else None
-        display_lyrics_with_curses(DEMO_LYRICS, song_title, artist_name, "demo", demo_get_position)
-        return True
-
     try:
         # First try to get timestamped lyrics from LRCLIB
         # We need to construct a song item to match the expected format
