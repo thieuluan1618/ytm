@@ -40,7 +40,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 **One command with [uv](https://docs.astral.sh/uv/) (recommended):**
 
 ```bash
-# Install from PyPI
+# Install from PyPI — gets latest version automatically
 uvx ytm-cli "song name"
 ```
 

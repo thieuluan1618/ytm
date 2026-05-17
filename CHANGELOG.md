@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-05-17
+
+### Removed
+
+- **Authentication system**: Full removal of OAuth and browser-based auth flows (`ytm_cli/auth.py` deleted along with the `[auth]` config section, `auth` CLI subcommands, and related tests)
+
+### Changed
+
+- **Config storage**: `config.ini`, `dislikes.json`, and `playlists/` now live under `~/.config/ytm-cli/` instead of the repo root (XDG-style dotfiles)
+- **YTMusic client**: Lazy, cached singleton via `get_ytmusic()` — no more per-call `YTMusic()` HTTP sessions
+- **uvx behavior**: `uvx ytm-cli` now resolves the latest published version by default (`uv config set --global index-strategy unsafe-first-match`)
+
+### Added
+
+- **Migration script** ([migrate_config.py](migrate_config.py)) to move legacy repo-root config files into `~/.config/ytm-cli/`
+- **Release process documentation** ([RELEASING.md](RELEASING.md))
+
+### Fixed
+
+- **`ytmusicapi` dependency restored** — was accidentally dropped from `pyproject.toml` while the import was still in use; first search would have crashed with `ImportError`
+- **`DislikeManager` / `PlaylistManager` constructors** now accept an optional path argument again (defaulting to the dotfile location), unbreaking ~50 tests and test isolation
+- **`LLMClient` reads config-dir paths** instead of requiring positional args
+- **CLI startup**: no more auth initialization delays or `[auth]`-section parsing errors on first run
+- **`.gitignore`**: re-added `playlists/` and `dislikes.json` so stale repo-root copies don't get committed during migration
+- **Test suite**: repaired after the auth/dotfiles refactor — `test_main.py` patches `get_ytmusic` instead of the removed module-level `ytmusic`; `test_integration.py` no longer imports the deleted `AuthManager`; `test_config.py` / `test_dislikes.py` / `test_playlists.py` assert the new `~/.config/ytm-cli/` paths
+
+## [0.7.1] - 2026-05-17
+
+> ⚠️ **Broken release** — published with the auth-removal refactor but missed the `ytmusicapi` import cleanup and tightened manager-constructor signatures. Use **0.7.2** instead.
+
 ## [0.5.0] - 2025-10-27
 
 ### Added

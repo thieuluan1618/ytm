@@ -72,14 +72,13 @@ Thumbs.db
 
 # Project specific
 config.ini.local
-config.ini  # Ignore if contains API keys (use config.ini.example as template)
 *.sock
 .ytmusic_oauth.json
 headers_auth.json
 
 auth/*curl_command.txt
 
-# Local playlists and dislikes (keep private)
+# Legacy local data (now stored in ~/.config/ytm-cli/) — ignore stale repo-root files
 playlists/
 dislikes.json
 ytm_debug.log
@@ -92,3 +91,4 @@ ytm_debug.log
 # LLM credentials
 vertex-ai-client.json
 Luna AI Vertex AI Client.json
+planning/

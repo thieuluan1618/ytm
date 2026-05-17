@@ -20,10 +20,6 @@ show_song_channels = false
 show_song_length = true
 show_song_playcount = false
 
-[auth]
-enabled = False
-method = none
-
 [playlists]
 directory = playlists
 max_playlists = 100

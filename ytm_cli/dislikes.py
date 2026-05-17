@@ -3,16 +3,25 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from rich import print
 
 
+def get_dislikes_file() -> Path:
+    """Get the dislikes file path (~/.config/ytm-cli/dislikes.json)"""
+    from .config import get_config_dir
+
+    return get_config_dir() / "dislikes.json"
+
+
 class DislikeManager:
     """Manages disliked songs stored in JSON file"""
 
-    def __init__(self, dislikes_file: str = "dislikes.json"):
-        self.dislikes_file = dislikes_file
+    def __init__(self, dislikes_file: str | None = None):
+        # Default to ~/.config/ytm-cli/dislikes.json; allow override for tests
+        self.dislikes_file = dislikes_file if dislikes_file else str(get_dislikes_file())
         self._disliked_ids = set()
         self._load_dislikes()
 

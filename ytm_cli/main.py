@@ -8,7 +8,7 @@ from curses import wrapper
 from rich import print
 
 from . import __version__
-from .config import get_songs_to_display, ytmusic
+from .config import get_songs_to_display, get_ytmusic
 from .dislikes import dislike_manager
 from .player import play_music_with_controls
 from .playlists import playlist_manager
@@ -45,6 +45,7 @@ def search_and_play(query=None, auto_select=None):
 
     log_section("Music Search", "🔍")
     log_step("Searching YouTube Music", query)
+    ytmusic = get_ytmusic()
     log_api_call("ytmusic.search", {"query": query, "filter": "songs"})
 
     try:
@@ -135,6 +136,7 @@ def search_and_play(query=None, auto_select=None):
         log_step("Fetching radio playlist", f"videoId: {song['videoId']}")
         log_api_call("ytmusic.get_watch_playlist", {"videoId": song["videoId"]})
         try:
+            ytmusic = get_ytmusic()
             radio = ytmusic.get_watch_playlist(videoId=song["videoId"])
             radio_tracks = radio["tracks"][1:]  # Skip first track (the selected song)
 
@@ -411,6 +413,7 @@ def llm_create_playlist_command(llm_client, prompt, num_songs=15, auto_play=Fals
         search_query = f"{title} {artist}"
 
         try:
+            ytmusic = get_ytmusic()
             results = ytmusic.search(search_query, filter="songs", limit=1)
             if results:
                 song = results[0]

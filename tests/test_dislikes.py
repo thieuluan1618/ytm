@@ -11,11 +11,13 @@ class TestDislikeManagerInit:
     """Tests for DislikeManager initialization"""
 
     def test_init_default_file(self):
-        """Test initialization with default file"""
+        """Test initialization with default file (~/.config/ytm-cli/dislikes.json)"""
         with patch("os.path.exists", return_value=False):
             manager = DislikeManager()
 
-            assert manager.dislikes_file == "dislikes.json"
+            assert manager.dislikes_file.endswith(
+                os.path.join(".config", "ytm-cli", "dislikes.json")
+            )
             assert manager._disliked_ids == set()
 
     def test_init_custom_file(self):

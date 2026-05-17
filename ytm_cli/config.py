@@ -1,15 +1,35 @@
 """Configuration management for YTM CLI"""
 
 import configparser
+from pathlib import Path
 
-from .auth import AuthManager
+
+def get_config_dir() -> Path:
+    """Get the config directory path (~/.config/ytm-cli/)"""
+    config_dir = Path.home() / ".config" / "ytm-cli"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir
+
+
+def get_config_path() -> str:
+    """Get the full path to config.ini"""
+    return str(get_config_dir() / "config.ini")
+
 
 config = configparser.ConfigParser()
-config.read("config.ini")
+config.read(get_config_path())
 
-# Initialize authentication manager and YTMusic instance
-auth_manager = AuthManager()
-ytmusic = auth_manager.get_ytmusic_instance()
+_ytmusic = None
+
+
+def get_ytmusic():
+    """Get cached YTMusic instance (unauthenticated)"""
+    global _ytmusic
+    if _ytmusic is None:
+        from ytmusicapi import YTMusic
+
+        _ytmusic = YTMusic()
+    return _ytmusic
 
 
 def get_songs_to_display():

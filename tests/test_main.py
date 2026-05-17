@@ -7,7 +7,7 @@ import pytest
 # Mock the imports before importing main to avoid initialization issues
 with (
     patch("ytm_cli.main.get_songs_to_display"),
-    patch("ytm_cli.main.ytmusic"),
+    patch("ytm_cli.main.get_ytmusic"),
     patch("ytm_cli.main.dislike_manager"),
     patch("ytm_cli.main.playlist_manager"),
     patch("ytm_cli.main.setup_signal_handler"),
@@ -29,13 +29,14 @@ class TestSearchAndPlay:
     def test_search_and_play_with_query(self, sample_songs):
         """Test search and play with provided query"""
         with (
-            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.get_ytmusic") as mock_get_ytmusic,
             patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
             patch("ytm_cli.main.get_songs_to_display", return_value=5),
             patch("ytm_cli.main.wrapper", return_value=0),
             patch("ytm_cli.main.play_music_with_controls"),
             patch("ytm_cli.main.print") as mock_print,
         ):
+            mock_ytmusic = mock_get_ytmusic.return_value
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.return_value = {"tracks": []}
@@ -48,13 +49,14 @@ class TestSearchAndPlay:
     def test_search_and_play_no_query_prompts_input(self, sample_songs):
         """Test search and play without query prompts for input"""
         with (
-            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.get_ytmusic") as mock_get_ytmusic,
             patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
             patch("ytm_cli.main.get_songs_to_display", return_value=5),
             patch("ytm_cli.main.wrapper", return_value=0),
             patch("ytm_cli.main.play_music_with_controls"),
             patch("builtins.input", return_value="user input query"),
         ):
+            mock_ytmusic = mock_get_ytmusic.return_value
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.return_value = {"tracks": []}
@@ -66,9 +68,10 @@ class TestSearchAndPlay:
     def test_search_and_play_no_results(self):
         """Test search and play when no results found"""
         with (
-            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.get_ytmusic") as mock_get_ytmusic,
             patch("ytm_cli.main.print") as mock_print,
         ):
+            mock_ytmusic = mock_get_ytmusic.return_value
             mock_ytmusic.search.return_value = []
 
             search_and_play("no results query")
@@ -78,10 +81,11 @@ class TestSearchAndPlay:
     def test_search_and_play_all_filtered_out(self, sample_songs):
         """Test search and play when all results are filtered out"""
         with (
-            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.get_ytmusic") as mock_get_ytmusic,
             patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
             patch("ytm_cli.main.print") as mock_print,
         ):
+            mock_ytmusic = mock_get_ytmusic.return_value
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = []
 
@@ -92,12 +96,13 @@ class TestSearchAndPlay:
     def test_search_and_play_user_quits(self, sample_songs):
         """Test search and play when user quits selection"""
         with (
-            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.get_ytmusic") as mock_get_ytmusic,
             patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
             patch("ytm_cli.main.get_songs_to_display", return_value=5),
             patch("ytm_cli.main.wrapper", return_value=None),
             patch("ytm_cli.main.play_music_with_controls") as mock_play,
         ):
+            mock_ytmusic = mock_get_ytmusic.return_value
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
 
@@ -109,13 +114,14 @@ class TestSearchAndPlay:
     def test_search_and_play_radio_fetch_error(self, sample_songs):
         """Test search and play when radio fetch fails"""
         with (
-            patch("ytm_cli.main.ytmusic") as mock_ytmusic,
+            patch("ytm_cli.main.get_ytmusic") as mock_get_ytmusic,
             patch("ytm_cli.main.dislike_manager") as mock_dislike_manager,
             patch("ytm_cli.main.get_songs_to_display", return_value=5),
             patch("ytm_cli.main.wrapper", return_value=0),
             patch("ytm_cli.main.play_music_with_controls") as mock_play,
             patch("ytm_cli.main.print"),
         ):
+            mock_ytmusic = mock_get_ytmusic.return_value
             mock_ytmusic.search.return_value = sample_songs
             mock_dislike_manager.filter_disliked_songs.return_value = sample_songs
             mock_ytmusic.get_watch_playlist.side_effect = Exception("Radio error")

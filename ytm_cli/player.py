@@ -14,7 +14,7 @@ import tty
 
 from ytm_cli.utils import goodbye_message
 
-from .config import ytmusic
+from .config import get_ytmusic
 from .dislikes import dislike_manager
 from .playlists import playlist_manager
 from .ui import display_lyrics_with_curses
@@ -361,6 +361,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
         time.sleep(0.5)
 
         # Use get_watch_playlist to get lyrics browseId (correct method)
+        ytmusic = get_ytmusic()
         watch_playlist = ytmusic.get_watch_playlist(videoId=video_id)
 
         if watch_playlist and "lyrics" in watch_playlist and watch_playlist["lyrics"]:

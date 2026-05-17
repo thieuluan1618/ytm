@@ -4,22 +4,31 @@ import json
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from rich import print
 
 
+def get_playlists_dir() -> Path:
+    """Get the playlists directory (~/.config/ytm-cli/playlists/)"""
+    from .config import get_config_dir
+
+    playlists_dir = get_config_dir() / "playlists"
+    playlists_dir.mkdir(parents=True, exist_ok=True)
+    return playlists_dir
+
+
 class PlaylistManager:
     """Manages local playlists stored as JSON files"""
 
-    def __init__(self, playlists_dir: str = "playlists"):
-        self.playlists_dir = playlists_dir
-        self.ensure_playlists_dir()
-
-    def ensure_playlists_dir(self):
-        """Create playlists directory if it doesn't exist"""
-        if not os.path.exists(self.playlists_dir):
-            os.makedirs(self.playlists_dir)
+    def __init__(self, playlists_dir: str | None = None):
+        # Default to ~/.config/ytm-cli/playlists/; allow override for tests
+        if playlists_dir:
+            self.playlists_dir = playlists_dir
+            os.makedirs(self.playlists_dir, exist_ok=True)
+        else:
+            self.playlists_dir = str(get_playlists_dir())
 
     def create_playlist(self, name: str, description: str = "") -> bool:
         """Create a new playlist"""

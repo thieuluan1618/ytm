@@ -11,11 +11,11 @@ class TestPlaylistManagerInit:
     """Tests for PlaylistManager initialization"""
 
     def test_init_default_directory(self):
-        """Test initialization with default directory"""
+        """Test initialization with default directory (~/.config/ytm-cli/playlists)"""
         with patch("os.path.exists", return_value=True), patch("os.makedirs"):
             manager = PlaylistManager()
 
-            assert manager.playlists_dir == "playlists"
+            assert manager.playlists_dir.endswith(os.path.join(".config", "ytm-cli", "playlists"))
 
     def test_init_custom_directory(self):
         """Test initialization with custom directory"""
@@ -25,18 +25,18 @@ class TestPlaylistManagerInit:
             assert manager.playlists_dir == "custom_playlists"
 
     def test_ensure_playlists_dir_creates_directory(self):
-        """Test that directory is created if it doesn't exist"""
-        with patch("os.path.exists", return_value=False), patch("os.makedirs") as mock_makedirs:
+        """Test that custom directory is ensured via makedirs(exist_ok=True)"""
+        with patch("os.makedirs") as mock_makedirs:
             PlaylistManager("test_dir")
 
-            mock_makedirs.assert_called_once_with("test_dir")
+            mock_makedirs.assert_called_once_with("test_dir", exist_ok=True)
 
     def test_ensure_playlists_dir_exists(self):
-        """Test when directory already exists"""
-        with patch("os.path.exists", return_value=True), patch("os.makedirs") as mock_makedirs:
+        """Test makedirs is idempotent when directory already exists (exist_ok=True)"""
+        with patch("os.makedirs") as mock_makedirs:
             PlaylistManager("existing_dir")
 
-            mock_makedirs.assert_not_called()
+            mock_makedirs.assert_called_once_with("existing_dir", exist_ok=True)
 
 
 class TestCreatePlaylist:

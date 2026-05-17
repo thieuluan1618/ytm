@@ -37,14 +37,16 @@ def _load_vertex_credentials():
 
 
 class LLMClient:
-    def __init__(self, playlists_dir: str = "playlists", dislikes_file: str = "dislikes.json"):
+    def __init__(self):
+        from .config import get_config_dir
+
         self.provider = get_config_value("llm", "provider", "openai")
         self.api_key = get_config_value("llm", "api_key")
         self.model = get_config_value("llm", "model", "gemini-2.5-pro")
         self.temperature = float(get_config_value("llm", "temperature", "0.7"))
         self.base_url = get_config_value("llm", "base_url", None)
-        self.playlists_dir = playlists_dir
-        self.dislikes_file = dislikes_file
+        self.playlists_dir = str(get_config_dir() / "playlists")
+        self.dislikes_file = str(get_config_dir() / "dislikes.json")
 
     def _get_recent_playlist_additions(self, limit: int = 10) -> list[dict]:
         """Get recently added songs from all playlists"""

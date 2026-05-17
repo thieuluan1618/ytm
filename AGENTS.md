@@ -197,7 +197,7 @@ When enabled, shows:
 ### Core Components
 
 - **Modular architecture**: Organized into focused modules (main.py, player.py, ui.py, playlists.py, dislikes.py, config.py)
-- **YTMusic Integration**: Uses `ytmusicapi` library for YouTube Music API access
+- **YTMusic Integration**: Uses YouTube Music's public API (no auth required)
 - **Media Player**: Integrates with mpv via subprocess and IPC socket communication
 - **Terminal UI**: Prioritizes `curses` for all text display and interactive interfaces, with `rich` as secondary for simple formatting
 
@@ -228,7 +228,6 @@ Configuration is managed through `config.ini`:
 ### External Dependencies
 
 - **mpv**: Must be installed system-wide for media playback
-- **ytmusicapi**: YouTube Music API client
 - **rich**: Terminal formatting and colors
 - **curses**: Built-in Python library for terminal UI
 
@@ -274,7 +273,6 @@ chore: add curl_command.txt to .gitignore
 ### Scope (Optional)
 
 - **ui**: User interface changes
-- **auth**: Authentication system
 - **player**: Media player functionality
 - **playlist**: Playlist management
 - **config**: Configuration system

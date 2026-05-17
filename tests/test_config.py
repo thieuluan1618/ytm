@@ -8,7 +8,7 @@ import pytest
 
 # We need to mock the imports before importing the config module
 # since it initializes global objects on import
-with patch("ytm_cli.config.AuthManager"), patch("ytm_cli.config.configparser.ConfigParser"):
+with patch("ytm_cli.config.configparser.ConfigParser"):
     from ytm_cli.config import get_mpv_flags, get_songs_to_display
 
 
@@ -139,10 +139,9 @@ class TestConfigModule:
     """Tests for config module initialization and behavior"""
 
     def test_config_reads_file(self):
-        """Test that config reads from config.ini file"""
+        """Test that config reads from ~/.config/ytm-cli/config.ini"""
         with (
             patch("ytm_cli.config.configparser.ConfigParser") as mock_parser_class,
-            patch("ytm_cli.config.AuthManager"),
         ):
             mock_parser = Mock()
             mock_parser_class.return_value = mock_parser
@@ -154,25 +153,10 @@ class TestConfigModule:
 
             importlib.reload(ytm_cli.config)
 
-            mock_parser.read.assert_called_with("config.ini")
-
-    def test_auth_manager_initialization(self):
-        """Test that AuthManager is properly initialized"""
-        mock_auth_manager = Mock()
-        mock_auth_manager.get_ytmusic_instance.return_value = Mock()
-
-        with patch(
-            "ytm_cli.auth.AuthManager", return_value=mock_auth_manager
-        ) as mock_auth_manager_class:
-            # Re-import to trigger initialization
-            import importlib
-
-            import ytm_cli.config
-
-            importlib.reload(ytm_cli.config)
-
-            mock_auth_manager_class.assert_called_once()
-            mock_auth_manager.get_ytmusic_instance.assert_called_once()
+            # Config now lives under ~/.config/ytm-cli/
+            mock_parser.read.assert_called_once()
+            called_path = mock_parser.read.call_args[0][0]
+            assert called_path.endswith(os.path.join(".config", "ytm-cli", "config.ini"))
 
 
 class TestConfigIntegration:
