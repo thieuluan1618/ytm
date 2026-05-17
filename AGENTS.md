@@ -235,6 +235,8 @@ Configuration is managed through `config.ini`:
 
 Version is defined as `__version__` in `ytm_cli/__init__.py` and `pyproject.toml`. Use `bump2version` (`uvx bump2version patch|minor|major`) for synchronized version bumps; the rules are in `.bumpversion.cfg`.
 
+For the complete release process, see [RELEASING.md](RELEASING.md).
+
 ## Commit Message Standards
 
 This project follows **conventional commits** format for consistency and automated tooling:

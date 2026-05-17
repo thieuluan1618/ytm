@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import termios
+import threading
 import time
 import tty
 
@@ -302,14 +303,25 @@ def add_song_to_playlist_interactive(song_data):
             print("\nCreate new playlist:")
             playlist_name = input("Playlist name: ").strip()
             if not playlist_name:
-                print("Cancelled - no name provided.")
-                time.sleep(1)
-                return False
+                # Generate unique default name with timestamp and counter
+                from datetime import datetime
 
-            description = input("Description (optional): ").strip()
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                base_name = f"My Playlist #{timestamp}"
+                playlist_name = base_name
+
+                # Check if this name already exists and add counter if needed
+                existing_names = playlist_manager.get_playlist_names()
+                if playlist_name in existing_names:
+                    counter = 1
+                    while f"{base_name}_{counter}" in existing_names:
+                        counter += 1
+                    playlist_name = f"{base_name}_{counter}"
+
+                print(f"[cyan]Using default name: {playlist_name}[/cyan]")
 
             # Create the playlist
-            if playlist_manager.create_playlist(playlist_name, description):
+            if playlist_manager.create_playlist(playlist_name, ""):
                 selected_playlist = playlist_name
             else:
                 print("Failed to create playlist.")
@@ -390,7 +402,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
         return False
 
 
-def play_music_with_controls(playlist, playlist_name=None, demo=False):
+def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetched_url_thread=None):
     """Play music with keyboard controls using curses-based UI
 
     Args:
@@ -398,6 +410,7 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False):
         playlist_name: Name of user playlist (if playing from a user playlist)
         demo: When True, use the demo player + synthetic spectrum (no audio,
             no network) so screenshot tooling can capture deterministic frames.
+        prefetched_url_thread: Tuple of (thread, result_list) for async URL resolution.
     """
     from .verbose_logger import log_info, log_section
 
@@ -446,6 +459,38 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False):
         toast_msg = None
         toast_expire = 0
 
+        # Pre-resolved URLs: {video_id: url or None}
+        prefetch_cache: dict[str, str | None] = {}
+        prefetch_lock = threading.Lock()
+        _initial_url_thread = None
+
+        # Track the caller's prefetch thread (already running in parallel since song selection)
+        if prefetched_url_thread and playlist:
+            _initial_url_thread = prefetched_url_thread  # (thread, result_list)
+
+        def _prefetch_url(vid: str):
+            """Resolve audio URL in background and cache it."""
+            if demo:
+                return
+            from .hybrid_player import resolve_audio_url
+
+            url = resolve_audio_url(vid)
+            with prefetch_lock:
+                prefetch_cache[vid] = url
+
+        def _get_cached_url(vid: str) -> str | None:
+            nonlocal _initial_url_thread
+            # Check if the initial prefetch thread has finished
+            if _initial_url_thread and playlist:
+                url_thread, url_result = _initial_url_thread
+                if not url_thread.is_alive():
+                    if url_result[0]:
+                        with prefetch_lock:
+                            prefetch_cache[playlist[0]["videoId"]] = url_result[0]
+                    _initial_url_thread = None
+            with prefetch_lock:
+                return prefetch_cache.get(vid)
+
         def fire(msg):
             nonlocal toast_msg, toast_expire
             toast_msg = msg
@@ -471,26 +516,77 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False):
                 track_num = current_song_index + 1
                 track_total = len(playlist)
 
-                draw_player(
-                    stdscr,
-                    song_title,
-                    artist,
-                    is_paused,
-                    track_num,
-                    track_total,
-                    None,
-                    None,
-                    frame,
-                    toast_msg,
-                    toast_expire,
-                )
+                # Prefetch next song's URL while this one loads/plays
+                next_idx = current_song_index + 1
+                if next_idx < len(playlist) and not demo:
+                    next_vid = playlist[next_idx]["videoId"]
+                    if _get_cached_url(next_vid) is None and next_vid not in prefetch_cache:
+                        threading.Thread(
+                            target=_prefetch_url, args=(next_vid,), daemon=True
+                        ).start()
 
-                if not player.play(video_id, display_title):
+                # Start playback in background so the UI keeps animating.
+                # Wait briefly for prefetch to resolve (animating meanwhile),
+                # then start mpv with whatever URL we have.
+                play_result = [None]  # None = pending, True/False = done
+                play_started = False
+                fire("Loading...")
+
+                while play_result[0] is None:
+                    # Once prefetch resolves (or after a short wait), kick off mpv
+                    if not play_started:
+                        resolved_url = _get_cached_url(video_id)
+                        if resolved_url is not None or frame > 5:
+                            # Either got prefetched URL or waited ~1s — start mpv
+                            def _start_play(
+                                vid=video_id,
+                                title=display_title,
+                                url=resolved_url,
+                                _res=play_result,
+                            ):
+                                _res[0] = player.play(vid, title, resolved_url=url)
+
+                            threading.Thread(target=_start_play, daemon=True).start()
+                            play_started = True
+
+                    draw_player(
+                        stdscr,
+                        song_title,
+                        artist,
+                        is_paused,
+                        track_num,
+                        track_total,
+                        None,
+                        None,
+                        frame,
+                        toast_msg,
+                        toast_expire,
+                    )
+                    frame += 1
+                    key = stdscr.getch()
+                    if key == ord("q") or key == 3:
+                        quit_pressed = True
+                        return
+                    if key == ord("n"):
+                        current_song_index += 1
+                        if play_started:
+                            time.sleep(0.1)
+                            if play_result[0] is True:
+                                player.stop()
+                        fire("Next →")
+                        break
+
+                if play_result[0] is None:
+                    # broke out via 'n'
+                    continue
+
+                if not play_result[0]:
                     fire(f"Failed: {song_title}")
                     current_song_index += 1
                     continue
 
                 is_paused = False
+                toast_msg = None  # clear "Loading..." toast
 
                 lyrics_just_viewed = False
 

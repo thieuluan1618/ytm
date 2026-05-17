@@ -19,6 +19,8 @@ def get_config_path() -> str:
 config = configparser.ConfigParser()
 config.read(get_config_path())
 
+_PID_FILE = get_config_dir() / "player.pid"
+
 _ytmusic = None
 
 
@@ -41,9 +43,31 @@ def get_mpv_flags():
     """Get MPV flags from config"""
     if "mpv" in config and "flags" in config["mpv"]:
         return config["mpv"]["flags"].split()
-    return []
+    return ["--no-video"]
 
 
 def get_config_value(section, key, fallback=None):
     """Get a value from the config"""
     return config.get(section, key, fallback=fallback)
+
+
+def save_player_pid(pid: int) -> None:
+    """Save MPV player PID to file"""
+    with open(_PID_FILE, "w") as f:
+        f.write(str(pid))
+
+
+def get_player_pid() -> int | None:
+    """Get MPV player PID from file"""
+    if _PID_FILE.exists():
+        try:
+            return int(_PID_FILE.read_text().strip())
+        except (ValueError, OSError):
+            return None
+    return None
+
+
+def clear_player_pid() -> None:
+    """Clear the player PID file"""
+    if _PID_FILE.exists():
+        _PID_FILE.unlink()

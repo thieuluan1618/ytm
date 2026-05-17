@@ -184,23 +184,19 @@ class TestPlaylistCommands:
 
             playlist_create_command("New Playlist", "A test playlist")
 
-            mock_playlist_manager.create_playlist.assert_called_once_with(
-                "New Playlist", "A test playlist"
-            )
+            mock_playlist_manager.create_playlist.assert_called_once_with("New Playlist", "")
 
     def test_playlist_create_command_prompt_for_name(self):
         """Test playlist creation command that prompts for name"""
         with (
             patch("ytm_cli.main.playlist_manager") as mock_playlist_manager,
-            patch("builtins.input", side_effect=["User Playlist", "User description"]),
+            patch("builtins.input", side_effect=["User Playlist"]),
         ):
             mock_playlist_manager.create_playlist.return_value = True
 
             playlist_create_command(None, None)
 
-            mock_playlist_manager.create_playlist.assert_called_once_with(
-                "User Playlist", "User description"
-            )
+            mock_playlist_manager.create_playlist.assert_called_once_with("User Playlist", "")
 
     def test_playlist_show_command_success(self, sample_playlist_data):
         """Test successful playlist show command"""
@@ -277,7 +273,7 @@ class TestMainFunction:
         ):
             main()
 
-            mock_search_and_play.assert_called_once_with("test song query")
+            mock_search_and_play.assert_called_once_with("test song query", None)
 
     def test_main_search_command(self, sample_songs):
         """Test main function with search command"""

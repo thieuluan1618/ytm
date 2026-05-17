@@ -8,9 +8,33 @@ import subprocess
 import tempfile
 import time
 
-from .config import get_mpv_flags
+from .config import clear_player_pid, get_mpv_flags, save_player_pid
 from .ffmpeg_player import FFmpegPlayerService
 from .verbose_logger import log_error, log_info, log_section
+
+
+def resolve_audio_url(video_id: str) -> str | None:
+    """Pre-resolve audio stream URL via yt-dlp. Returns direct URL or None."""
+    try:
+        result = subprocess.run(
+            [
+                "yt-dlp",
+                "-f",
+                "bestaudio",
+                "--get-url",
+                f"https://music.youtube.com/watch?v={video_id}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            url = result.stdout.strip().split("\n")[0]
+            if url.startswith("http"):
+                return url
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+    return None
 
 
 class CLIHybridPlayerService:
@@ -54,21 +78,21 @@ class CLIHybridPlayerService:
         """Check if any player is available"""
         return self.player_type != "none"
 
-    def play(self, video_id: str, title: str = "") -> bool:
-        """Start playing a song"""
+    def play(self, video_id: str, title: str = "", resolved_url: str | None = None) -> bool:
+        """Start playing a song. If resolved_url is provided, skip yt-dlp resolution."""
         if not self.is_available():
             log_error("Play attempted but no audio player available")
             print("No audio player available")
             return False
 
         if self.player_type == "mpv":
-            return self._play_mpv(video_id, title)
+            return self._play_mpv(video_id, title, resolved_url)
         elif self.player_type == "ffmpeg" and self.ffmpeg_player:
             return self.ffmpeg_player.play(video_id, title)
 
         return False
 
-    def _play_mpv(self, video_id: str, title: str = "") -> bool:
+    def _play_mpv(self, video_id: str, title: str = "", resolved_url: str | None = None) -> bool:
         """Play using mpv"""
         try:
             # Clean up previous process if exists
@@ -77,7 +101,7 @@ class CLIHybridPlayerService:
             # Create socket for IPC
             self.socket_path = tempfile.mktemp(suffix=".sock")
 
-            url = f"https://music.youtube.com/watch?v={video_id}"
+            url = resolved_url or f"https://music.youtube.com/watch?v={video_id}"
             mpv_flags = get_mpv_flags()
             mpv_flags.extend(
                 [
@@ -90,16 +114,38 @@ class CLIHybridPlayerService:
             self.mpv_process = subprocess.Popen(
                 ["mpv", url] + mpv_flags,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             )
 
+            # Save MPV PID for --terminate
+            if self.mpv_process:
+                save_player_pid(self.mpv_process.pid)
+
             # Wait for mpv to create the IPC socket before returning
-            for _ in range(20):
+            for _ in range(30):
                 time.sleep(0.1)
+                # Check if mpv exited early (e.g., yt-dlp failure)
+                if self.mpv_process.poll() is not None:
+                    stderr_out = ""
+                    if self.mpv_process.stderr:
+                        stderr_out = self.mpv_process.stderr.read().decode(errors="replace")
+                        self.mpv_process.stderr.close()
+                    log_error(
+                        f"MPV exited early (code {self.mpv_process.returncode}): {stderr_out[:200]}"
+                    )
+                    clear_player_pid()
+                    self.mpv_process = None
+                    return False
                 if os.path.exists(self.socket_path):
+                    # Detach stderr now that startup succeeded (avoid blocking on pipe)
+                    if self.mpv_process.stderr:
+                        self.mpv_process.stderr.close()
                     return True
-            # Socket not created but process is running
-            return self.mpv_process.poll() is None
+
+            # Socket not created but process is running — close stderr pipe
+            if self.mpv_process and self.mpv_process.stderr:
+                self.mpv_process.stderr.close()
+            return self.mpv_process.poll() is None if self.mpv_process else False
         except Exception as e:
             log_error(f"Failed to start mpv: {e}")
             print(f"Failed to start mpv: {e}")
@@ -114,6 +160,7 @@ class CLIHybridPlayerService:
             if self.socket_path and os.path.exists(self.socket_path):
                 os.unlink(self.socket_path)
                 self.socket_path = None
+            clear_player_pid()
         elif self.player_type == "ffmpeg" and self.ffmpeg_player:
             self.ffmpeg_player.stop()
 

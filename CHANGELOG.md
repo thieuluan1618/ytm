@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-17
+
+### Added
+
+- **Audio URL prefetch**: Pre-resolves stream URLs via yt-dlp in parallel with radio playlist fetch, eliminating ~3s startup delay on cold yt-dlp
+- **Next-song prefetch**: Resolves the next song's URL during current playback for near-instant transitions
+- **Loading animation**: Visualizer animates while mpv starts up (non-blocking player startup)
+- **Paused breathing animation**: Gentle rippling wave visualization when playback is paused
+- **`--terminate` flag**: Kill all running ytm-cli sessions and associated mpv processes
+
+### Fixed
+
+- **`--terminate` hanging**: Replaced `os.popen("ps aux | grep ...")` (deadlocked in `uv` subprocess context) with `subprocess.run(["pgrep", ...], timeout=5)`
+- **MPV early exit detection**: Captures stderr and detects when mpv exits during startup (e.g., yt-dlp failure), clears stale PID file
+- **Playlist create UX**: Auto-generates unique default names when no name is provided
+
 ## [0.7.3] - 2026-05-17
 
 ### Fixed

@@ -648,15 +648,23 @@ def draw_player(
     history = list(_WAVE_HISTORY)
     have_real = bool(history) and audio_levels is not None
 
-    if bands:
+    if is_paused:
+        mode_label = ""
+        # Gentle breathing wave: slow sine that ripples across bars
+        t = time.time()
+        for i in range(nbars):
+            # Slow ripple from center outward
+            dist = abs(i - nbars / 2.0) / (nbars / 2.0)
+            phase = t * 1.2 - dist * 2.5
+            breath = 0.08 + 0.12 * (0.5 + 0.5 * math.sin(phase))
+            _draw_bar(scr, bar_bottom, wx + i * 2, breath, _WAVE_ROWS, bar_attr)
+    elif bands:
         mode_label = "spectrum"
         n_in = len(bands)
         for i in range(nbars):
             lo = int(i * n_in / nbars)
             hi = max(lo + 1, int((i + 1) * n_in / nbars))
             level = max(bands[lo:hi])
-            if is_paused:
-                level *= 0.3
             _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
     elif have_real:
         mode_label = ""
@@ -672,19 +680,14 @@ def draw_player(
             else:
                 level = recent[nbars - 1 - i][1]
 
-            if is_paused:
-                level *= 0.3
             _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
     else:
         mode_label = "sim"
         for i in range(nbars):
-            if not is_paused:
-                seed = _WAVE_SEEDS[i % len(_WAVE_SEEDS)]
-                phase = frame * 0.7 + i * 0.65
-                val = 0.5 + 0.5 * math.sin(phase)
-                level = (seed / 40.0) * (0.4 + 0.6 * val)
-            else:
-                level = 0.05
+            seed = _WAVE_SEEDS[i % len(_WAVE_SEEDS)]
+            phase = frame * 0.7 + i * 0.65
+            val = 0.5 + 0.5 * math.sin(phase)
+            level = (seed / 40.0) * (0.4 + 0.6 * val)
             _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
 
     # Mode indicator: lets you confirm which visualizer pipeline is live.

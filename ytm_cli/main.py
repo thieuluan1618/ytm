@@ -4,6 +4,7 @@ import argparse
 import curses
 import sys
 from curses import wrapper
+from datetime import datetime
 
 from rich import print
 
@@ -132,6 +133,18 @@ def search_and_play(query=None, auto_select=None):
     # Fetch radio in background so the first song starts immediately
     import threading
 
+    # Pre-resolve audio URL in parallel with radio fetch — eliminates ~3s yt-dlp
+    # wait from mpv startup path
+    from .hybrid_player import resolve_audio_url
+
+    prefetched_url = [None]
+
+    def prefetch_first_url():
+        prefetched_url[0] = resolve_audio_url(song["videoId"])
+
+    url_thread = threading.Thread(target=prefetch_first_url, daemon=True)
+    url_thread.start()
+
     def fetch_radio():
         log_step("Fetching radio playlist", f"videoId: {song['videoId']}")
         log_api_call("ytmusic.get_watch_playlist", {"videoId": song["videoId"]})
@@ -163,7 +176,7 @@ def search_and_play(query=None, auto_select=None):
     radio_thread = threading.Thread(target=fetch_radio, daemon=True)
     radio_thread.start()
 
-    play_music_with_controls(playlist)
+    play_music_with_controls(playlist, prefetched_url_thread=(url_thread, prefetched_url))
 
 
 # Playlist Commands
@@ -202,15 +215,24 @@ def playlist_list_command():
 def playlist_create_command(name, description=""):
     """Create a new playlist"""
     if not name:
-        name = input("Enter playlist name: ").strip()
+        name = input("Enter playlist name (or press Enter for default): ").strip()
         if not name:
-            print("[red]Playlist name is required[/red]")
-            return
+            # Generate unique default name with timestamp and counter
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_name = f"My Playlist #{timestamp}"
+            name = base_name
 
-    if not description:
-        description = input("Enter description (optional): ").strip()
+            # Check if this name already exists and add counter if needed
+            existing_names = playlist_manager.get_playlist_names()
+            if name in existing_names:
+                counter = 1
+                while f"{base_name}_{counter}" in existing_names:
+                    counter += 1
+                name = f"{base_name}_{counter}"
 
-    playlist_manager.create_playlist(name, description)
+            print(f"[cyan]Using default name: {name}[/cyan]")
+
+    playlist_manager.create_playlist(name, "")
 
 
 def playlist_show_command(name):
@@ -402,7 +424,7 @@ def llm_create_playlist_command(llm_client, prompt, num_songs=15, auto_play=Fals
     print(f"[cyan]Searching YouTube Music for {len(response.songs)} songs...[/cyan]")
 
     # Create the playlist
-    if not playlist_manager.create_playlist(playlist_name, f"AI-generated: {prompt}"):
+    if not playlist_manager.create_playlist(playlist_name, ""):
         return
 
     # Search each song on YTMusic and add to playlist
@@ -444,11 +466,25 @@ def main():
         len(sys.argv) >= 2
         and not sys.argv[1].startswith("-")
         and sys.argv[1] not in ["search", "playlist", "llm"]
-        and "--verbose" not in sys.argv
-        and "--select" not in sys.argv
+        and "--terminate" not in sys.argv
     ):
+        # Extract --select/-s value if present
+        auto_select = None
+        for i, arg in enumerate(sys.argv):
+            if arg in ("--select", "-s") and i + 1 < len(sys.argv):
+                try:
+                    auto_select = int(sys.argv[i + 1])
+                except ValueError:
+                    pass
+                break
+
+        # Extract --verbose if present
+        verbose = "--verbose" in sys.argv
+
         # This is likely a song query, handle it directly (backward compatible mode)
-        search_and_play(sys.argv[1])
+        if verbose:
+            set_verbose(True)
+        search_and_play(sys.argv[1], auto_select)
         return
 
     # Allow `llm "prompt"` as shortcut for `llm ask "prompt"`
@@ -497,6 +533,11 @@ During music playback:
         "--demo",
         action="store_true",
         help="Run with a fake playlist + synthetic spectrum (for screenshots / docs)",
+    )
+    parser.add_argument(
+        "--terminate",
+        action="store_true",
+        help="Terminate all running ytm-cli sessions",
     )
 
     # Create subcommands
@@ -616,10 +657,46 @@ During music playback:
 
     args = parser.parse_args()
 
-    # Set verbose mode globally
-    global _VERBOSE, _VERBOSE_FILE
-    _VERBOSE = getattr(args, "verbose", False)
-    _VERBOSE_FILE = getattr(args, "log_file", None)
+    # Handle --terminate flag
+    if getattr(args, "terminate", False):
+        import os
+        import signal
+        import subprocess
+
+        current_pid = os.getpid()
+        parent_pid = os.getppid()
+        terminated = 0
+
+        # Find ytm-cli processes using subprocess with timeout
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", "ytm.cli"], capture_output=True, text=True, timeout=5
+            )
+            pids = [int(p) for p in result.stdout.strip().split("\n") if p.strip()]
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+            pids = []
+
+        for pid in pids:
+            if pid in (current_pid, parent_pid):
+                continue
+            try:
+                os.kill(pid, signal.SIGTERM)
+                terminated += 1
+            except (ProcessLookupError, PermissionError):
+                pass
+
+        # Also terminate MPV process if PID file exists
+        from .config import get_player_pid
+
+        player_pid = get_player_pid()
+        if player_pid:
+            try:
+                os.kill(player_pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+
+        print(f"Terminated {terminated} ytm-cli session(s)")
+        return
 
     # Initialize verbose logger
     set_verbose(_VERBOSE, _VERBOSE_FILE)
