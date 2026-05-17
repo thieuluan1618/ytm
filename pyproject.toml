@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ytm-cli"
-version = "0.7.2"
+version = "0.7.3"
 description = "YouTube Music CLI tool with interactive terminal interface"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 authors = [
     { name = "thieuluan", email = "thieuluan.dark@gmail.com" },
 ]
@@ -20,6 +20,10 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Sound/Audio :: Players",
 ]
@@ -56,7 +60,7 @@ include = ["ytm_cli*"]
 [tool.ruff]
 # Set line length to match pylint (100 characters)
 line-length = 100
-target-version = "py314"
+target-version = "py310"
 
 [tool.ruff.lint]
 # Enable flake8 rules and other important checks

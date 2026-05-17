@@ -263,7 +263,7 @@ class PlaylistManager:
                             data = json.load(f)
                         if data.get("name", "").lower() == playlist_name.lower():
                             return filepath
-                    except json.JSONDecodeError, FileNotFoundError:
+                    except (json.JSONDecodeError, FileNotFoundError):
                         continue
         except OSError:
             pass

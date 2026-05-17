@@ -31,7 +31,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 
 ### Requirements
 
-- Python **3.14+** (set in `pyproject.toml`)
+- Python **3.10+** (set in `pyproject.toml`)
 - [mpv media player](https://mpv.io/installation/) (must be installed system-wide)
 - [`ffmpeg`](https://ffmpeg.org/) on `PATH` for the real-time spectrum visualizer (optional — falls back to a stereo oscilloscope if missing)
 

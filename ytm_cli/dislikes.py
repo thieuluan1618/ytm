@@ -72,7 +72,7 @@ class DislikeManager:
                     with open(self.dislikes_file, encoding="utf-8") as f:
                         data = json.load(f)
                         existing_songs = data.get("songs", [])
-                except json.JSONDecodeError, FileNotFoundError:
+                except (json.JSONDecodeError, FileNotFoundError):
                     pass
 
             # Create dislike entry

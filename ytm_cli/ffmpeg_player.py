@@ -50,7 +50,7 @@ class FFmpegPlayerService:
                 ["ffplay", "-version"], capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
-        except subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
             return False
 
     def play(self, video_id: str, title: str = "") -> bool:

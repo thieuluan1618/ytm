@@ -170,7 +170,7 @@ class CLIHybridPlayerService:
                 parsed = json.loads(line)
                 if "event" not in parsed and parsed.get("error") == "success":
                     return parsed.get("data")
-        except OSError, json.JSONDecodeError, UnicodeDecodeError:
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             pass
         return None
 

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-05-17
+
+### Fixed
+
+- **PyPI compatibility**: Lowered `requires-python` from `>=3.14` to `>=3.10` so `uvx ytm-cli` can install the latest release on common Python versions instead of falling back to older compatible releases.
+
 ## [0.7.2] - 2026-05-17
 
 ### Removed

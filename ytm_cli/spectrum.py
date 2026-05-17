@@ -114,7 +114,7 @@ class SpectrumAnalyzer:
                 with self._lock:
                     self._bands = prev.copy()
                     self._has_data = True
-        except OSError, ValueError:
+        except (OSError, ValueError):
             pass
         finally:
             self._running = False
