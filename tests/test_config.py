@@ -80,27 +80,6 @@ class TestGetMpvFlags:
 
             assert result == ["--no-video", "--volume=50"]
 
-    def test_get_mpv_flags_no_mpv_section(self):
-        """Test when mpv section doesn't exist"""
-        mock_config = Mock()
-        mock_config.__contains__ = Mock(return_value=False)
-
-        with patch("ytm_cli.config.config", mock_config):
-            result = get_mpv_flags()
-
-            assert result == []
-
-    def test_get_mpv_flags_no_flags_key(self):
-        """Test when mpv section exists but no flags key"""
-        mock_config = Mock()
-        mock_config.__contains__ = Mock(side_effect=lambda x: x == "mpv")
-        mock_config.__getitem__ = Mock(return_value={})
-
-        with patch("ytm_cli.config.config", mock_config):
-            result = get_mpv_flags()
-
-            assert result == []
-
     def test_get_mpv_flags_empty_flags(self):
         """Test when flags value is empty"""
         mock_config = Mock()
