@@ -410,7 +410,7 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
         playlist_name: Name of user playlist (if playing from a user playlist)
         demo: When True, use the demo player + synthetic spectrum (no audio,
             no network) so screenshot tooling can capture deterministic frames.
-        prefetched_url_thread: Tuple of (thread, result_list) for async URL resolution.
+        prefetched_url_thread: Tuple of (thread, result_list) for async stream resolution.
     """
     from .verbose_logger import log_info, log_section
 
@@ -459,8 +459,8 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
         toast_msg = None
         toast_expire = 0
 
-        # Pre-resolved URLs: {video_id: url or None}
-        prefetch_cache: dict[str, str | None] = {}
+        # Pre-resolved stream details keyed by video ID
+        prefetch_cache = {}
         prefetch_lock = threading.Lock()
         _initial_url_thread = None
 
@@ -468,25 +468,25 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
         if prefetched_url_thread and playlist:
             _initial_url_thread = prefetched_url_thread  # (thread, result_list)
 
-        def _prefetch_url(vid: str):
-            """Resolve audio URL in background and cache it."""
+        def _prefetch_audio(vid: str):
+            """Resolve audio stream details in the background and cache them."""
             if demo:
                 return
             from .hybrid_player import resolve_audio_url
 
-            url = resolve_audio_url(vid)
+            resolved_audio = resolve_audio_url(vid)
             with prefetch_lock:
-                prefetch_cache[vid] = url
+                prefetch_cache[vid] = resolved_audio
 
-        def _get_cached_url(vid: str) -> str | None:
+        def _get_cached_audio(vid: str):
             nonlocal _initial_url_thread
             # Check if the initial prefetch thread has finished
             if _initial_url_thread and playlist:
-                url_thread, url_result = _initial_url_thread
-                if not url_thread.is_alive():
-                    if url_result[0]:
+                audio_thread, audio_result = _initial_url_thread
+                if not audio_thread.is_alive():
+                    if audio_result[0]:
                         with prefetch_lock:
-                            prefetch_cache[playlist[0]["videoId"]] = url_result[0]
+                            prefetch_cache[playlist[0]["videoId"]] = audio_result[0]
                     _initial_url_thread = None
             with prefetch_lock:
                 return prefetch_cache.get(vid)
@@ -520,9 +520,9 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                 next_idx = current_song_index + 1
                 if next_idx < len(playlist) and not demo:
                     next_vid = playlist[next_idx]["videoId"]
-                    if _get_cached_url(next_vid) is None and next_vid not in prefetch_cache:
+                    if _get_cached_audio(next_vid) is None and next_vid not in prefetch_cache:
                         threading.Thread(
-                            target=_prefetch_url, args=(next_vid,), daemon=True
+                            target=_prefetch_audio, args=(next_vid,), daemon=True
                         ).start()
 
                 # Start playback in background so the UI keeps animating.
@@ -535,16 +535,19 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                 while play_result[0] is None:
                     # Once prefetch resolves (or after a short wait), kick off mpv
                     if not play_started:
-                        resolved_url = _get_cached_url(video_id)
-                        if resolved_url is not None or frame > 5:
-                            # Either got prefetched URL or waited ~1s — start mpv
+                        resolved_audio = _get_cached_audio(video_id)
+                        if resolved_audio is not None or frame > 5:
+                            # Either resolved the stream or waited ~1s — start mpv
                             def _start_play(
                                 vid=video_id,
                                 title=display_title,
-                                url=resolved_url,
+                                audio=resolved_audio,
                                 _res=play_result,
                             ):
-                                _res[0] = player.play(vid, title, resolved_url=url)
+                                if demo:
+                                    _res[0] = player.play(vid, title)
+                                else:
+                                    _res[0] = player.play(vid, title, resolved_audio=audio)
 
                             threading.Thread(target=_start_play, daemon=True).start()
                             play_started = True

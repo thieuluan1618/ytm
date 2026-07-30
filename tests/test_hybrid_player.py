@@ -6,7 +6,23 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from ytm_cli.ffmpeg_player import FFmpegPlayerService
-from ytm_cli.hybrid_player import CLIHybridPlayerService
+from ytm_cli.hybrid_player import CLIHybridPlayerService, ResolvedAudio, resolve_audio_url
+
+
+def test_resolve_audio_url_includes_required_user_agent():
+    """Return the request metadata required to play a direct stream URL."""
+    result = MagicMock(
+        returncode=0,
+        stdout=('https://example.test/audio\n{"User-Agent": "Test Browser", "Accept": "*/*"}\n'),
+    )
+
+    with (
+        patch("ytm_cli.hybrid_player.get_cookies_browser", return_value=None),
+        patch("ytm_cli.hybrid_player.subprocess.run", return_value=result),
+    ):
+        resolved = resolve_audio_url("video-id")
+
+    assert resolved == ResolvedAudio("https://example.test/audio", "Test Browser")
 
 
 class TestCLIHybridPlayerInitialization(unittest.TestCase):
@@ -170,6 +186,51 @@ class TestCLIHybridPlayerPlayback(unittest.TestCase):
 
         assert result is True
         player.ffmpeg_player.is_playing_now.assert_called_once()
+
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_play_mpv_passes_resolved_user_agent(self, mock_which):
+        """mpv must use the user agent associated with a direct stream URL."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+
+        process = MagicMock(pid=123)
+        process.poll.return_value = None
+        resolved = ResolvedAudio("https://example.test/audio", "Test Browser")
+
+        with (
+            patch("ytm_cli.hybrid_player.get_mpv_flags", return_value=["--no-video"]),
+            patch("ytm_cli.hybrid_player.save_player_pid"),
+            patch("ytm_cli.hybrid_player.subprocess.Popen", return_value=process) as mock_popen,
+            patch("ytm_cli.hybrid_player.os.path.exists", return_value=True),
+            patch("ytm_cli.hybrid_player.time.sleep"),
+        ):
+            assert player.play("video-id", "Test Song", resolved) is True
+
+        command = mock_popen.call_args.args[0]
+        assert command[1] == resolved.url
+        assert "--user-agent=Test Browser" in command
+
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_play_mpv_passes_user_agent_when_stream_is_unresolved(self, mock_which):
+        """mpv's yt-dlp fallback must not request media as libmpv."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+
+        process = MagicMock(pid=123)
+        process.poll.return_value = None
+
+        with (
+            patch("ytm_cli.hybrid_player.get_mpv_flags", return_value=["--no-video"]),
+            patch("ytm_cli.hybrid_player.get_cookies_browser", return_value=None),
+            patch("ytm_cli.hybrid_player.save_player_pid"),
+            patch("ytm_cli.hybrid_player.subprocess.Popen", return_value=process) as mock_popen,
+            patch("ytm_cli.hybrid_player.os.path.exists", return_value=True),
+            patch("ytm_cli.hybrid_player.time.sleep"),
+        ):
+            assert player.play("video-id", "Test Song") is True
+
+        command = mock_popen.call_args.args[0]
+        assert any(flag.startswith("--user-agent=Mozilla/") for flag in command)
 
     @patch("shutil.which", return_value=None)
     @patch.object(FFmpegPlayerService, "__init__", return_value=None)

@@ -46,6 +46,11 @@ def get_mpv_flags():
     return ["--no-video"]
 
 
+def get_cookies_browser() -> str | None:
+    """Get the browser to extract cookies from (for yt-dlp authentication)."""
+    return config.get("general", "cookies_from_browser", fallback=None)
+
+
 def get_config_value(section, key, fallback=None):
     """Get a value from the config"""
     return config.get(section, key, fallback=fallback)

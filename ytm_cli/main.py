@@ -32,6 +32,17 @@ _VERBOSE = False
 _VERBOSE_FILE = None
 
 
+def _parse_direct_search_args(argv):
+    """Parse backward-compatible direct search args."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("search_query", nargs="+")
+    parser.add_argument("--select", "-s", type=int, metavar="N")
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--log-file", metavar="FILE")
+    args = parser.parse_args(argv)
+    return " ".join(args.search_query), args.select, args.verbose, args.log_file
+
+
 def search_and_play(query=None, auto_select=None):
     """Search for music and start playback
 
@@ -133,17 +144,17 @@ def search_and_play(query=None, auto_select=None):
     # Fetch radio in background so the first song starts immediately
     import threading
 
-    # Pre-resolve audio URL in parallel with radio fetch — eliminates ~3s yt-dlp
-    # wait from mpv startup path
+    # Pre-resolve audio stream details in parallel with radio fetch — eliminates
+    # the yt-dlp wait from mpv's startup path.
     from .hybrid_player import resolve_audio_url
 
-    prefetched_url = [None]
+    prefetched_audio = [None]
 
-    def prefetch_first_url():
-        prefetched_url[0] = resolve_audio_url(song["videoId"])
+    def prefetch_first_audio():
+        prefetched_audio[0] = resolve_audio_url(song["videoId"])
 
-    url_thread = threading.Thread(target=prefetch_first_url, daemon=True)
-    url_thread.start()
+    audio_thread = threading.Thread(target=prefetch_first_audio, daemon=True)
+    audio_thread.start()
 
     def fetch_radio():
         log_step("Fetching radio playlist", f"videoId: {song['videoId']}")
@@ -176,7 +187,7 @@ def search_and_play(query=None, auto_select=None):
     radio_thread = threading.Thread(target=fetch_radio, daemon=True)
     radio_thread.start()
 
-    play_music_with_controls(playlist, prefetched_url_thread=(url_thread, prefetched_url))
+    play_music_with_controls(playlist, prefetched_url_thread=(audio_thread, prefetched_audio))
 
 
 # Playlist Commands
@@ -457,7 +468,7 @@ def llm_create_playlist_command(llm_client, prompt, num_songs=15, auto_play=Fals
 
 def main():
     """Main CLI entry point"""
-    global _VERBOSE
+    global _VERBOSE, _VERBOSE_FILE
     setup_signal_handler()
 
     # Handle backward compatibility first by checking command line arguments
@@ -468,23 +479,14 @@ def main():
         and sys.argv[1] not in ["search", "playlist", "llm"]
         and "--terminate" not in sys.argv
     ):
-        # Extract --select/-s value if present
-        auto_select = None
-        for i, arg in enumerate(sys.argv):
-            if arg in ("--select", "-s") and i + 1 < len(sys.argv):
-                try:
-                    auto_select = int(sys.argv[i + 1])
-                except ValueError:
-                    pass
-                break
-
-        # Extract --verbose if present
-        verbose = "--verbose" in sys.argv
+        query, auto_select, verbose, log_file = _parse_direct_search_args(sys.argv[1:])
 
         # This is likely a song query, handle it directly (backward compatible mode)
         if verbose:
-            set_verbose(True)
-        search_and_play(sys.argv[1], auto_select)
+            set_verbose(True, log_file)
+        _VERBOSE = verbose
+        _VERBOSE_FILE = log_file
+        search_and_play(query, auto_select)
         return
 
     # Allow `llm "prompt"` as shortcut for `llm ask "prompt"`

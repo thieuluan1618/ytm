@@ -275,6 +275,30 @@ class TestMainFunction:
 
             mock_search_and_play.assert_called_once_with("test song query", None)
 
+    def test_main_backward_compatibility_search_with_select(self, sample_songs):
+        """Test direct search supports auto-select."""
+        test_args = ["ytm_cli", "gio dem qua duong", "-s", "1"]
+
+        with (
+            patch("sys.argv", test_args),
+            patch("ytm_cli.main.search_and_play") as mock_search_and_play,
+        ):
+            main()
+
+            mock_search_and_play.assert_called_once_with("gio dem qua duong", 1)
+
+    def test_main_backward_compatibility_unquoted_search_with_select(self, sample_songs):
+        """Test direct search joins unquoted query words before options."""
+        test_args = ["ytm_cli", "gio", "dem", "qua", "duong", "-s", "1"]
+
+        with (
+            patch("sys.argv", test_args),
+            patch("ytm_cli.main.search_and_play") as mock_search_and_play,
+        ):
+            main()
+
+            mock_search_and_play.assert_called_once_with("gio dem qua duong", 1)
+
     def test_main_search_command(self, sample_songs):
         """Test main function with search command"""
         test_args = ["ytm_cli", "search", "test query"]

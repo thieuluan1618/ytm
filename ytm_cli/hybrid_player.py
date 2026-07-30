@@ -7,32 +7,54 @@ import socket
 import subprocess
 import tempfile
 import time
+from typing import NamedTuple
 
-from .config import clear_player_pid, get_mpv_flags, save_player_pid
+from yt_dlp.utils.networking import std_headers
+
+from .config import clear_player_pid, get_cookies_browser, get_mpv_flags, save_player_pid
 from .ffmpeg_player import FFmpegPlayerService
-from .verbose_logger import log_error, log_info, log_section
+from .verbose_logger import is_verbose, log_error, log_info, log_section
 
 
-def resolve_audio_url(video_id: str) -> str | None:
-    """Pre-resolve audio stream URL via yt-dlp. Returns direct URL or None."""
+class ResolvedAudio(NamedTuple):
+    """Direct audio URL and the user agent required to request it."""
+
+    url: str
+    user_agent: str
+
+
+def resolve_audio_url(video_id: str) -> ResolvedAudio | None:
+    """Pre-resolve audio stream details via yt-dlp."""
     try:
+        cmd = [
+            "yt-dlp",
+            "-f",
+            "bestaudio",
+            "--print",
+            "%(url)s",
+            "--print",
+            "%(http_headers)j",
+        ]
+        browser = get_cookies_browser()
+        if browser:
+            cmd.extend(["--cookies-from-browser", browser])
+        cmd.append(f"https://music.youtube.com/watch?v={video_id}")
         result = subprocess.run(
-            [
-                "yt-dlp",
-                "-f",
-                "bestaudio",
-                "--get-url",
-                f"https://music.youtube.com/watch?v={video_id}",
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=15,
         )
         if result.returncode == 0:
-            url = result.stdout.strip().split("\n")[0]
-            if url.startswith("http"):
-                return url
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            lines = result.stdout.strip().splitlines()
+            for url, raw_headers in zip(lines, lines[1:], strict=False):
+                if not url.startswith(("http://", "https://")):
+                    continue
+                headers = json.loads(raw_headers)
+                user_agent = headers.get("User-Agent")
+                if isinstance(user_agent, str) and user_agent:
+                    return ResolvedAudio(url, user_agent)
+    except (json.JSONDecodeError, subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
     return None
 
@@ -78,21 +100,25 @@ class CLIHybridPlayerService:
         """Check if any player is available"""
         return self.player_type != "none"
 
-    def play(self, video_id: str, title: str = "", resolved_url: str | None = None) -> bool:
-        """Start playing a song. If resolved_url is provided, skip yt-dlp resolution."""
+    def play(
+        self, video_id: str, title: str = "", resolved_audio: ResolvedAudio | None = None
+    ) -> bool:
+        """Start playing a song, optionally using pre-resolved stream details."""
         if not self.is_available():
             log_error("Play attempted but no audio player available")
             print("No audio player available")
             return False
 
         if self.player_type == "mpv":
-            return self._play_mpv(video_id, title, resolved_url)
+            return self._play_mpv(video_id, title, resolved_audio)
         elif self.player_type == "ffmpeg" and self.ffmpeg_player:
             return self.ffmpeg_player.play(video_id, title)
 
         return False
 
-    def _play_mpv(self, video_id: str, title: str = "", resolved_url: str | None = None) -> bool:
+    def _play_mpv(
+        self, video_id: str, title: str = "", resolved_audio: ResolvedAudio | None = None
+    ) -> bool:
         """Play using mpv"""
         try:
             # Clean up previous process if exists
@@ -101,7 +127,11 @@ class CLIHybridPlayerService:
             # Create socket for IPC
             self.socket_path = tempfile.mktemp(suffix=".sock")
 
-            url = resolved_url or f"https://music.youtube.com/watch?v={video_id}"
+            url = (
+                resolved_audio.url
+                if resolved_audio
+                else f"https://music.youtube.com/watch?v={video_id}"
+            )
             mpv_flags = get_mpv_flags()
             mpv_flags.extend(
                 [
@@ -109,6 +139,13 @@ class CLIHybridPlayerService:
                     "--af-append=@vstats:lavfi=[astats=metadata=1:reset=1:length=0.1]",
                 ]
             )
+            user_agent = resolved_audio.user_agent if resolved_audio else std_headers["User-Agent"]
+            mpv_flags.append(f"--user-agent={user_agent}")
+            # Pass cookies to mpv's internal yt-dlp when playing unresolved URLs
+            if not resolved_audio:
+                browser = get_cookies_browser()
+                if browser:
+                    mpv_flags.append(f"--ytdl-raw-options=cookies-from-browser={browser}")
 
             log_info(f"Starting MPV playback: {title or video_id}")
             self.mpv_process = subprocess.Popen(
@@ -137,6 +174,15 @@ class CLIHybridPlayerService:
                     self.mpv_process = None
                     return False
                 if os.path.exists(self.socket_path):
+                    if is_verbose():
+                        ao = self._get_mpv_property("current-ao")
+                        volume = self._get_mpv_property("volume")
+                        mute = self._get_mpv_property("mute")
+                        aid = self._get_mpv_property("aid")
+                        log_info(
+                            f"MPV audio output: ao={ao or 'unknown'}, aid={aid}, "
+                            f"volume={volume}, mute={mute}"
+                        )
                     # Detach stderr now that startup succeeded (avoid blocking on pipe)
                     if self.mpv_process.stderr:
                         self.mpv_process.stderr.close()
@@ -187,7 +233,6 @@ class CLIHybridPlayerService:
         if self.player_type == "mpv" and self.mpv_process:
             if self.mpv_process.poll() is not None:
                 return False
-            # Also check if mpv reports idle (finished playing)
             if self.socket_path and os.path.exists(self.socket_path):
                 idle = self._get_mpv_property("idle-active")
                 if idle is True:
