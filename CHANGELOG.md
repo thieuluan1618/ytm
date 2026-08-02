@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-02
+
+### Added
+
+- **Responsive terminal player**: Introduces distinct full and compact layouts with clearer playback state, track metadata, progress, controls, and safe rendering in tiny terminals
+- **Live queue context**: Shows the upcoming track and updates the queue total as background radio results arrive
+
+### Changed
+
+- **Playback progress**: Uses a visible playhead, elapsed percentage, and improved time positioning
+- **Runtime dependencies**: Updates NumPy, Requests, yt-dlp, ytmusicapi, and urllib3 to their latest compatible releases
+
+### Fixed
+
+- **MPV stream reliability**: Passes resolved stream details and required request headers to prevent HTTP 403 playback failures
+- **Search result navigation**: Keeps selection bounds aligned with the number of returned songs and handles missing artist metadata
+
 ## [0.8.0] - 2026-05-17
 
 ### Added
