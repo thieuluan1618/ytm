@@ -514,7 +514,20 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                 )
 
                 track_num = current_song_index + 1
-                track_total = len(playlist)
+
+                def queue_context(current_index):
+                    """Return live queue details as the background radio fetch grows it."""
+                    next_index = current_index + 1
+                    if next_index >= len(playlist):
+                        return len(playlist), None, None
+                    next_item = playlist[next_index]
+                    next_artists = next_item.get("artists") or []
+                    next_artist = (
+                        next_artists[0].get("name", "Unknown Artist")
+                        if next_artists
+                        else "Unknown Artist"
+                    )
+                    return len(playlist), next_item.get("title", "Unknown Title"), next_artist
 
                 # Prefetch next song's URL while this one loads/plays
                 next_idx = current_song_index + 1
@@ -552,6 +565,7 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                             threading.Thread(target=_start_play, daemon=True).start()
                             play_started = True
 
+                    track_total, next_title, next_artist = queue_context(current_song_index)
                     draw_player(
                         stdscr,
                         song_title,
@@ -564,6 +578,8 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                         frame,
                         toast_msg,
                         toast_expire,
+                        next_title=next_title,
+                        next_artist=next_artist,
                     )
                     frame += 1
                     key = stdscr.getch()
@@ -626,6 +642,7 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
 
                     bands = spectrum.get_bands() if spectrum is not None else None
 
+                    track_total, next_title, next_artist = queue_context(current_song_index)
                     draw_player(
                         stdscr,
                         song_title,
@@ -640,6 +657,8 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                         toast_expire,
                         audio_levels=audio_levels,
                         bands=bands,
+                        next_title=next_title,
+                        next_artist=next_artist,
                     )
                     frame += 1
 

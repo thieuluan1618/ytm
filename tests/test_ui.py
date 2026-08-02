@@ -10,7 +10,7 @@ with (
     patch("curses.init_pair"),
     patch("curses.color_pair"),
 ):
-    from ytm_cli.ui import display_player_status
+    from ytm_cli.ui import display_player_status, draw_player
 
 
 def _capture_status_output(*args, width=80, terminal_size_error=False, **kwargs):
@@ -25,6 +25,96 @@ def _capture_status_output(*args, width=80, terminal_size_error=False, **kwargs)
             mock_size.return_value.columns = width
         display_player_status(*args, **kwargs)
     return buf.getvalue()
+
+
+class _FakeScreen:
+    """Small curses screen double that exposes complete rendered frames."""
+
+    def __init__(self, height, width):
+        self.height = height
+        self.width = width
+        self.rows = []
+        self.erase()
+
+    def getmaxyx(self):
+        return self.height, self.width
+
+    def erase(self):
+        self.rows = [[" "] * self.width for _ in range(self.height)]
+
+    def addstr(self, y, x, text, _attr=0):
+        for offset, char in enumerate(text):
+            if 0 <= y < self.height and 0 <= x + offset < self.width:
+                self.rows[y][x + offset] = char
+
+    def refresh(self):
+        pass
+
+    def render(self):
+        return "\n".join("".join(row).rstrip() for row in self.rows)
+
+
+def _render_player(height=24, width=80, **overrides):
+    values = {
+        "song_title": "Neon Cruise",
+        "artist": "Synthwave Demo Band",
+        "is_paused": False,
+        "track_idx": 2,
+        "track_total": 8,
+        "elapsed": 72,
+        "duration": 180,
+        "bands": [0.1, 0.3, 0.7, 0.4] * 6,
+        "next_title": "Rainy Afternoon Lo-Fi",
+        "next_artist": "ChillCat",
+    }
+    values.update(overrides)
+    screen = _FakeScreen(height, width)
+    with (
+        patch("ytm_cli.ui.curses.color_pair", return_value=0),
+        patch("ytm_cli.ui.time.time", return_value=100),
+    ):
+        draw_player(screen, **values)
+    return screen.render()
+
+
+class TestDrawPlayer:
+    """Render-level coverage for the responsive full-screen player."""
+
+    def test_standard_layout_has_clear_hierarchy_and_queue_context(self):
+        rendered = _render_player()
+
+        for text in (
+            "YTM // PLAYER",
+            "PLAYING  2 / 8",
+            "NOW PLAYING",
+            "Neon Cruise",
+            "Synthwave Demo Band",
+            "1:12",
+            "40%",
+            "UP NEXT",
+            "Rainy Afternoon Lo-Fi · ChillCat",
+            "[SPACE] pause",
+            "[D] dislike",
+        ):
+            assert text in rendered
+
+    def test_compact_layout_keeps_essential_information_visible(self):
+        rendered = _render_player(height=10, width=42, is_paused=True)
+
+        assert "PAUSED" in rendered
+        assert "Neon Cruise" in rendered
+        assert "Synthwave Demo Band" in rendered
+        assert "[SPC]" in rendered
+        assert "[Q]" in rendered
+        assert "NOW PLAYING" not in rendered
+
+    def test_tiny_layout_does_not_overlap_brand_and_status(self):
+        rendered = _render_player(height=6, width=24)
+
+        first_line = rendered.splitlines()[0]
+        assert "PLAYING" in first_line
+        assert "YTM●" not in first_line
+        assert "Neon Cruise" in rendered
 
 
 class TestDisplayPlayerStatus:

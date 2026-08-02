@@ -241,6 +241,7 @@ def selection_ui(stdscr, results, query, songs_to_display):
     current_selection = 0
     status_message = ""
     status_timer = 0
+    display_count = min(songs_to_display, len(results))
 
     while True:
         stdscr.erase()
@@ -269,12 +270,13 @@ def selection_ui(stdscr, results, query, songs_to_display):
         _safe_addstr(stdscr, row, lm, "─" * cw, border)
 
         row += 1
-        for i, song in enumerate(results[:songs_to_display]):
+        for i, song in enumerate(results[:display_count]):
             if row + i >= max_y - 3:
                 break
 
             title = song["title"]
-            artist = song["artists"][0]["name"]
+            artists = song.get("artists") or []
+            artist = artists[0].get("name", "Unknown Artist") if artists else "Unknown Artist"
             line = f"{title} - {artist}"
 
             if len(line) > cw - 6:
@@ -300,7 +302,7 @@ def selection_ui(stdscr, results, query, songs_to_display):
 
         # Status message (temporary feedback)
         if status_message and time.time() - status_timer < 3:
-            status_y = min(row + songs_to_display + 1, max_y - 3)
+            status_y = min(row + display_count + 1, max_y - 3)
             _safe_addstr(stdscr, status_y, lm, status_message, green)
         elif time.time() - status_timer >= 3:
             status_message = ""
@@ -308,16 +310,16 @@ def selection_ui(stdscr, results, query, songs_to_display):
         # Footer
         footer_y = max_y - 2
         _safe_addstr(stdscr, footer_y, lm, "─" * cw, border)
-        count_str = f"{min(songs_to_display, len(results))} RESULTS"
+        count_str = f"{display_count} RESULTS"
         _safe_addstr(stdscr, footer_y + 1, lm, count_str, border)
 
         stdscr.refresh()
         key = stdscr.getch()
 
         if key in (curses.KEY_DOWN, ord("j")):
-            current_selection = (current_selection + 1) % songs_to_display
+            current_selection = (current_selection + 1) % display_count
         elif key in (curses.KEY_UP, ord("k")):
-            current_selection = (current_selection - 1 + songs_to_display) % songs_to_display
+            current_selection = (current_selection - 1) % display_count
         elif key in (ord("\n"), 10, 13):
             return current_selection
         elif key == ord("q"):
@@ -327,7 +329,7 @@ def selection_ui(stdscr, results, query, songs_to_display):
             if add_song_to_playlist_ui(stdscr, selected_song):
                 status_message = f"Added '{selected_song['title']}' to playlist!"
                 status_timer = time.time()
-        elif ord("1") <= key <= ord(str(min(9, songs_to_display))):
+        elif ord("1") <= key <= ord(str(min(9, display_count))):
             return key - ord("1")
 
 
@@ -579,14 +581,29 @@ def init_player_colors():
 def _safe_addstr(scr, y, x, text, attr=0):
     """Write text clipped to screen bounds."""
     h, w = scr.getmaxyx()
-    if y < 0 or y >= h or x >= w:
+    if y < 0 or y >= h or w <= 1:
+        return
+    x = max(0, x)
+    if x >= w:
         return
     text = text[: max(0, w - x - 1)]
     if text:
         try:
-            scr.addstr(y, max(0, x), text, attr)
+            scr.addstr(y, x, text, attr)
         except curses.error:
             pass
+
+
+def _ellipsize(text, width):
+    """Fit text to a terminal width while preserving a visible truncation cue."""
+    text = str(text or "")
+    if width <= 0:
+        return ""
+    if len(text) <= width:
+        return text
+    if width == 1:
+        return "…"
+    return f"{text[: width - 1]}…"
 
 
 def draw_player(
@@ -603,8 +620,10 @@ def draw_player(
     toast_expire=0,
     audio_levels=None,
     bands=None,
+    next_title=None,
+    next_artist=None,
 ):
-    """Render full-screen player UI."""
+    """Render the responsive full-screen player UI."""
     scr.erase()
     h, w = scr.getmaxyx()
     cx = w // 2
@@ -615,138 +634,213 @@ def draw_player(
     text = curses.color_pair(_CP_TEXT)
     bdr = curses.color_pair(_CP_BORDER) | curses.A_DIM
 
-    cw = min(w - 4, 70)
+    cw = max(1, min(w - 4, 76))
     lm = (w - cw) // 2
+    state = "PAUSED" if is_paused else "PLAYING"
+    position = f"{track_idx} / {track_total}"
+    toast_visible = bool(toast_msg and time.time() < toast_expire)
+    compact = h < 18 or cw < 58
 
-    r = max(1, (h - 18) // 2)
+    # The compact layout keeps the core controls usable in short or narrow terminals.
+    if compact:
+        header = f"● {state}  {position}"
+        if len(header) + 5 <= cw:
+            _safe_addstr(scr, 0, lm, "YTM", accent)
+        _safe_addstr(scr, 0, lm + cw - len(header), "●", accent_n if not is_paused else dim)
+        _safe_addstr(scr, 0, lm + cw - len(header) + 2, header[2:], dim)
+        if h > 2:
+            _safe_addstr(scr, 1, lm, "─" * cw, bdr)
 
-    # \u2500\u2500 Header \u2500\u2500
-    _safe_addstr(scr, r, lm, "ytm", accent)
-    _safe_addstr(scr, r, lm + 4, "// youtube music cli", dim)
+        footer_row = h - 1
+        content_end = max(2, footer_row - 1)
+        content_lines = 3 + int(elapsed is not None and duration and duration > 0)
+        content_lines += int(toast_visible or bool(next_title))
+        available_lines = max(0, content_end - 2)
+        row = 2 + max(0, (available_lines - content_lines) // 2) if h > 3 else 1
 
-    state = "playing" if not is_paused else "paused"
-    status = f"\u25cf {state} [{track_idx}/{track_total}]"
-    sx = lm + cw - len(status)
-    _safe_addstr(scr, r, sx, "\u25cf", accent_n if not is_paused else dim)
-    _safe_addstr(scr, r, sx + 2, f"{state} [{track_idx}/{track_total}]", dim)
+        title = _ellipsize(song_title, cw)
+        _safe_addstr(scr, row, max(lm, cx - len(title) // 2), title, text | curses.A_BOLD)
+        row += 1
 
-    r += 1
-    _safe_addstr(scr, r, lm, "\u2500" * cw, bdr)
+        if row < content_end:
+            artist_line = _ellipsize(artist, cw)
+            _safe_addstr(scr, row, max(lm, cx - len(artist_line) // 2), artist_line, dim)
+            row += 1
 
-    # \u2500\u2500 Waveform / Spectrum \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    # Priority: real FFT spectrum (ffmpeg+numpy) > stereo oscilloscope (astats)
-    # > synthesized fallback (no audio backend reporting yet).
-    r += 1
-    nbars = min(_WAVE_BARS, (cw - 4 + 1) // 2)
-    ww = nbars * 2 - 1
-    wx = cx - ww // 2
+        progress_width = max(1, min(cw, 48))
+        progress_x = cx - progress_width // 2
+        if row < content_end:
+            if elapsed is not None and duration and duration > 0:
+                pct = max(0.0, min(elapsed / duration, 1.0))
+                playhead = int((progress_width - 1) * pct)
+                _safe_addstr(scr, row, progress_x, "━" * playhead, accent_n)
+                _safe_addstr(scr, row, progress_x + playhead, "●", accent_n)
+                _safe_addstr(
+                    scr,
+                    row,
+                    progress_x + playhead + 1,
+                    "─" * (progress_width - playhead - 1),
+                    dim,
+                )
+            else:
+                _safe_addstr(scr, row, progress_x, "─" * progress_width, dim)
+            row += 1
+
+        if row < content_end and elapsed is not None and duration and duration > 0:
+            time_line = f"{_format_time(elapsed)}  /  {_format_time(duration)}"
+            _safe_addstr(scr, row, max(lm, cx - len(time_line) // 2), time_line, dim)
+            row += 1
+
+        if row < content_end:
+            if toast_visible:
+                message = f" {_ellipsize(toast_msg, max(1, cw - 2))} "
+                _safe_addstr(
+                    scr, row, max(lm, cx - len(message) // 2), message, text | curses.A_REVERSE
+                )
+            elif next_title:
+                queue_text = next_title
+                if next_artist:
+                    queue_text = f"{queue_text} · {next_artist}"
+                queue_line = _ellipsize(f"NEXT  {queue_text}", cw)
+                _safe_addstr(scr, row, lm, queue_line[:4], accent_n)
+                _safe_addstr(scr, row, lm + 4, queue_line[4:], dim)
+
+        if h > 4:
+            _safe_addstr(scr, footer_row - 1, lm, "─" * cw, bdr)
+        key_controls = "[B] [SPC] [N] · [L] [A] [D] [Q]"
+        controls = key_controls if len(key_controls) <= cw else "B SPC N · L A D Q"
+        controls = _ellipsize(controls, cw)
+        _draw_ctrl_line(scr, footer_row, max(lm, cx - len(controls) // 2), controls, accent_n, dim)
+        scr.refresh()
+        return
+
+    top = max(0, (h - 18) // 2)
+
+    # Header: brand, playback state, and queue position form one scan line.
+    _safe_addstr(scr, top, lm, "YTM", accent)
+    _safe_addstr(scr, top, lm + 4, "// PLAYER", dim)
+    header = f"● {state}  {position}"
+    header_x = lm + cw - len(header)
+    _safe_addstr(scr, top, header_x, "●", accent_n if not is_paused else dim)
+    _safe_addstr(scr, top, header_x + 2, header[2:], dim)
+    _safe_addstr(scr, top + 1, lm, "─" * cw, bdr)
+
+    # Visualizer priority: FFT spectrum, stereo audio history, then animated fallback.
+    nbars = min(_WAVE_BARS, (cw + 1) // 2)
+    wave_width = nbars * 2 - 1
+    wave_x = cx - wave_width // 2
     half = nbars // 2
-
-    bar_bottom = r + _WAVE_ROWS - 1
+    bar_bottom = top + 5
     bar_attr = accent_n if not is_paused else dim
-
     history = list(_WAVE_HISTORY)
     have_real = bool(history) and audio_levels is not None
 
     if is_paused:
-        mode_label = ""
-        # Gentle breathing wave: slow sine that ripples across bars
-        t = time.time()
+        now = time.time()
         for i in range(nbars):
-            # Slow ripple from center outward
-            dist = abs(i - nbars / 2.0) / (nbars / 2.0)
-            phase = t * 1.2 - dist * 2.5
-            breath = 0.08 + 0.12 * (0.5 + 0.5 * math.sin(phase))
-            _draw_bar(scr, bar_bottom, wx + i * 2, breath, _WAVE_ROWS, bar_attr)
+            distance = abs(i - nbars / 2.0) / (nbars / 2.0)
+            phase = now * 1.2 - distance * 2.5
+            level = 0.08 + 0.12 * (0.5 + 0.5 * math.sin(phase))
+            _draw_bar(scr, bar_bottom, wave_x + i * 2, level, _WAVE_ROWS, bar_attr)
     elif bands:
-        mode_label = "spectrum"
-        n_in = len(bands)
+        band_count = len(bands)
         for i in range(nbars):
-            lo = int(i * n_in / nbars)
-            hi = max(lo + 1, int((i + 1) * n_in / nbars))
-            level = max(bands[lo:hi])
-            _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
+            low = int(i * band_count / nbars)
+            high = max(low + 1, int((i + 1) * band_count / nbars))
+            _draw_bar(scr, bar_bottom, wave_x + i * 2, max(bands[low:high]), _WAVE_ROWS, bar_attr)
     elif have_real:
-        mode_label = ""
         recent = history[-half:] if half else []
         recent = [(0.0, 0.0)] * max(0, half - len(recent)) + recent
-
         for i in range(nbars):
             if i < half:
                 level = recent[i][0]
             elif nbars % 2 == 1 and i == half:
-                lch, rch = recent[-1] if recent else (0.0, 0.0)
-                level = (lch + rch) / 2.0
+                left, right = recent[-1] if recent else (0.0, 0.0)
+                level = (left + right) / 2.0
             else:
                 level = recent[nbars - 1 - i][1]
-
-            _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
+            _draw_bar(scr, bar_bottom, wave_x + i * 2, level, _WAVE_ROWS, bar_attr)
     else:
-        mode_label = "sim"
         for i in range(nbars):
             seed = _WAVE_SEEDS[i % len(_WAVE_SEEDS)]
             phase = frame * 0.7 + i * 0.65
-            val = 0.5 + 0.5 * math.sin(phase)
-            level = (seed / 40.0) * (0.4 + 0.6 * val)
-            _draw_bar(scr, bar_bottom, wx + i * 2, level, _WAVE_ROWS, bar_attr)
+            level = (seed / 40.0) * (0.7 + 0.3 * math.sin(phase))
+            _draw_bar(scr, bar_bottom, wave_x + i * 2, level, _WAVE_ROWS, bar_attr)
 
-    # Mode indicator: lets you confirm which visualizer pipeline is live.
-    label_row = bar_bottom + 1
-    label_x = lm + cw - len(mode_label)
-    _safe_addstr(scr, label_row, label_x, mode_label, dim)
+    # Track identity is deliberately the strongest element on screen.
+    overline = "NOW PLAYING"
+    _safe_addstr(scr, top + 7, cx - len(overline) // 2, overline, accent_n)
+    title = _ellipsize(song_title, cw)
+    _safe_addstr(scr, top + 8, cx - len(title) // 2, title, text | curses.A_BOLD)
+    artist_line = _ellipsize(artist, cw)
+    _safe_addstr(scr, top + 9, cx - len(artist_line) // 2, artist_line, dim)
 
-    r = label_row
-
-    # \u2500\u2500 Song info \u2500\u2500
-    r += 2
-    dt = song_title[:cw]
-    _safe_addstr(scr, r, max(0, cx - len(dt) // 2), dt, text | curses.A_BOLD)
-    r += 1
-    da = artist[:cw]
-    _safe_addstr(scr, r, max(0, cx - len(da) // 2), da, dim)
-
-    # \u2500\u2500 Progress \u2500\u2500
-    r += 2
-    bw = min(cw - 8, 48)
-    bx = cx - bw // 2
+    # Progress uses a distinct playhead instead of an ambiguous two-color line.
+    progress_width = min(cw - 10, 56)
+    progress_x = cx - progress_width // 2
     if elapsed is not None and duration and duration > 0:
-        pct = min(elapsed / duration, 1.0)
-        filled = int(bw * pct)
-        _safe_addstr(scr, r, bx, "\u2501" * filled, accent_n)
-        _safe_addstr(scr, r, bx + filled, "\u2501" * (bw - filled), dim)
-        r += 1
-        el_s = _format_time(elapsed)
-        du_s = _format_time(duration)
-        _safe_addstr(scr, r, bx, el_s, dim)
-        _safe_addstr(scr, r, bx + bw - len(du_s), du_s, dim)
-    else:
-        _safe_addstr(scr, r, bx, "\u2501" * bw, dim)
-        r += 1
-
-    # \u2500\u2500 Controls \u2500\u2500
-    r += 2
-    _safe_addstr(scr, r, lm, "\u2500" * cw, bdr)
-    r += 1
-    pl = "play" if is_paused else "pause"
-    ctrl = f"[B] prev  [SPC] {pl}  [N] next  \u2502  [A] playlist  [D] dislike  \u2502  [L] lyrics  [Q] quit"
-    if len(ctrl) > cw:
-        ctrl = f"[B]prev [SPC]{pl} [N]next \u2502 [A]add [D]dis \u2502 [L]lyr [Q]quit"
-    _draw_ctrl_line(scr, r, max(0, cx - len(ctrl) // 2), ctrl, accent_n, dim)
-
-    # \u2500\u2500 Hint \u2500\u2500
-    r += 2
-    hint = (
-        "KEYBOARD SHORTCUTS ACTIVE \u2014 B \u00b7 SPC \u00b7 N \u00b7 A \u00b7 D \u00b7 L \u00b7 Q"
-    )
-    if len(hint) <= cw:
-        _safe_addstr(scr, r, max(0, cx - len(hint) // 2), hint, bdr)
-
-    # \u2500\u2500 Toast \u2500\u2500
-    if toast_msg and time.time() < toast_expire:
-        ty = min(h - 2, r + 2)
+        pct = max(0.0, min(elapsed / duration, 1.0))
+        playhead = int((progress_width - 1) * pct)
+        _safe_addstr(scr, top + 11, progress_x, "━" * playhead, accent_n)
+        _safe_addstr(scr, top + 11, progress_x + playhead, "●", accent_n)
         _safe_addstr(
-            scr, ty, max(0, cx - len(toast_msg) // 2 - 1), f" {toast_msg} ", text | curses.A_REVERSE
+            scr,
+            top + 11,
+            progress_x + playhead + 1,
+            "─" * (progress_width - playhead - 1),
+            dim,
         )
+        elapsed_text = _format_time(elapsed)
+        duration_text = _format_time(duration)
+        _safe_addstr(scr, top + 12, progress_x, elapsed_text, dim)
+        _safe_addstr(
+            scr,
+            top + 12,
+            progress_x + progress_width - len(duration_text),
+            duration_text,
+            dim,
+        )
+        percent = f"{round(pct * 100):d}%"
+        _safe_addstr(scr, top + 12, cx - len(percent) // 2, percent, dim)
+    else:
+        _safe_addstr(scr, top + 11, progress_x, "─" * progress_width, dim)
+
+    # Queue context doubles as the temporary feedback area after an action.
+    if toast_visible:
+        message = f" {_ellipsize(toast_msg, cw - 2)} "
+        _safe_addstr(
+            scr, top + 14, max(lm, cx - len(message) // 2), message, text | curses.A_REVERSE
+        )
+    elif next_title:
+        _safe_addstr(scr, top + 14, lm, "UP NEXT", accent_n)
+        next_track = next_title
+        if next_artist:
+            next_track = f"{next_track} · {next_artist}"
+        next_track = _ellipsize(next_track, cw - 10)
+        _safe_addstr(scr, top + 14, lm + 9, next_track, dim)
+    else:
+        _safe_addstr(scr, top + 14, lm, "QUEUE", accent_n)
+        _safe_addstr(scr, top + 14, lm + 7, "End of queue", dim)
+
+    _safe_addstr(scr, top + 15, lm, "─" * cw, bdr)
+    playback_controls = f"[B] previous   [SPACE] {'play' if is_paused else 'pause'}   [N] next"
+    library_controls = "[L] lyrics   [A] save   [D] dislike   [Q] quit"
+    _draw_ctrl_line(
+        scr,
+        top + 16,
+        cx - len(playback_controls) // 2,
+        playback_controls,
+        accent_n,
+        dim,
+    )
+    _draw_ctrl_line(
+        scr,
+        top + 17,
+        cx - len(library_controls) // 2,
+        library_controls,
+        accent_n,
+        dim,
+    )
 
     scr.refresh()
 
