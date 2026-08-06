@@ -1,5 +1,6 @@
 """Tests for ytm_cli.cache."""
 
+import hashlib
 import json
 import time
 from unittest.mock import patch
@@ -41,13 +42,14 @@ class TestGetSetCached:
         assert cache_module.get_cached("query1") == "result1"
 
     def test_get_cached_expired_entry_removed_and_returns_none(self, temp_cache_file):
-        # Write an entry with timestamp older than the TTL.
+        # Write an entry with timestamp older than the TTL (keys are stored hashed).
         old_ts = time.time() - cache_module.CACHE_TTL - 100
-        cache_module.save_cache({"old": {"data": "stale", "timestamp": old_ts}})
+        hashed_key = hashlib.sha256(b"old").hexdigest()
+        cache_module.save_cache({hashed_key: {"data": "stale", "timestamp": old_ts}})
 
         assert cache_module.get_cached("old") is None
         # Expired entry should be evicted from disk on read.
-        assert "old" not in cache_module.load_cache()
+        assert hashed_key not in cache_module.load_cache()
 
     def test_set_cached_overwrites_existing(self, temp_cache_file):
         cache_module.set_cached("k", "v1")
