@@ -24,7 +24,15 @@ class ResolvedAudio(NamedTuple):
 
 
 def resolve_audio_url(video_id: str) -> ResolvedAudio | None:
-    """Pre-resolve audio stream details via yt-dlp."""
+    """Pre-resolve audio stream details via yt-dlp.
+
+    Deliberately resolves WITHOUT browser cookies: URLs resolved from a
+    logged-in session are rejected with HTTP 403 when mpv later fetches
+    them directly (YouTube ties them to PO tokens mpv cannot supply),
+    which made every song skip silently. If a video actually requires
+    cookies, resolution fails and the caller falls back to letting mpv's
+    internal yt-dlp handle it (which passes cookies correctly).
+    """
     try:
         cmd = [
             "yt-dlp",
@@ -34,11 +42,8 @@ def resolve_audio_url(video_id: str) -> ResolvedAudio | None:
             "%(url)s",
             "--print",
             "%(http_headers)j",
+            f"https://music.youtube.com/watch?v={video_id}",
         ]
-        browser = get_cookies_browser()
-        if browser:
-            cmd.extend(["--cookies-from-browser", browser])
-        cmd.append(f"https://music.youtube.com/watch?v={video_id}")
         result = subprocess.run(
             cmd,
             capture_output=True,
