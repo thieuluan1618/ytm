@@ -1,5 +1,6 @@
 """Simple cache for search results and song metadata."""
 
+import hashlib
 import json
 import os
 import time
@@ -26,12 +27,13 @@ def save_cache(cache):
 def get_cached(key):
     """Get a value from cache if not expired."""
     cache = load_cache()
-    if key in cache:
-        entry = cache[key]
+    hashed_key = hashlib.sha256(key.encode()).hexdigest()
+    if hashed_key in cache:
+        entry = cache[hashed_key]
         if time.time() - entry["timestamp"] < CACHE_TTL:
             return entry["data"]
         else:
-            del cache[key]
+            del cache[hashed_key]
             save_cache(cache)
     return None
 
@@ -39,7 +41,8 @@ def get_cached(key):
 def set_cached(key, value):
     """Set a value in cache."""
     cache = load_cache()
-    cache[key] = {
+    hashed_key = hashlib.sha256(key.encode()).hexdigest()
+    cache[hashed_key] = {
         "data": value,
         "timestamp": time.time(),
     }
@@ -56,6 +59,12 @@ def clear_expired():
     save_cache(cache)
 
 
+def clear_all():
+    """Clear entire cache by removing the file."""
+    if os.path.exists(CACHE_FILE):
+        os.remove(CACHE_FILE)
+
+
 def search_with_cache(query, search_func):
     """Search with caching."""
     cached = get_cached(query)
@@ -65,3 +74,19 @@ def search_with_cache(query, search_func):
     results = search_func(query)
     set_cached(query, json.dumps(results))
     return results
+
+
+def cache_stats():
+    """Return cache statistics."""
+    cache = load_cache()
+    total = len(cache)
+    now = time.time()
+    expired = sum(1 for v in cache.values() if now - v["timestamp"] > CACHE_TTL)
+    size = os.path.getsize(CACHE_FILE) if os.path.exists(CACHE_FILE) else 0
+    return {"total": total, "expired": expired, "active": total - expired, "size_bytes": size}
+
+
+def bulk_set(items):
+    """Bulk insert items into cache. Items is a dict of key->value."""
+    for key, value in items.items():
+        set_cached(key, value)
