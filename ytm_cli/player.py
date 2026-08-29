@@ -410,7 +410,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None, is_playing_func=No
         return False
 
 
-def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetched_url_thread=None):
+def play_music_with_controls_curses(playlist, playlist_name=None, demo=False, prefetched_url_thread=None):
     """Play music with keyboard controls using curses-based UI
 
     Args:
@@ -829,3 +829,98 @@ def _play_non_interactive(player, playlist):
                 time.sleep(0.5)
     finally:
         player.cleanup()
+
+
+def play_music_with_controls_rich(playlist, playlist_name=None, demo=False, prefetched_url_thread=None):
+    """Play music with keyboard controls using rich-based UI.
+
+    Args:
+        playlist: List of songs to play
+        playlist_name: Name of user playlist (if playing from a user playlist)
+        demo: When True, use the demo player + synthetic spectrum
+        prefetched_url_thread: Tuple of (thread, result_list) for async stream resolution
+    """
+    from .rich_ui import play_with_rich_ui
+    from .verbose_logger import log_info, log_section
+
+    log_section("Playback Starting (Rich UI)", "🎵")
+    log_info(f"Total tracks in queue: {len(playlist)}")
+    if playlist_name:
+        log_info(f"Playing from user playlist: {playlist_name}")
+
+    if demo:
+        from .demo import DemoPlayer
+        player = DemoPlayer()
+    else:
+        from .hybrid_player import CLIHybridPlayerService
+        player = CLIHybridPlayerService()
+
+    if not player.is_available():
+        print("❌ No audio player available. Install mpv or FFmpeg")
+        return
+
+    if not sys.stdin.isatty():
+        _play_non_interactive(player, playlist)
+        return
+
+    def get_elapsed():
+        if player.player_type == "mpv" and player.socket_path:
+            return get_mpv_time_position(player.socket_path)
+        return None
+
+    def get_duration():
+        if player.player_type == "mpv" and player.socket_path:
+            return get_mpv_duration(player.socket_path)
+        return None
+
+    def on_pause():
+        if player.is_playing():
+            player.pause()
+        else:
+            player.resume()
+
+    def on_lyrics(song):
+        video_id = song.get("videoId")
+        title = song.get("title", "Unknown")
+        if video_id:
+            get_and_display_lyrics(video_id, title, player.socket_path, player.is_playing)
+
+    def on_add_playlist(song):
+        return add_song_to_playlist_interactive(song)
+
+    def on_dislike(song):
+        dislike_manager.dislike_song(song, notify=False)
+
+    try:
+        play_with_rich_ui(
+            player=player,
+            playlist=playlist,
+            playlist_name=playlist_name,
+            get_elapsed=get_elapsed,
+            get_duration=get_duration,
+            on_pause=on_pause,
+            on_lyrics=on_lyrics,
+            on_add_playlist=on_add_playlist,
+            on_dislike=on_dislike,
+        )
+    finally:
+        player.cleanup()
+
+
+def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetched_url_thread=None):
+    """Play music with keyboard controls.
+
+    Routes to either curses or rich UI based on config.
+
+    Args:
+        playlist: List of songs to play
+        playlist_name: Name of user playlist (if playing from a user playlist)
+        demo: When True, use the demo player
+        prefetched_url_thread: Tuple of (thread, result_list) for async stream resolution
+    """
+    from .config import use_rich_ui
+
+    if use_rich_ui():
+        return play_music_with_controls_rich(playlist, playlist_name, demo, prefetched_url_thread)
+    else:
+        return play_music_with_controls_curses(playlist, playlist_name, demo, prefetched_url_thread)

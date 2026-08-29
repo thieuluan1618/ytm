@@ -4,3 +4,7 @@ flags = --no-video
 
 [general]
 songs_to_display = 5
+
+[ui]
+# Use rich-based UI instead of curses (experimental)
+use_rich = true

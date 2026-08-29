@@ -51,6 +51,11 @@ def get_cookies_browser() -> str | None:
     return config.get("general", "cookies_from_browser", fallback=None)
 
 
+def use_rich_ui() -> bool:
+    """Check if rich-based UI should be used instead of curses."""
+    return config.getboolean("ui", "use_rich", fallback=True)
+
+
 def get_config_value(section, key, fallback=None):
     """Get a value from the config"""
     return config.get(section, key, fallback=fallback)
