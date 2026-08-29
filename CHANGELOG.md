@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-29
+
+### Added
+
+- **Auto-updater**: `ytm-cli --update` command to update CLI and dependencies (supports both source checkouts and installed packages)
+- **MPV media key support**: OS media "Next" button now skips to the next track in the CLI queue
+- **Two-line toast notifications**: Enhanced feedback with primary message and detail line for dislike and playlist operations
+- **yt-dlp version checking**: Shows warning on startup if yt-dlp is outdated (requires >=2026.8.19 for reliable playback)
+- **Silent notification mode**: `notify` parameter for `dislike_song()`, `create_playlist()`, and `add_song_to_playlist()` to prevent duplicate console prints in curses UI
+
+### Fixed
+
+- **MPV idle detection**: Prevents false positives during startup by tracking when playback has started
+- **Spectrum analyzer staleness**: Marks data as stale after 0.75 seconds of no updates
+- **Lyrics viewer lifecycle**: Closes lyrics view when playback stops using `is_playing_func` callback
+- **Progress bar rendering**: Properly repaints with exactly one playhead character
+
+### Changed
+
+- **Dependency requirement**: Bumped `yt-dlp` minimum version to 2026.8.19 to fix song skipping issues
+
 ## [0.9.0] - 2026-08-02
 
 ### Added
