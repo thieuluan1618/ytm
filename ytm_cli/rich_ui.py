@@ -213,6 +213,8 @@ def render_player_frame(
 
     This is a simple version that prints the layout. For live updates,
     use with rich.Live context manager.
+    
+    Note: Removed console.clear() to prevent flickering. Use rich.Live instead.
     """
     layout = create_player_layout(
         song_title=song_title,
@@ -227,7 +229,7 @@ def render_player_frame(
         next_title=next_title,
         next_artist=next_artist,
     )
-    console.clear()
+    # Don't clear - let rich.Live handle updates
     console.print(layout)
 
 
@@ -247,10 +249,13 @@ def demo_player():
             duration=180,
         ),
         console=console,
-        refresh_per_second=10,
+        screen=True,
+        transient=False,
+        auto_refresh=False,  # Drive refresh manually to prevent flicker
     ) as live:
-        for i in range(180):
-            time.sleep(0.1)
+        live.refresh()  # Paint the initial frame once
+        for i in range(0, 180, 1):  # Update every second instead of 0.1s
+            time.sleep(1.0)
             layout = create_player_layout(
                 song_title="Neon Cruise",
                 artist="Synthwave Demo Band",
@@ -262,7 +267,7 @@ def demo_player():
                 next_title="Next Track" if i > 60 else None,
                 next_artist="Next Artist" if i > 60 else None,
             )
-            live.update(layout)
+            live.update(layout, refresh=True)
 
 
 def getch_nonblocking(timeout: float = 0.0) -> Optional[str]:
@@ -362,19 +367,36 @@ def play_with_rich_ui(
             toast_detail=toast_detail,
         )
         
-        with Live(layout, console=console, refresh_per_second=10, screen=True) as live:
+        with Live(
+            layout,
+            console=console,
+            screen=True,
+            transient=False,
+            auto_refresh=False,  # Drive refresh manually to prevent flicker
+        ) as live:
+            live.refresh()  # Paint the initial frame once
+            last_elapsed = None
+            last_duration = None
+            
             while player.is_playing():
                 # Get playback info
                 elapsed = get_elapsed() if get_elapsed else None
                 duration = get_duration() if get_duration else None
                 
+                # Only update if values changed significantly (reduce flickering)
+                elapsed_changed = (elapsed is None and last_elapsed is not None) or \
+                                (elapsed is not None and last_elapsed is None) or \
+                                (elapsed is not None and last_elapsed is not None and abs(elapsed - last_elapsed) >= 0.5)
+                
                 # Clear expired toast
+                toast_changed = False
                 if toast_msg and time.time() >= toast_expire:
                     toast_msg = None
                     toast_detail = None
+                    toast_changed = True
                 
-                # Check for keyboard input
-                key = getch_nonblocking(0.05)
+                # Check for keyboard input (longer timeout to reduce CPU)
+                key = getch_nonblocking(0.1)
                 if key:
                     if key == ' ':
                         is_paused = not is_paused
@@ -401,12 +423,12 @@ def play_with_rich_ui(
                         if on_lyrics:
                             live.stop()
                             on_lyrics(song)
-                            live.start()
+                            live.start(refresh=True)
                     elif key == 'a':
                         if on_add_playlist:
                             live.stop()
                             result = on_add_playlist(song)
-                            live.start()
+                            live.start(refresh=True)
                             if result:
                                 toast_msg = f"Added · {song_title} · {artist}"
                                 toast_detail = f"Saved to playlist · {result}"
@@ -430,29 +452,34 @@ def play_with_rich_ui(
                         player.stop()
                         return
                 
-                # Update layout
-                next_title = None
-                next_artist = None
-                if current_idx + 1 < len(playlist):
-                    next_song = playlist[current_idx + 1]
-                    next_title = next_song.get("title", "Unknown")
-                    next_artist = next_song.get("artists", [{"name": "Unknown"}])[0]["name"] if next_song.get("artists") else "Unknown"
-                
-                layout = create_player_layout(
-                    song_title=song_title,
-                    artist=artist,
-                    is_paused=is_paused,
-                    track_idx=current_idx + 1,
-                    track_total=len(playlist),
-                    elapsed=elapsed,
-                    duration=duration,
-                    toast_msg=toast_msg,
-                    toast_detail=toast_detail,
-                    next_title=next_title,
-                    next_artist=next_artist,
-                )
-                
-                live.update(layout)
+                # Update layout only if something changed
+                if elapsed_changed or key or toast_changed:
+                    last_elapsed = elapsed
+                    last_duration = duration
+                    
+                    # Update layout
+                    next_title = None
+                    next_artist = None
+                    if current_idx + 1 < len(playlist):
+                        next_song = playlist[current_idx + 1]
+                        next_title = next_song.get("title", "Unknown")
+                        next_artist = next_song.get("artists", [{"name": "Unknown"}])[0]["name"] if next_song.get("artists") else "Unknown"
+                    
+                    layout = create_player_layout(
+                        song_title=song_title,
+                        artist=artist,
+                        is_paused=is_paused,
+                        track_idx=current_idx + 1,
+                        track_total=len(playlist),
+                        elapsed=elapsed,
+                        duration=duration,
+                        toast_msg=toast_msg,
+                        toast_detail=toast_detail,
+                        next_title=next_title,
+                        next_artist=next_artist,
+                    )
+                    
+                    live.update(layout, refresh=True)
         
         # Move to next track
         current_idx += 1
