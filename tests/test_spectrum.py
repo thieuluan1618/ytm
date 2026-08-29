@@ -69,12 +69,36 @@ class TestGetBands:
         sa = SpectrumAnalyzer(n_bands=4)
         sa._bands = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
         sa._has_data = True
+        sa._running = True
+        sa._last_update = 10.0
 
-        bands = sa.get_bands()
+        with patch("ytm_cli.spectrum.time.monotonic", return_value=10.1):
+            bands = sa.get_bands()
         assert isinstance(bands, list)
         assert len(bands) == 4
         for got, want in zip(bands, [0.1, 0.2, 0.3, 0.4], strict=True):
             assert got == pytest.approx(want, rel=1e-5)
+
+    def test_get_bands_returns_none_when_analyzer_data_is_stale(self):
+        sa = SpectrumAnalyzer(n_bands=4)
+        sa._bands.fill(0.5)
+        sa._has_data = True
+        sa._running = True
+        sa._last_update = 10.0
+
+        with patch(
+            "ytm_cli.spectrum.time.monotonic",
+            return_value=10.0 + SpectrumAnalyzer.STALE_AFTER_SECONDS + 0.1,
+        ):
+            assert sa.get_bands() is None
+
+    def test_get_bands_returns_none_after_analyzer_stops(self):
+        sa = SpectrumAnalyzer(n_bands=4)
+        sa._bands.fill(0.5)
+        sa._has_data = True
+        sa._last_update = 10.0
+
+        assert sa.get_bands() is None
 
 
 class TestStart:
@@ -117,6 +141,7 @@ class TestStart:
         # Ensure we asked ffmpeg for s16le mono at the analyzer's sample rate.
         cmd = mock_popen.call_args.args[0]
         assert cmd[0] == "ffmpeg"
+        assert cmd.index("-re") < cmd.index("-i")
         assert "-f" in cmd and cmd[cmd.index("-f") + 1] == "s16le"
         assert "-ac" in cmd and cmd[cmd.index("-ac") + 1] == "1"
         assert "-ar" in cmd and cmd[cmd.index("-ar") + 1] == str(SpectrumAnalyzer.SR)

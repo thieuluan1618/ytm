@@ -214,7 +214,10 @@ def get_mpv_audio_level(socket_path):
 
 
 def add_song_to_playlist_interactive(song_data):
-    """Interactive playlist selection and song addition during playback"""
+    """Select a playlist and return its name on success.
+
+    Returns ``None`` when cancelled and ``False`` when persistence fails.
+    """
     import curses
     from curses import wrapper
 
@@ -293,10 +296,7 @@ def add_song_to_playlist_interactive(song_data):
         selected_playlist = wrapper(lambda stdscr: playlist_selection_ui(stdscr, song_title))
 
         if selected_playlist is None:
-            # User cancelled
-            print("\nCancelled adding song to playlist.")
-            time.sleep(1)
-            return False
+            return None
 
         if selected_playlist == "CREATE_NEW":
             # Create new playlist
@@ -321,24 +321,22 @@ def add_song_to_playlist_interactive(song_data):
                 print(f"[cyan]Using default name: {playlist_name}[/cyan]")
 
             # Create the playlist
-            if playlist_manager.create_playlist(playlist_name, ""):
+            if playlist_manager.create_playlist(playlist_name, "", notify=False):
                 selected_playlist = playlist_name
             else:
-                print("Failed to create playlist.")
-                time.sleep(1)
                 return False
 
         # Add song to selected playlist
-        success = playlist_manager.add_song_to_playlist(selected_playlist, song_data)
-        time.sleep(1.5)  # Give user time to see the message
-        return success
+        if playlist_manager.add_song_to_playlist(selected_playlist, song_data, notify=False):
+            return selected_playlist
+        return False
 
     finally:
         # Restore raw terminal mode for player controls
         tty.setraw(sys.stdin.fileno())
 
 
-def get_and_display_lyrics(video_id, title, socket_path=None):
+def get_and_display_lyrics(video_id, title, socket_path=None, is_playing_func=None):
     """Get and display lyrics for a song"""
     from .lyrics_service import get_timestamped_lyrics
 
@@ -364,7 +362,12 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
             timestamped_lyrics.get("synced_lyrics") or timestamped_lyrics.get("plain_lyrics")
         ):
             display_lyrics_with_curses(
-                timestamped_lyrics, song_title, artist_name, socket_path, get_mpv_time_position
+                timestamped_lyrics,
+                song_title,
+                artist_name,
+                socket_path,
+                get_mpv_time_position,
+                is_playing_func,
             )
             return True
 
@@ -385,7 +388,12 @@ def get_and_display_lyrics(video_id, title, socket_path=None):
                     "source": "YouTube Music",
                 }
                 display_lyrics_with_curses(
-                    fallback_lyrics, song_title, artist_name, socket_path, get_mpv_time_position
+                    fallback_lyrics,
+                    song_title,
+                    artist_name,
+                    socket_path,
+                    get_mpv_time_position,
+                    is_playing_func,
                 )
                 return True
             else:
@@ -457,6 +465,7 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
         is_paused = False
         frame = 0
         toast_msg = None
+        toast_detail = None
         toast_expire = 0
 
         # Pre-resolved stream details keyed by video ID
@@ -491,10 +500,26 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
             with prefetch_lock:
                 return prefetch_cache.get(vid)
 
-        def fire(msg):
-            nonlocal toast_msg, toast_expire
+        def fire(msg, detail=None, duration=1.8):
+            nonlocal toast_detail, toast_expire, toast_msg
             toast_msg = msg
-            toast_expire = time.time() + 1.8
+            toast_detail = detail
+            toast_expire = time.time() + duration
+
+        def dislike_and_skip(song, title, artist_name):
+            nonlocal current_song_index
+            if not dislike_manager.dislike_song(song, notify=False):
+                fire("Could not dislike track", "Playback will continue", duration=3)
+                return False
+
+            fire(
+                f"Disliked · {title} · {artist_name}",
+                "Hidden from future searches and radio playlists",
+                duration=3.5,
+            )
+            player.stop()
+            current_song_index += 1
+            return True
 
         try:
             while 0 <= current_song_index < len(playlist):
@@ -543,7 +568,8 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                 # then start mpv with whatever URL we have.
                 play_result = [None]  # None = pending, True/False = done
                 play_started = False
-                fire("Loading...")
+                if not toast_msg or time.time() >= toast_expire:
+                    fire("Loading...")
 
                 while play_result[0] is None:
                     # Once prefetch resolves (or after a short wait), kick off mpv
@@ -580,6 +606,7 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                         toast_expire,
                         next_title=next_title,
                         next_artist=next_artist,
+                        toast_detail=toast_detail,
                     )
                     frame += 1
                     key = stdscr.getch()
@@ -605,12 +632,19 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                     continue
 
                 is_paused = False
-                toast_msg = None  # clear "Loading..." toast
+                if toast_msg == "Loading...":
+                    toast_msg = None
+                    toast_detail = None
 
                 lyrics_just_viewed = False
 
                 while True:
-                    if player.is_playing():
+                    if player.player_type == "mpv" and player.consume_next_request():
+                        player.stop()
+                        current_song_index += 1
+                        fire("Next →")
+                        break
+                    elif player.is_playing():
                         # Reset the post-lyrics guard once the player confirms it's still alive.
                         lyrics_just_viewed = False
                     elif lyrics_just_viewed:
@@ -659,6 +693,7 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                         bands=bands,
                         next_title=next_title,
                         next_artist=next_artist,
+                        toast_detail=toast_detail,
                     )
                     frame += 1
 
@@ -687,19 +722,46 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                         socket_path = None
                         if player.player_type == "mpv" and player.socket_path:
                             socket_path = player.socket_path
+
+                        def lyrics_playback_active():
+                            if player.player_type == "mpv" and player.consume_next_request():
+                                player.stop()
+                                return False
+                            return player.is_playing()
+
                         curses.endwin()
-                        get_and_display_lyrics(video_id, display_title, socket_path)
+                        get_and_display_lyrics(
+                            video_id,
+                            display_title,
+                            socket_path,
+                            is_playing_func=lyrics_playback_active,
+                        )
+                        stdscr.clear()
                         stdscr.refresh()
                         curses.curs_set(0)
                         stdscr.timeout(200)
                         lyrics_just_viewed = True
                     elif key == ord("a"):
                         curses.endwin()
-                        add_song_to_playlist_interactive(item)
+                        add_result = add_song_to_playlist_interactive(item)
+                        stdscr.clear()
                         stdscr.refresh()
                         curses.curs_set(0)
                         stdscr.timeout(200)
-                        fire("+ playlist")
+                        if add_result:
+                            fire(
+                                f"Added · {song_title} · {artist}",
+                                f"Saved to playlist · {add_result}",
+                                duration=3.5,
+                            )
+                        elif add_result is False:
+                            fire(
+                                f"Could not add · {song_title}",
+                                "The track may already be saved in that playlist",
+                                duration=3.5,
+                            )
+                        else:
+                            fire("Add cancelled")
                     elif key == ord("d"):
                         vid = item.get("videoId")
                         stitle = item.get("title", "Unknown")
@@ -710,19 +772,17 @@ def play_music_with_controls(playlist, playlist_name=None, demo=False, prefetche
                             elif playlist_manager.remove_song_from_playlist_by_id(
                                 playlist_name, vid
                             ):
-                                fire("Removed from playlist. D again = global dislike")
+                                fire(
+                                    "Removed from playlist",
+                                    "Press D again to hide it from search and radio",
+                                    duration=3.5,
+                                )
                             else:
-                                dislike_manager.dislike_song(item)
-                                fire(f"Disliked: {stitle}")
-                                player.stop()
-                                current_song_index += 1
-                                break
+                                if dislike_and_skip(item, stitle, artist):
+                                    break
                         else:
-                            dislike_manager.dislike_song(item)
-                            fire(f"Disliked: {stitle}")
-                            player.stop()
-                            current_song_index += 1
-                            break
+                            if dislike_and_skip(item, stitle, artist):
+                                break
                     elif key == ord("q") or key == 3:
                         quit_pressed = True
                         return
@@ -760,7 +820,12 @@ def _play_non_interactive(player, playlist):
             if not player.play(video_id, title):
                 continue
 
-            while player.is_playing():
+            while True:
+                if player.player_type == "mpv" and player.consume_next_request():
+                    player.stop()
+                    break
+                if not player.is_playing():
+                    break
                 time.sleep(0.5)
     finally:
         player.cleanup()

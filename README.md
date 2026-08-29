@@ -106,6 +106,7 @@ ytm-cli search "song name" --select 1                     # Auto-select first re
 ytm-cli search "song" -s 1 --verbose                      # With verbose output
 ytm-cli search "song" -s 1 --verbose --log-file debug.log # Save debug logs
 ytm-cli -v                                                # Print version
+ytm-cli --update                                          # Update the app and dependencies
 ```
 
 > **Tip:** Set up the shell alias to use `ytm` as a shortcut for `ytm-cli`. See the setup scripts above.

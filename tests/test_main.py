@@ -1,5 +1,7 @@
 """Tests for ytm_cli.main module"""
 
+import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +22,7 @@ with (
         playlist_play_command,
         playlist_show_command,
         search_and_play,
+        update_command,
     )
 
 
@@ -262,6 +265,81 @@ class TestPlaylistCommands:
 
 class TestMainFunction:
     """Tests for main function and argument parsing"""
+
+    def test_update_clean_source_checkout(self, tmp_path):
+        """A clean source checkout should fast-forward and sync its lockfile."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "pyproject.toml").touch()
+        completed = SimpleNamespace(returncode=0, stdout="")
+
+        with (
+            patch("ytm_cli.main._PROJECT_ROOT", tmp_path),
+            patch("ytm_cli.main.shutil.which", return_value="/usr/bin/uv"),
+            patch("ytm_cli.main.subprocess.run", side_effect=[completed] * 3) as mock_run,
+            patch("ytm_cli.main.print") as mock_print,
+        ):
+            assert update_command() is True
+
+        assert mock_run.call_args_list[1].args[0] == ["git", "pull", "--ff-only"]
+        assert mock_run.call_args_list[2].args[0] == ["uv", "sync", "--locked"]
+        mock_print.assert_any_call(
+            "[green]✓ Update complete. Restart ytm-cli to use the updated version.[/green]"
+        )
+
+    def test_update_refuses_dirty_source_checkout(self, tmp_path):
+        """Self-update must not overwrite tracked local source changes."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "pyproject.toml").touch()
+        dirty = SimpleNamespace(returncode=0, stdout=" M ytm_cli/main.py\n")
+
+        with (
+            patch("ytm_cli.main._PROJECT_ROOT", tmp_path),
+            patch("ytm_cli.main.subprocess.run", return_value=dirty) as mock_run,
+            patch("ytm_cli.main.print") as mock_print,
+        ):
+            assert update_command() is False
+
+        mock_run.assert_called_once()
+        mock_print.assert_any_call(
+            "[yellow]Update stopped: this checkout has local changes.[/yellow]"
+        )
+
+    def test_update_installed_package_with_uv(self, tmp_path):
+        """An installed package should update in its active Python environment."""
+        completed = SimpleNamespace(returncode=0)
+
+        with (
+            patch("ytm_cli.main._PROJECT_ROOT", tmp_path),
+            patch("ytm_cli.main.shutil.which", return_value="/usr/bin/uv"),
+            patch("ytm_cli.main.subprocess.run", return_value=completed) as mock_run,
+            patch("ytm_cli.main.print"),
+        ):
+            assert update_command() is True
+
+        mock_run.assert_called_once_with(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                sys.executable,
+                "--upgrade",
+                "ytm-cli",
+            ],
+            cwd=None,
+        )
+
+    def test_main_update_flag(self):
+        """The global update option should run the updater instead of searching."""
+        with (
+            patch("sys.argv", ["ytm-cli", "--update"]),
+            patch("ytm_cli.main.update_command", return_value=True) as mock_update,
+            patch("ytm_cli.main.search_and_play") as mock_search,
+        ):
+            main()
+
+        mock_update.assert_called_once_with()
+        mock_search.assert_not_called()
 
     def test_main_backward_compatibility_search(self, sample_songs):
         """Test main function with backward compatibility for direct search"""

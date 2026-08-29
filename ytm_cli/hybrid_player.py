@@ -10,10 +10,26 @@ import time
 from typing import NamedTuple
 
 from yt_dlp.utils.networking import std_headers
+from yt_dlp.version import __version__ as YTDLP_VERSION
 
 from .config import clear_player_pid, get_cookies_browser, get_mpv_flags, save_player_pid
 from .ffmpeg_player import FFmpegPlayerService
 from .verbose_logger import is_verbose, log_error, log_info, log_section
+
+_NEXT_REQUEST_PROPERTY = "user-data/ytm-cli/next-requested"
+_MIN_YTDLP_VERSION = (2026, 8, 19)
+
+
+def _is_ytdlp_outdated(version: str) -> bool:
+    """Return whether yt-dlp predates the minimum reliable playback release."""
+    parts = version.split(".")
+    if len(parts) < 3:
+        return False
+    try:
+        installed = tuple(int(part) for part in parts[:3])
+    except ValueError:
+        return False
+    return installed < _MIN_YTDLP_VERSION
 
 
 class ResolvedAudio(NamedTuple):
@@ -72,10 +88,16 @@ class CLIHybridPlayerService:
         self.ffmpeg_player: FFmpegPlayerService | None = None
         self.player_type: str = "none"
         self.socket_path: str | None = None
+        self._mpv_playback_started = False
         self._initialize_player()
 
     def _initialize_player(self) -> None:
         """Initialize player with fallback logic"""
+        if _is_ytdlp_outdated(YTDLP_VERSION):
+            minimum = ".".join(str(part) for part in _MIN_YTDLP_VERSION)
+            print(f"⚠ yt-dlp {YTDLP_VERSION} is outdated and may cause songs to skip.")
+            print(f"  Run ytm-cli --update to install {minimum} or newer.")
+
         # Try mpv first
         if shutil.which("mpv"):
             self.player_type = "mpv"
@@ -128,6 +150,7 @@ class CLIHybridPlayerService:
         try:
             # Clean up previous process if exists
             self.stop()
+            self._mpv_playback_started = False
 
             # Create socket for IPC
             self.socket_path = tempfile.mktemp(suffix=".sock")
@@ -179,6 +202,7 @@ class CLIHybridPlayerService:
                     self.mpv_process = None
                     return False
                 if os.path.exists(self.socket_path):
+                    self._install_media_key_bindings()
                     if is_verbose():
                         ao = self._get_mpv_property("current-ao")
                         volume = self._get_mpv_property("volume")
@@ -229,18 +253,32 @@ class CLIHybridPlayerService:
         elif self.player_type == "ffmpeg" and self.ffmpeg_player:
             self.ffmpeg_player.resume()
 
+    def consume_next_request(self) -> bool:
+        """Return whether mpv's OS media control requested the next CLI track."""
+        if self.player_type != "mpv" or not self.socket_path:
+            return False
+
+        if not self._get_mpv_property(_NEXT_REQUEST_PROPERTY):
+            return False
+
+        self._send_mpv_command({"command": ["set_property", _NEXT_REQUEST_PROPERTY, False]})
+        return True
+
     def is_playing(self) -> bool:
         """Check if music is currently playing.
 
-        For mpv, checks both process state and playback idle status via IPC.
-        This prevents false positives when mpv is buffering or loading.
+        MPV can briefly report itself as idle after creating its IPC socket but
+        before loading the first file. Only treat idle as end-of-track after MPV
+        has reported an active file at least once.
         """
         if self.player_type == "mpv" and self.mpv_process:
             if self.mpv_process.poll() is not None:
                 return False
             if self.socket_path and os.path.exists(self.socket_path):
                 idle = self._get_mpv_property("idle-active")
-                if idle is True:
+                if idle is False:
+                    self._mpv_playback_started = True
+                elif idle is True and self._mpv_playback_started:
                     return False
             return True
         elif self.player_type == "ffmpeg" and self.ffmpeg_player:
@@ -271,18 +309,56 @@ class CLIHybridPlayerService:
             pass
         return None
 
-    def _send_mpv_command(self, command: dict) -> None:
-        """Send a command to mpv via IPC socket"""
+    def _install_media_key_bindings(self) -> bool:
+        """Clear mpv's timeline and route Next media keys to the CLI queue."""
+        config_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".conf", encoding="utf-8", delete=False
+            ) as config:
+                config.write(
+                    f"NEXT no-osd set pause yes; no-osd set time-pos 0; "
+                    f"no-osd set {_NEXT_REQUEST_PROPERTY} yes\n"
+                    f"XF86_NEXT no-osd set pause yes; no-osd set time-pos 0; "
+                    f"no-osd set {_NEXT_REQUEST_PROPERTY} yes\n"
+                )
+                config_path = config.name
+
+            return self._send_mpv_command(
+                {"command": ["load-input-conf", config_path]},
+                expect_response=True,
+            )
+        except OSError:
+            return False
+        finally:
+            if config_path and os.path.exists(config_path):
+                os.unlink(config_path)
+
+    def _send_mpv_command(self, command: dict, expect_response: bool = False) -> bool:
+        """Send a command to mpv via IPC socket."""
         if not self.socket_path:
-            return
+            return False
 
         try:
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.connect(self.socket_path)
             sock.send((json.dumps(command) + "\n").encode())
+            if expect_response:
+                sock.settimeout(0.3)
+                response = sock.recv(4096).decode()
+                sock.close()
+                for line in response.split("\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parsed = json.loads(line)
+                    if "event" not in parsed:
+                        return parsed.get("error") == "success"
+                return False
             sock.close()
-        except Exception:
-            pass  # Ignore errors if mpv isn't ready yet
+            return True
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return False
 
     def get_player_info(self) -> dict:
         """Get information about the current player"""

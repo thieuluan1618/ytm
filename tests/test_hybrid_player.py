@@ -6,7 +6,20 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from ytm_cli.ffmpeg_player import FFmpegPlayerService
-from ytm_cli.hybrid_player import CLIHybridPlayerService, ResolvedAudio, resolve_audio_url
+from ytm_cli.hybrid_player import (
+    CLIHybridPlayerService,
+    ResolvedAudio,
+    _is_ytdlp_outdated,
+    resolve_audio_url,
+)
+
+
+def test_ytdlp_version_check_handles_date_versions():
+    """Only releases older than the known-safe yt-dlp version need a warning."""
+    assert _is_ytdlp_outdated("2026.7.4") is True
+    assert _is_ytdlp_outdated("2026.8.19") is False
+    assert _is_ytdlp_outdated("2026.10.1") is False
+    assert _is_ytdlp_outdated("unknown") is False
 
 
 def test_resolve_audio_url_includes_required_user_agent():
@@ -27,6 +40,18 @@ def test_resolve_audio_url_includes_required_user_agent():
 
 class TestCLIHybridPlayerInitialization(unittest.TestCase):
     """Test CLIHybridPlayerService initialization"""
+
+    @patch("ytm_cli.hybrid_player.YTDLP_VERSION", "2026.7.4")
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_init_suggests_updating_outdated_ytdlp(self, mock_which):
+        """An incompatible yt-dlp release should produce an actionable warning."""
+        with patch("builtins.print") as mock_print:
+            CLIHybridPlayerService()
+
+        mock_print.assert_any_call(
+            "⚠ yt-dlp 2026.7.4 is outdated and may cause songs to skip."
+        )
+        mock_print.assert_any_call("  Run ytm-cli --update to install 2026.8.19 or newer.")
 
     @patch("shutil.which")
     @patch.object(FFmpegPlayerService, "__init__", return_value=None)
@@ -188,6 +213,39 @@ class TestCLIHybridPlayerPlayback(unittest.TestCase):
         player.ffmpeg_player.is_playing_now.assert_called_once()
 
     @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_is_playing_ignores_mpv_idle_during_startup(self, mock_which):
+        """A transient idle state before MPV loads the file must not skip it."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+
+        player.mpv_process = MagicMock()
+        player.mpv_process.poll.return_value = None
+        player.socket_path = self.temp_socket
+
+        with (
+            patch("ytm_cli.hybrid_player.os.path.exists", return_value=True),
+            patch.object(player, "_get_mpv_property", return_value=True),
+        ):
+            assert player.is_playing() is True
+
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_is_playing_detects_mpv_idle_after_playback_started(self, mock_which):
+        """An idle state after an active file means the track has ended."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+
+        player.mpv_process = MagicMock()
+        player.mpv_process.poll.return_value = None
+        player.socket_path = self.temp_socket
+
+        with (
+            patch("ytm_cli.hybrid_player.os.path.exists", return_value=True),
+            patch.object(player, "_get_mpv_property", side_effect=[False, True]),
+        ):
+            assert player.is_playing() is True
+            assert player.is_playing() is False
+
+    @patch("shutil.which", return_value="/usr/bin/mpv")
     def test_play_mpv_passes_resolved_user_agent(self, mock_which):
         """mpv must use the user agent associated with a direct stream URL."""
         with patch("builtins.print"):
@@ -231,6 +289,73 @@ class TestCLIHybridPlayerPlayback(unittest.TestCase):
 
         command = mock_popen.call_args.args[0]
         assert any(flag.startswith("--user-agent=Mozilla/") for flag in command)
+
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_play_mpv_routes_next_media_keys_to_cli(self, mock_which):
+        """MPV's OS Next controls should set the property consumed by the CLI queue."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+
+        process = MagicMock(pid=123)
+        process.poll.return_value = None
+        loaded_bindings = []
+
+        def capture_bindings(command, expect_response=False):
+            assert expect_response is True
+            config_path = command["command"][1]
+            with open(config_path, encoding="utf-8") as config:
+                loaded_bindings.append(config.read())
+            return True
+
+        with (
+            patch("ytm_cli.hybrid_player.get_mpv_flags", return_value=["--no-video"]),
+            patch("ytm_cli.hybrid_player.get_cookies_browser", return_value=None),
+            patch("ytm_cli.hybrid_player.save_player_pid"),
+            patch("ytm_cli.hybrid_player.subprocess.Popen", return_value=process),
+            patch("ytm_cli.hybrid_player.os.path.exists", return_value=True),
+            patch("ytm_cli.hybrid_player.time.sleep"),
+            patch.object(player, "_send_mpv_command", side_effect=capture_bindings),
+        ):
+            assert player.play("video-id", "Test Song") is True
+
+        assert loaded_bindings == [
+            "NEXT no-osd set pause yes; no-osd set time-pos 0; "
+            "no-osd set user-data/ytm-cli/next-requested yes\n"
+            "XF86_NEXT no-osd set pause yes; no-osd set time-pos 0; "
+            "no-osd set user-data/ytm-cli/next-requested yes\n"
+        ]
+
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_consume_next_request_resets_mpv_signal(self, mock_which):
+        """A media-key signal should be consumed once before the CLI advances."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+        player.socket_path = self.temp_socket
+
+        with (
+            patch.object(player, "_get_mpv_property", return_value="yes"),
+            patch.object(player, "_send_mpv_command", return_value=True) as mock_send,
+        ):
+            assert player.consume_next_request() is True
+
+        mock_send.assert_called_once_with(
+            {
+                "command": [
+                    "set_property",
+                    "user-data/ytm-cli/next-requested",
+                    False,
+                ]
+            }
+        )
+
+    @patch("shutil.which", return_value=None)
+    @patch.object(FFmpegPlayerService, "__init__", return_value=None)
+    def test_consume_next_request_ignores_ffmpeg(self, mock_ffmpeg_init, mock_which):
+        """The mpv-only media bridge must not affect the FFmpeg fallback."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+
+        assert player.consume_next_request() is False
 
     @patch("shutil.which", return_value=None)
     @patch.object(FFmpegPlayerService, "__init__", return_value=None)

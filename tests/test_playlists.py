@@ -79,6 +79,16 @@ class TestCreatePlaylist:
             assert result is False
             mock_print.assert_called_with("[red]Playlist 'Existing Playlist' already exists[/red]")
 
+    def test_create_playlist_can_suppress_notification(self, temp_dir):
+        """Curses callers can render creation feedback themselves."""
+        manager = PlaylistManager(temp_dir)
+
+        with patch("ytm_cli.playlists.print") as mock_print:
+            result = manager.create_playlist("Quiet Playlist", notify=False)
+
+        assert result is True
+        mock_print.assert_not_called()
+
     def test_create_playlist_file_error(self):
         """Test playlist creation with file error"""
         with patch("os.path.exists", return_value=True), patch("os.makedirs"):
@@ -137,6 +147,17 @@ class TestAddSongToPlaylist:
 
             assert result is False
             mock_print.assert_called_with("[red]Playlist 'Non-existent' not found[/red]")
+
+    def test_add_song_can_suppress_notification(self, temp_dir, sample_song):
+        """Curses callers can render add feedback themselves."""
+        manager = PlaylistManager(temp_dir)
+        manager.create_playlist("Test Playlist")
+
+        with patch("ytm_cli.playlists.print") as mock_print:
+            result = manager.add_song_to_playlist("Test Playlist", sample_song, notify=False)
+
+        assert result is True
+        mock_print.assert_not_called()
 
     def test_add_song_duplicate(self, temp_dir, sample_song):
         """Test adding duplicate song to playlist"""

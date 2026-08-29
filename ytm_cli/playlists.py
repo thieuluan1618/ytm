@@ -30,14 +30,15 @@ class PlaylistManager:
         else:
             self.playlists_dir = str(get_playlists_dir())
 
-    def create_playlist(self, name: str, description: str = "") -> bool:
+    def create_playlist(self, name: str, description: str = "", notify: bool = True) -> bool:
         """Create a new playlist"""
         try:
             safe_name = self._safe_filename(name)
             playlist_path = os.path.join(self.playlists_dir, f"{safe_name}.json")
 
             if os.path.exists(playlist_path):
-                print(f"[red]Playlist '{name}' already exists[/red]")
+                if notify:
+                    print(f"[red]Playlist '{name}' already exists[/red]")
                 return False
 
             playlist_data = {
@@ -51,19 +52,24 @@ class PlaylistManager:
             with open(playlist_path, "w", encoding="utf-8") as f:
                 json.dump(playlist_data, f, indent=2, ensure_ascii=False)
 
-            print(f"[green]✅ Created playlist: {name}[/green]")
+            if notify:
+                print(f"[green]✅ Created playlist: {name}[/green]")
             return True
 
         except OSError as e:
-            print(f"[red]Error creating playlist: {e}[/red]")
+            if notify:
+                print(f"[red]Error creating playlist: {e}[/red]")
             return False
 
-    def add_song_to_playlist(self, playlist_name: str, song: dict[str, Any]) -> bool:
+    def add_song_to_playlist(
+        self, playlist_name: str, song: dict[str, Any], notify: bool = True
+    ) -> bool:
         """Add a song to an existing playlist"""
         try:
             playlist_path = self._get_playlist_path(playlist_name)
             if not playlist_path:
-                print(f"[red]Playlist '{playlist_name}' not found[/red]")
+                if notify:
+                    print(f"[red]Playlist '{playlist_name}' not found[/red]")
                 return False
 
             # Load existing playlist
@@ -86,7 +92,8 @@ class PlaylistManager:
                 None,
             )
             if existing_song:
-                print(f"[yellow]Song already in playlist: {song_entry['title']}[/yellow]")
+                if notify:
+                    print(f"[yellow]Song already in playlist: {song_entry['title']}[/yellow]")
                 return False
 
             # Add song and update timestamp
@@ -97,11 +104,13 @@ class PlaylistManager:
             with open(playlist_path, "w", encoding="utf-8") as f:
                 json.dump(playlist_data, f, indent=2, ensure_ascii=False)
 
-            print(f"[green]✅ Added '{song_entry['title']}' to '{playlist_name}'[/green]")
+            if notify:
+                print(f"[green]✅ Added '{song_entry['title']}' to '{playlist_name}'[/green]")
             return True
 
         except (OSError, json.JSONDecodeError) as e:
-            print(f"[red]Error adding song to playlist: {e}[/red]")
+            if notify:
+                print(f"[red]Error adding song to playlist: {e}[/red]")
             return False
 
     def list_playlists(self) -> list[dict[str, Any]]:

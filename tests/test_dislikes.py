@@ -94,7 +94,12 @@ class TestDislikeSong:
             result = manager.dislike_song(sample_song)
 
             assert result is True
-            mock_print.assert_any_call("[red]👎 Disliked: Test Song - Test Artist[/red]")
+            mock_print.assert_any_call(
+                "[red]👎 Disliked:[/red] [bold]Test Song[/bold] [dim]· Test Artist[/dim]"
+            )
+            mock_print.assert_any_call(
+                "[dim]Hidden from future searches and radio playlists.[/dim]"
+            )
 
             # Verify song was added to disliked set
             assert "test_video_id_123" in manager._disliked_ids
@@ -106,6 +111,17 @@ class TestDislikeSong:
                 assert len(data["songs"]) == 1
                 assert data["songs"][0]["videoId"] == "test_video_id_123"
                 assert data["songs"][0]["title"] == "Test Song"
+
+    def test_dislike_song_can_suppress_terminal_feedback(self, temp_dir, sample_song):
+        """Curses callers can render feedback without leaking Rich output."""
+        manager = DislikeManager(os.path.join(temp_dir, "dislikes.json"))
+
+        with patch("ytm_cli.dislikes.print") as mock_print:
+            result = manager.dislike_song(sample_song, notify=False)
+
+        assert result is True
+        mock_print.assert_not_called()
+        assert manager.is_disliked("test_video_id_123")
 
     def test_dislike_song_missing_video_id(self, temp_dir):
         """Test disliking song without videoId"""

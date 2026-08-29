@@ -40,7 +40,7 @@ class DislikeManager:
             print(f"[yellow]Warning: Could not load dislikes: {e}[/yellow]")
             self._disliked_ids = set()
 
-    def _save_dislikes(self, songs_data: list[dict[str, Any]]):
+    def _save_dislikes(self, songs_data: list[dict[str, Any]], notify: bool = True) -> bool:
         """Save disliked songs data to file"""
         try:
             data = {
@@ -50,19 +50,24 @@ class DislikeManager:
             }
             with open(self.dislikes_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
+            return True
         except Exception as e:
-            print(f"[red]Error saving dislikes: {e}[/red]")
+            if notify:
+                print(f"[red]Error saving dislikes: {e}[/red]")
+            return False
 
-    def dislike_song(self, song: dict[str, Any]) -> bool:
-        """Add a song to dislikes"""
+    def dislike_song(self, song: dict[str, Any], notify: bool = True) -> bool:
+        """Add a song to dislikes, optionally printing non-curses feedback."""
         try:
             video_id = song.get("videoId", "")
             if not video_id:
-                print("[red]Cannot dislike song: missing videoId[/red]")
+                if notify:
+                    print("[red]Cannot dislike song: missing videoId[/red]")
                 return False
 
             if video_id in self._disliked_ids:
-                print("[yellow]Song is already disliked[/yellow]")
+                if notify:
+                    print("[yellow]Song is already disliked[/yellow]")
                 return False
 
             # Load existing dislikes
@@ -91,19 +96,20 @@ class DislikeManager:
 
             # Add to list and save
             existing_songs.append(dislike_entry)
-            self._save_dislikes(existing_songs)
+            if not self._save_dislikes(existing_songs, notify=notify):
+                return False
             self._disliked_ids.add(video_id)
 
-            title = dislike_entry["title"]
-            artist = dislike_entry["artist"]
-            print(f"[red]👎 Disliked: {title} - {artist}[/red]")
-            print(
-                "[yellow]This song will be skipped in future searches and radio playlists[/yellow]"
-            )
+            if notify:
+                title = dislike_entry["title"]
+                artist = dislike_entry["artist"]
+                print(f"[red]👎 Disliked:[/red] [bold]{title}[/bold] [dim]· {artist}[/dim]")
+                print("[dim]Hidden from future searches and radio playlists.[/dim]")
             return True
 
         except Exception as e:
-            print(f"[red]Error disliking song: {e}[/red]")
+            if notify:
+                print(f"[red]Error disliking song: {e}[/red]")
             return False
 
     def is_disliked(self, video_id: str) -> bool:

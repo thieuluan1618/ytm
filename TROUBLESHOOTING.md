@@ -42,6 +42,12 @@ cat debug.log | grep "exited with code"
 # Check yt-dlp version
 yt-dlp --version
 
+# Update YTM CLI and its dependencies
+ytm-cli --update
+
+# Update a uv-managed checkout
+uv sync --upgrade-package yt-dlp
+
 # Update via Homebrew (macOS/Linux)
 brew upgrade yt-dlp
 
@@ -49,7 +55,7 @@ brew upgrade yt-dlp
 pip install --upgrade yt-dlp
 
 # Verify update
-yt-dlp --version  # Should be 2025.09.26 or newer
+yt-dlp --version  # Should be 2026.08.19 or newer
 ```
 
 #### Exit Code 0 followed by immediate skip
@@ -73,7 +79,7 @@ yt-dlp --version  # Should be 2025.09.26 or newer
 
 ### Quick Fix Checklist
 
-1. ✅ Update yt-dlp: `brew upgrade yt-dlp` or `pip install --upgrade yt-dlp`
+1. ✅ Update YTM CLI and yt-dlp: `ytm-cli --update`
 2. ✅ Verify MPV is installed: `mpv --version`
 3. ✅ Test MPV directly: `mpv --no-video "https://music.youtube.com/watch?v=VIDEO_ID"`
 4. ✅ Check verbose logs for specific errors
@@ -283,6 +289,12 @@ python -m ytm_cli auth status
 ### Update Commands
 
 ```bash
+# Update YTM CLI and its dependencies
+ytm-cli --update
+
+# Update yt-dlp (uv-managed checkout)
+uv sync --upgrade-package yt-dlp
+
 # Update yt-dlp (Homebrew)
 brew upgrade yt-dlp
 

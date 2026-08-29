@@ -2,9 +2,12 @@
 
 import argparse
 import curses
+import shutil
+import subprocess
 import sys
 from curses import wrapper
 from datetime import datetime
+from pathlib import Path
 
 from rich import print
 
@@ -30,6 +33,7 @@ from .verbose_logger import (
 
 _VERBOSE = False
 _VERBOSE_FILE = None
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _parse_direct_search_args(argv):
@@ -466,6 +470,72 @@ def llm_create_playlist_command(llm_client, prompt, num_songs=15, auto_play=Fals
         playlist_play_command(playlist_name)
 
 
+def update_command():
+    """Update a source checkout or the installed ytm-cli package."""
+    source_checkout = (_PROJECT_ROOT / ".git").exists() and (
+        _PROJECT_ROOT / "pyproject.toml"
+    ).exists()
+
+    if source_checkout:
+        try:
+            status = subprocess.run(
+                ["git", "status", "--porcelain", "--untracked-files=no"],
+                cwd=_PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as error:
+            print(f"[red]Could not inspect the source checkout: {error}[/red]")
+            return False
+
+        if status.returncode != 0:
+            print("[red]Could not inspect the source checkout with Git.[/red]")
+            return False
+        if status.stdout.strip():
+            print("[yellow]Update stopped: this checkout has local changes.[/yellow]")
+            print("Commit or stash them, then run ytm-cli --update again.")
+            return False
+
+        commands = [["git", "pull", "--ff-only"]]
+        if shutil.which("uv"):
+            commands.append(["uv", "sync", "--locked"])
+        else:
+            commands.append([sys.executable, "-m", "pip", "install", "--upgrade", "."])
+        cwd = _PROJECT_ROOT
+    else:
+        if shutil.which("uv"):
+            commands = [
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    sys.executable,
+                    "--upgrade",
+                    "ytm-cli",
+                ]
+            ]
+        else:
+            commands = [
+                [sys.executable, "-m", "pip", "install", "--upgrade", "ytm-cli"]
+            ]
+        cwd = None
+
+    print("[cyan]Updating YTM CLI and its dependencies...[/cyan]")
+    try:
+        for command in commands:
+            result = subprocess.run(command, cwd=cwd)
+            if result.returncode != 0:
+                print("[red]Update failed. Review the package manager output above.[/red]")
+                return False
+    except OSError as error:
+        print(f"[red]Could not run the updater: {error}[/red]")
+        return False
+
+    print("[green]✓ Update complete. Restart ytm-cli to use the updated version.[/green]")
+    return True
+
+
 def main():
     """Main CLI entry point"""
     global _VERBOSE, _VERBOSE_FILE
@@ -503,6 +573,7 @@ Examples:
   %(prog)s playlist list                          List all local playlists
   %(prog)s playlist create "Rock Hits"            Create a new playlist
   %(prog)s llm "play upbeat pop songs"            Use AI to find and play music
+  %(prog)s --update                               Update YTM CLI and dependencies
 
 During song selection:
   • Enter: Play selected song with radio
@@ -540,6 +611,11 @@ During music playback:
         "--terminate",
         action="store_true",
         help="Terminate all running ytm-cli sessions",
+    )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Update YTM CLI and its dependencies",
     )
 
     # Create subcommands
@@ -658,6 +734,11 @@ During music playback:
     )
 
     args = parser.parse_args()
+
+    if getattr(args, "update", False):
+        if not update_command():
+            raise SystemExit(1)
+        return
 
     # Handle --terminate flag
     if getattr(args, "terminate", False):

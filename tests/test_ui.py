@@ -1,7 +1,7 @@
 """Tests for ytm_cli.ui module"""
 
 import io
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 # Mock curses before importing ui module
 with (
@@ -10,7 +10,7 @@ with (
     patch("curses.init_pair"),
     patch("curses.color_pair"),
 ):
-    from ytm_cli.ui import display_player_status, draw_player
+    from ytm_cli.ui import display_lyrics_with_curses, display_player_status, draw_player
 
 
 def _capture_status_output(*args, width=80, terminal_size_error=False, **kwargs):
@@ -42,6 +42,9 @@ class _FakeScreen:
     def erase(self):
         self.rows = [[" "] * self.width for _ in range(self.height)]
 
+    def clear(self):
+        self.erase()
+
     def addstr(self, y, x, text, _attr=0):
         for offset, char in enumerate(text):
             if 0 <= y < self.height and 0 <= x + offset < self.width:
@@ -49,6 +52,12 @@ class _FakeScreen:
 
     def refresh(self):
         pass
+
+    def timeout(self, _milliseconds):
+        pass
+
+    def getch(self):
+        return -1
 
     def render(self):
         return "\n".join("".join(row).rstrip() for row in self.rows)
@@ -108,6 +117,62 @@ class TestDrawPlayer:
         assert "[Q]" in rendered
         assert "NOW PLAYING" not in rendered
 
+    def test_detailed_feedback_replaces_queue_context(self):
+        rendered = _render_player(
+            toast_msg="Disliked · Exit Sign · HIEUTHUHAI",
+            toast_detail="Hidden from future searches and radio playlists",
+            toast_expire=104,
+        )
+
+        assert "Disliked · Exit Sign · HIEUTHUHAI" in rendered
+        assert "Hidden from future searches and radio playlists" in rendered
+        assert "UP NEXT" not in rendered
+
+    def test_playlist_add_uses_consistent_detailed_feedback(self):
+        rendered = _render_player(
+            toast_msg="Added · Exit Sign · HIEUTHUHAI",
+            toast_detail="Saved to playlist · Favorites",
+            toast_expire=104,
+        )
+
+        assert "Added · Exit Sign · HIEUTHUHAI" in rendered
+        assert "Saved to playlist · Favorites" in rendered
+        assert "UP NEXT" not in rendered
+
+    def test_progress_bar_repaints_with_exactly_one_playhead(self):
+        screen = _FakeScreen(24, 80)
+
+        with (
+            patch("ytm_cli.ui.curses.color_pair", return_value=0),
+            patch("ytm_cli.ui.time.time", return_value=100),
+        ):
+            for elapsed in (15, 90, 179):
+                draw_player(
+                    screen,
+                    song_title="Neon Cruise",
+                    artist="Synthwave Demo Band",
+                    is_paused=False,
+                    track_idx=2,
+                    track_total=8,
+                    elapsed=elapsed,
+                    duration=180,
+                )
+                progress_row = screen.render().splitlines()[14]
+                assert progress_row.count("●") == 1
+
+            draw_player(
+                screen,
+                song_title="Next Track",
+                artist="Next Artist",
+                is_paused=False,
+                track_idx=3,
+                track_total=8,
+                elapsed=None,
+                duration=None,
+            )
+
+        assert "●" not in screen.render().splitlines()[14]
+
     def test_tiny_layout_does_not_overlap_brand_and_status(self):
         rendered = _render_player(height=6, width=24)
 
@@ -115,6 +180,29 @@ class TestDrawPlayer:
         assert "PLAYING" in first_line
         assert "YTM●" not in first_line
         assert "Neon Cruise" in rendered
+
+
+class TestLyricsUI:
+    """Playback lifecycle coverage for the modal lyrics view."""
+
+    def test_closes_after_playback_remains_inactive(self):
+        screen = _FakeScreen(24, 80)
+        is_playing = Mock(side_effect=[False, True, False, False])
+
+        with (
+            patch("ytm_cli.ui.wrapper", side_effect=lambda callback: callback(screen)),
+            patch("ytm_cli.ui.curses.curs_set"),
+            patch("ytm_cli.ui.curses.use_default_colors"),
+            patch("ytm_cli.ui.curses.init_pair"),
+            patch("ytm_cli.ui.curses.color_pair", return_value=0),
+        ):
+            display_lyrics_with_curses(
+                {"plain_lyrics": "First line\nSecond line"},
+                "Test Song",
+                is_playing_func=is_playing,
+            )
+
+        assert is_playing.call_count == 4
 
 
 class TestDisplayPlayerStatus:

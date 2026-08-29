@@ -9,6 +9,7 @@ that mpv is already streaming.
 import shutil
 import subprocess
 import threading
+import time
 
 import numpy as np
 
@@ -16,6 +17,7 @@ import numpy as np
 class SpectrumAnalyzer:
     SR = 22050  # Nyquist 11kHz covers most musical content
     CHUNK = 2048  # ~93ms per FFT frame, ~11Hz bin resolution
+    STALE_AFTER_SECONDS = 0.75
 
     BAND_LO_HZ = 50.0
     BAND_HI_HZ = 10500.0
@@ -28,6 +30,7 @@ class SpectrumAnalyzer:
         self._thread: threading.Thread | None = None
         self._running = False
         self._has_data = False
+        self._last_update = 0.0
         self._build_band_bins()
 
     def _build_band_bins(self) -> None:
@@ -56,6 +59,7 @@ class SpectrumAnalyzer:
             "-hide_banner",
             "-loglevel",
             "error",
+            "-re",
             "-i",
             source_url,
             "-vn",
@@ -114,6 +118,7 @@ class SpectrumAnalyzer:
                 with self._lock:
                     self._bands = prev.copy()
                     self._has_data = True
+                    self._last_update = time.monotonic()
         except (OSError, ValueError):
             pass
         finally:
@@ -121,7 +126,11 @@ class SpectrumAnalyzer:
 
     def get_bands(self) -> list[float] | None:
         with self._lock:
-            if not self._has_data:
+            if (
+                not self._has_data
+                or not self._running
+                or time.monotonic() - self._last_update > self.STALE_AFTER_SECONDS
+            ):
                 return None
             return self._bands.tolist()
 
@@ -147,3 +156,4 @@ class SpectrumAnalyzer:
         with self._lock:
             self._bands.fill(0.0)
             self._has_data = False
+            self._last_update = 0.0

@@ -12,7 +12,12 @@ from .playlists import playlist_manager
 
 
 def display_lyrics_with_curses(
-    lyrics_data, title, artist=None, socket_path=None, get_mpv_time_position_func=None
+    lyrics_data,
+    title,
+    artist=None,
+    socket_path=None,
+    get_mpv_time_position_func=None,
+    is_playing_func=None,
 ):
     """Display lyrics using curses with live highlighting"""
 
@@ -100,8 +105,17 @@ def display_lyrics_with_curses(
         scroll_pos = 0
         manual_scroll = False
         content_height = max_y - 4
+        inactive_polls = 0
 
         while True:
+            if is_playing_func:
+                if is_playing_func():
+                    inactive_polls = 0
+                else:
+                    inactive_polls += 1
+                    if inactive_polls >= 2:
+                        break
+
             stdscr.erase()
 
             current_highlighted_line = -1
@@ -342,7 +356,7 @@ def add_song_to_playlist_ui(stdscr, song):
     # If only one playlist exists, auto-select it (keep music simple!)
     if len(playlists) == 1:
         playlist_name = playlists[0]
-        return playlist_manager.add_song_to_playlist(playlist_name, song)
+        return playlist_manager.add_song_to_playlist(playlist_name, song, notify=False)
 
     curses.curs_set(1)  # Show cursor for input
     _, max_x = stdscr.getmaxyx()
@@ -404,7 +418,7 @@ def add_song_to_playlist_ui(stdscr, song):
             playlist_index = int(input_str) - 1
             if 0 <= playlist_index < len(playlists):
                 playlist_name = playlists[playlist_index]
-                return playlist_manager.add_song_to_playlist(playlist_name, song)
+                return playlist_manager.add_song_to_playlist(playlist_name, song, notify=False)
         except (ValueError, IndexError):
             pass
 
@@ -413,11 +427,11 @@ def add_song_to_playlist_ui(stdscr, song):
 
     # Create playlist if it doesn't exist
     if playlist_name not in playlists:
-        if not playlist_manager.create_playlist(playlist_name):
+        if not playlist_manager.create_playlist(playlist_name, notify=False):
             return False
 
     # Add song to playlist
-    return playlist_manager.add_song_to_playlist(playlist_name, song)
+    return playlist_manager.add_song_to_playlist(playlist_name, song, notify=False)
 
 
 def _format_time(seconds):
@@ -606,6 +620,17 @@ def _ellipsize(text, width):
     return f"{text[: width - 1]}…"
 
 
+def _draw_progress_bar(scr, row, x, width, elapsed, duration, active_attr, empty_attr):
+    """Repaint the complete bar before drawing its single playhead."""
+    _safe_addstr(scr, row, x, "─" * width, empty_attr)
+    if elapsed is None or not duration or duration <= 0:
+        return
+
+    pct = max(0.0, min(elapsed / duration, 1.0))
+    playhead = int((width - 1) * pct)
+    _safe_addstr(scr, row, x, "━" * playhead + "●", active_attr)
+
+
 def draw_player(
     scr,
     song_title,
@@ -622,9 +647,10 @@ def draw_player(
     bands=None,
     next_title=None,
     next_artist=None,
+    toast_detail=None,
 ):
     """Render the responsive full-screen player UI."""
-    scr.erase()
+    scr.clear()
     h, w = scr.getmaxyx()
     cx = w // 2
 
@@ -654,7 +680,10 @@ def draw_player(
         footer_row = h - 1
         content_end = max(2, footer_row - 1)
         content_lines = 3 + int(elapsed is not None and duration and duration > 0)
-        content_lines += int(toast_visible or bool(next_title))
+        if toast_visible:
+            content_lines += 2 if toast_detail else 1
+        else:
+            content_lines += int(bool(next_title))
         available_lines = max(0, content_end - 2)
         row = 2 + max(0, (available_lines - content_lines) // 2) if h > 3 else 1
 
@@ -670,20 +699,16 @@ def draw_player(
         progress_width = max(1, min(cw, 48))
         progress_x = cx - progress_width // 2
         if row < content_end:
-            if elapsed is not None and duration and duration > 0:
-                pct = max(0.0, min(elapsed / duration, 1.0))
-                playhead = int((progress_width - 1) * pct)
-                _safe_addstr(scr, row, progress_x, "━" * playhead, accent_n)
-                _safe_addstr(scr, row, progress_x + playhead, "●", accent_n)
-                _safe_addstr(
-                    scr,
-                    row,
-                    progress_x + playhead + 1,
-                    "─" * (progress_width - playhead - 1),
-                    dim,
-                )
-            else:
-                _safe_addstr(scr, row, progress_x, "─" * progress_width, dim)
+            _draw_progress_bar(
+                scr,
+                row,
+                progress_x,
+                progress_width,
+                elapsed,
+                duration,
+                accent_n,
+                dim,
+            )
             row += 1
 
         if row < content_end and elapsed is not None and duration and duration > 0:
@@ -693,10 +718,20 @@ def draw_player(
 
         if row < content_end:
             if toast_visible:
-                message = f" {_ellipsize(toast_msg, max(1, cw - 2))} "
-                _safe_addstr(
-                    scr, row, max(lm, cx - len(message) // 2), message, text | curses.A_REVERSE
-                )
+                if toast_detail and row + 1 < content_end:
+                    headline = _ellipsize(toast_msg, cw)
+                    detail = _ellipsize(toast_detail, cw)
+                    _safe_addstr(scr, row, max(lm, cx - len(headline) // 2), headline, accent)
+                    _safe_addstr(scr, row + 1, max(lm, cx - len(detail) // 2), detail, dim)
+                else:
+                    message = f" {_ellipsize(toast_msg, max(1, cw - 2))} "
+                    _safe_addstr(
+                        scr,
+                        row,
+                        max(lm, cx - len(message) // 2),
+                        message,
+                        text | curses.A_REVERSE,
+                    )
             elif next_title:
                 queue_text = next_title
                 if next_artist:
@@ -778,18 +813,18 @@ def draw_player(
     # Progress uses a distinct playhead instead of an ambiguous two-color line.
     progress_width = min(cw - 10, 56)
     progress_x = cx - progress_width // 2
+    _draw_progress_bar(
+        scr,
+        top + 11,
+        progress_x,
+        progress_width,
+        elapsed,
+        duration,
+        accent_n,
+        dim,
+    )
     if elapsed is not None and duration and duration > 0:
         pct = max(0.0, min(elapsed / duration, 1.0))
-        playhead = int((progress_width - 1) * pct)
-        _safe_addstr(scr, top + 11, progress_x, "━" * playhead, accent_n)
-        _safe_addstr(scr, top + 11, progress_x + playhead, "●", accent_n)
-        _safe_addstr(
-            scr,
-            top + 11,
-            progress_x + playhead + 1,
-            "─" * (progress_width - playhead - 1),
-            dim,
-        )
         elapsed_text = _format_time(elapsed)
         duration_text = _format_time(duration)
         _safe_addstr(scr, top + 12, progress_x, elapsed_text, dim)
@@ -802,15 +837,23 @@ def draw_player(
         )
         percent = f"{round(pct * 100):d}%"
         _safe_addstr(scr, top + 12, cx - len(percent) // 2, percent, dim)
-    else:
-        _safe_addstr(scr, top + 11, progress_x, "─" * progress_width, dim)
 
     # Queue context doubles as the temporary feedback area after an action.
     if toast_visible:
-        message = f" {_ellipsize(toast_msg, cw - 2)} "
-        _safe_addstr(
-            scr, top + 14, max(lm, cx - len(message) // 2), message, text | curses.A_REVERSE
-        )
+        if toast_detail:
+            headline = _ellipsize(toast_msg, cw)
+            detail = _ellipsize(toast_detail, cw)
+            _safe_addstr(scr, top + 13, cx - len(headline) // 2, headline, accent)
+            _safe_addstr(scr, top + 14, cx - len(detail) // 2, detail, dim)
+        else:
+            message = f" {_ellipsize(toast_msg, cw - 2)} "
+            _safe_addstr(
+                scr,
+                top + 14,
+                max(lm, cx - len(message) // 2),
+                message,
+                text | curses.A_REVERSE,
+            )
     elif next_title:
         _safe_addstr(scr, top + 14, lm, "UP NEXT", accent_n)
         next_track = next_title
