@@ -6,6 +6,35 @@ import sys
 import termios
 import tty
 
+# Canonical player control bindings: (icon, key, description).
+# Solid text glyphs render consistently across terminal UIs.
+PREVIOUS_ICON = "◀◀"
+PLAY_ICON = "▶"
+PAUSE_ICON = "⏸"
+NEXT_ICON = "▶▶"
+LYRICS_ICON = "♪"
+ADD_ICON = "✚"
+DISLIKE_ICON = "▼"
+QUIT_ICON = "■"
+
+
+def player_controls(is_paused: bool = False):
+    """Return controls with the play/pause icon showing the next action."""
+    return [
+        (PREVIOUS_ICON, "b", "previous"),
+        (PLAY_ICON if is_paused else PAUSE_ICON, "space", "play" if is_paused else "pause"),
+        (NEXT_ICON, "n", "next"),
+        (LYRICS_ICON, "l", "lyrics"),
+        (ADD_ICON, "a", "add to playlist"),
+        (DISLIKE_ICON, "d", "dislike"),
+        (QUIT_ICON, "q", "quit"),
+    ]
+
+
+def controls_string(is_paused: bool = False, separator: str = "  ") -> str:
+    """Render the canonical player controls as a single string."""
+    return separator.join(f"{icon} {key}" for icon, key, _ in player_controls(is_paused))
+
 
 def goodbye_message():
     """Handle Ctrl+C gracefully with a goodbye message"""

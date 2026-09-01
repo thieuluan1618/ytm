@@ -9,6 +9,7 @@ from collections import deque
 from curses import wrapper
 
 from .playlists import playlist_manager
+from .utils import PAUSE_ICON, PLAY_ICON, controls_string
 
 
 def display_lyrics_with_curses(
@@ -482,7 +483,7 @@ def display_player_status(
 
     sys.stdout.write("\033[H\033[2J")
 
-    status = "\u23f8\ufe0f  Paused" if is_paused else "\u25b6\ufe0f  Playing"
+    status = f"{PAUSE_ICON}  Paused" if is_paused else f"{PLAY_ICON}  Playing"
     if track_index is not None and track_total is not None:
         status += f" [{track_index}/{track_total}]"
 
@@ -504,7 +505,7 @@ def display_player_status(
     else:
         lines.append("")
 
-    controls = "\u23ee\ufe0f b  \u23ef\ufe0f space  \u23ed\ufe0f n  \U0001f4dc l  \u2764\ufe0f a  \U0001f44e d  \U0001f6aa q"
+    controls = controls_string(is_paused)
     lines.append("")
     lines.append(controls.center(width))
 

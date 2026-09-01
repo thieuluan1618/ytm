@@ -210,7 +210,7 @@ class TestDisplayPlayerStatus:
 
     The function writes a single screen frame to ``sys.stdout`` consisting of:
       * an ANSI clear-screen escape (``\\033[H\\033[2J``)
-      * a centered status line ("▶️  Playing" or "⏸️  Paused")
+      * a centered status line ("▶  Playing" or "⏸  Paused")
       * a centered title line (sliced to terminal width)
       * blank lines for the optional visualizer / progress bar
       * a centered controls hint line
@@ -223,16 +223,18 @@ class TestDisplayPlayerStatus:
         # Clears the screen via ANSI escape (no os.system call)
         assert "\033[H\033[2J" in out
         # Renders the "Playing" status and the title
-        assert "\u25b6\ufe0f  Playing" in out
+        assert "\u25b6  Playing" in out
         assert "Test Song - Test Artist" in out
         assert "Paused" not in out
+        assert "⏸ space" in out
 
     def test_display_player_status_paused(self):
         out = _capture_status_output("Test Song - Test Artist", True, width=80)
 
-        assert "\u23f8\ufe0f  Paused" in out
+        assert "\u23f8  Paused" in out
         assert "Test Song - Test Artist" in out
         assert "Playing" not in out
+        assert "▶ space" in out
 
     def test_display_player_status_long_title(self):
         """Each rendered line must fit within the terminal width."""
@@ -277,10 +279,15 @@ class TestDisplayPlayerStatus:
         # All control hint glyphs/letters are present
         for token in ["b", "space", "n", "l", "a", "d", "q"]:
             assert token in out
-        # A few of the emoji icons too
-        assert "\u23ee\ufe0f" in out  # ⏮
-        assert "\u23ef\ufe0f" in out  # ⏯
-        assert "\u23ed\ufe0f" in out  # ⏭
+        # All controls consistently use solid text glyphs.
+        assert "◀◀ b" in out
+        assert "⏸ space" in out
+        assert "▶▶ n" in out
+        assert "♪ l" in out
+        assert "✚ a" in out
+        assert "▼ d" in out
+        assert "■ q" in out
+        assert not {"⏮", "⏯", "⏭", "📜", "➕", "👎", "🚪"} & set(out)
 
     def test_display_player_status_empty_title(self):
         """Empty title must not raise and still renders the status + controls."""

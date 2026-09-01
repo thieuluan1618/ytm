@@ -17,7 +17,17 @@ from .dislikes import dislike_manager
 from .player import play_music_with_controls
 from .playlists import playlist_manager
 from .ui import selection_ui
-from .utils import setup_signal_handler
+from .utils import (
+    ADD_ICON,
+    DISLIKE_ICON,
+    LYRICS_ICON,
+    NEXT_ICON,
+    PAUSE_ICON,
+    PLAY_ICON,
+    PREVIOUS_ICON,
+    QUIT_ICON,
+    setup_signal_handler,
+)
 from .verbose_logger import (
     log_api_call,
     log_playlist_composition,
@@ -516,9 +526,7 @@ def update_command():
                 ]
             ]
         else:
-            commands = [
-                [sys.executable, "-m", "pip", "install", "--upgrade", "ytm-cli"]
-            ]
+            commands = [[sys.executable, "-m", "pip", "install", "--upgrade", "ytm-cli"]]
         cwd = None
 
     print("[cyan]Updating YTM CLI and its dependencies...[/cyan]")
@@ -565,7 +573,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="YouTube Music CLI 🎧 - Search, play, and organize music from YouTube Music",
-        epilog="""
+        epilog=f"""
 Examples:
   %(prog)s "bohemian rhapsody"                    Search and play music
   %(prog)s "phung khanh linh" --select 1          Auto-select first result
@@ -582,10 +590,10 @@ During song selection:
   • ↑↓ or j/k: Navigate
 
 During music playback:
-  • ⏯️ space: Play/pause
-  • ⏭️ n: Next song, ⏮️ b: Previous song
-  • 📜 l: Show lyrics, ➕ a: Add to playlist, 👎 d: Dislike (playlist: remove first, then global)
-  • 🚪 q: Quit to search
+  • {PLAY_ICON}/{PAUSE_ICON} space: Play/pause
+  • {NEXT_ICON} n: Next song, {PREVIOUS_ICON} b: Previous song
+  • {LYRICS_ICON} l: Show lyrics, {ADD_ICON} a: Add to playlist
+  • {DISLIKE_ICON} d: Dislike (playlist: remove first, then global), {QUIT_ICON} q: Quit to search
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

@@ -410,7 +410,9 @@ def get_and_display_lyrics(video_id, title, socket_path=None, is_playing_func=No
         return False
 
 
-def play_music_with_controls_curses(playlist, playlist_name=None, demo=False, prefetched_url_thread=None):
+def play_music_with_controls_curses(
+    playlist, playlist_name=None, demo=False, prefetched_url_thread=None
+):
     """Play music with keyboard controls using curses-based UI
 
     Args:
@@ -831,7 +833,9 @@ def _play_non_interactive(player, playlist):
         player.cleanup()
 
 
-def play_music_with_controls_rich(playlist, playlist_name=None, demo=False, prefetched_url_thread=None):
+def play_music_with_controls_rich(
+    playlist, playlist_name=None, demo=False, prefetched_url_thread=None
+):
     """Play music with keyboard controls using rich-based UI.
 
     Args:
@@ -850,9 +854,11 @@ def play_music_with_controls_rich(playlist, playlist_name=None, demo=False, pref
 
     if demo:
         from .demo import DemoPlayer
+
         player = DemoPlayer()
     else:
         from .hybrid_player import CLIHybridPlayerService
+
         player = CLIHybridPlayerService()
 
     if not player.is_available():
@@ -873,8 +879,8 @@ def play_music_with_controls_rich(playlist, playlist_name=None, demo=False, pref
             return get_mpv_duration(player.socket_path)
         return None
 
-    def on_pause():
-        if player.is_playing():
+    def on_pause(is_paused):
+        if is_paused:
             player.pause()
         else:
             player.resume()

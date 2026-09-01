@@ -1,0 +1,12 @@
+[mcp_servers.serena]
+args = [
+    "--from",
+    "git+https://github.com/oraios/serena",
+    "serena",
+    "start-mcp-server",
+    "--context",
+    "ide-assistant",
+    "--project",
+    "/Users/nguyenluan/Repos/ytm",
+]
+command = "uvx"
