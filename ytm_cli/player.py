@@ -18,7 +18,7 @@ from ytm_cli.utils import goodbye_message
 from .config import get_ytmusic
 from .dislikes import dislike_manager
 from .playlists import playlist_manager
-from .ui import display_lyrics_with_curses
+from .ui import display_lyrics_with_curses, new_playlist_name_ui, select_playlist_ui
 
 
 class CavaVisualizer:
@@ -218,70 +218,7 @@ def add_song_to_playlist_interactive(song_data):
 
     Returns ``None`` when cancelled and ``False`` when persistence fails.
     """
-    import curses
     from curses import wrapper
-
-    def playlist_selection_ui(stdscr, song_title):
-        """Curses UI for playlist selection"""
-
-        stdscr.clear()
-        height, width = stdscr.getmaxyx()
-
-        # Get existing playlists
-        playlists = playlist_manager.get_playlist_names()
-
-        # If only one playlist exists, auto-select it (keep music simple!)
-        if len(playlists) == 1:
-            return playlists[0]
-
-        # Menu options
-        options = ["Create new playlist"]
-        options.extend(playlists)
-
-        selected_index = 0
-
-        while True:
-            stdscr.clear()
-
-            # Title
-            title = f"Add '{song_title}' to playlist:"
-            stdscr.addstr(0, 0, title[: width - 1], curses.A_BOLD)
-            stdscr.addstr(1, 0, "=" * min(len(title), width - 1))
-
-            # Instructions
-            stdscr.addstr(3, 0, "↑↓ or j/k: Navigate | Enter: Select | q: Cancel")
-
-            # Menu options
-            start_row = 5
-            for i, option in enumerate(options):
-                if i >= height - start_row - 2:
-                    break
-
-                row = start_row + i
-                prefix = "→ " if i == selected_index else "  "
-                text = f"{prefix}{option}"
-
-                if i == selected_index:
-                    stdscr.addstr(row, 0, text[: width - 1], curses.A_REVERSE)
-                else:
-                    stdscr.addstr(row, 0, text[: width - 1])
-
-            stdscr.refresh()
-
-            # Handle input
-            key = stdscr.getch()
-
-            if key in [ord("q"), ord("Q"), 27]:  # q or ESC
-                return None
-            elif key in [ord("j"), curses.KEY_DOWN]:
-                selected_index = (selected_index + 1) % len(options)
-            elif key in [ord("k"), curses.KEY_UP]:
-                selected_index = (selected_index - 1) % len(options)
-            elif key in [10, 13, curses.KEY_ENTER]:  # Enter
-                if selected_index == 0:  # Create new playlist
-                    return "CREATE_NEW"
-                else:
-                    return options[selected_index]
 
     # Save terminal state
     fd = sys.stdin.fileno()
@@ -293,15 +230,22 @@ def add_song_to_playlist_interactive(song_data):
 
         # Run playlist selection UI
         song_title = song_data.get("title", "Unknown")
-        selected_playlist = wrapper(lambda stdscr: playlist_selection_ui(stdscr, song_title))
+        playlists = playlist_manager.get_playlist_names()
+
+        def playlist_flow(stdscr):
+            selected = select_playlist_ui(stdscr, song_title, playlists)
+            new_name = (
+                new_playlist_name_ui(stdscr, song_title) if selected == "CREATE_NEW" else None
+            )
+            return selected, new_name
+
+        selected_playlist, new_playlist_name = wrapper(playlist_flow)
 
         if selected_playlist is None:
             return None
 
         if selected_playlist == "CREATE_NEW":
-            # Create new playlist
-            print("\nCreate new playlist:")
-            playlist_name = input("Playlist name: ").strip()
+            playlist_name = new_playlist_name
             if not playlist_name:
                 # Generate unique default name with timestamp and counter
                 from datetime import datetime
@@ -317,8 +261,6 @@ def add_song_to_playlist_interactive(song_data):
                     while f"{base_name}_{counter}" in existing_names:
                         counter += 1
                     playlist_name = f"{base_name}_{counter}"
-
-                print(f"[cyan]Using default name: {playlist_name}[/cyan]")
 
             # Create the playlist
             if playlist_manager.create_playlist(playlist_name, "", notify=False):
@@ -336,25 +278,20 @@ def add_song_to_playlist_interactive(song_data):
         tty.setraw(sys.stdin.fileno())
 
 
-def get_and_display_lyrics(video_id, title, socket_path=None, is_playing_func=None):
+def get_and_display_lyrics(video_id, title, socket_path=None, is_playing_func=None, artist=None):
     """Get and display lyrics for a song"""
     from .lyrics_service import get_timestamped_lyrics
 
     try:
         # First try to get timestamped lyrics from LRCLIB
-        # We need to construct a song item to match the expected format
-        song_item = {
-            "title": title.split(" - ")[0] if " - " in title else title,
-            "videoId": video_id,
-        }
+        song_title = title
+        artist_name = artist
+        if not artist_name and " - " in title:
+            song_title, artist_name = title.split(" - ", 1)
 
-        # Extract artist from title if present
-        artist_name = None
-        if " - " in title:
-            artist_name = title.split(" - ", 1)[1]
+        song_item = {"title": song_title, "videoId": video_id}
+        if artist_name:
             song_item["artists"] = [{"name": artist_name}]
-
-        song_title = title.split(" - ")[0] if " - " in title else title
 
         timestamped_lyrics = get_timestamped_lyrics(song_item)
 
@@ -734,9 +671,10 @@ def play_music_with_controls_curses(
                         curses.endwin()
                         get_and_display_lyrics(
                             video_id,
-                            display_title,
+                            song_title,
                             socket_path,
                             is_playing_func=lyrics_playback_active,
+                            artist=artist if artist != "Unknown Artist" else None,
                         )
                         stdscr.clear()
                         stdscr.refresh()
@@ -888,8 +826,16 @@ def play_music_with_controls_rich(
     def on_lyrics(song):
         video_id = song.get("videoId")
         title = song.get("title", "Unknown")
+        artists = song.get("artists") or []
+        artist = artists[0].get("name") if artists else None
         if video_id:
-            get_and_display_lyrics(video_id, title, player.socket_path, player.is_playing)
+            get_and_display_lyrics(
+                video_id,
+                title,
+                player.socket_path,
+                player.is_playing,
+                artist=artist,
+            )
 
     def on_add_playlist(song):
         return add_song_to_playlist_interactive(song)

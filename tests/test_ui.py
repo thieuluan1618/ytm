@@ -10,7 +10,14 @@ with (
     patch("curses.init_pair"),
     patch("curses.color_pair"),
 ):
-    from ytm_cli.ui import display_lyrics_with_curses, display_player_status, draw_player
+    from ytm_cli.ui import (
+        display_lyrics_with_curses,
+        display_player_status,
+        draw_player,
+        new_playlist_name_ui,
+        select_playlist_ui,
+        selection_ui,
+    )
 
 
 def _capture_status_output(*args, width=80, terminal_size_error=False, **kwargs):
@@ -30,9 +37,11 @@ def _capture_status_output(*args, width=80, terminal_size_error=False, **kwargs)
 class _FakeScreen:
     """Small curses screen double that exposes complete rendered frames."""
 
-    def __init__(self, height, width):
+    def __init__(self, height, width, keys=None, input_text=""):
         self.height = height
         self.width = width
+        self.keys = list(keys or [])
+        self.input_text = input_text
         self.rows = []
         self.erase()
 
@@ -57,7 +66,10 @@ class _FakeScreen:
         pass
 
     def getch(self):
-        return -1
+        return self.keys.pop(0) if self.keys else -1
+
+    def getstr(self, _y, _x, _length):
+        return self.input_text.encode()
 
     def render(self):
         return "\n".join("".join(row).rstrip() for row in self.rows)
@@ -102,8 +114,13 @@ class TestDrawPlayer:
             "40%",
             "UP NEXT",
             "Rainy Afternoon Lo-Fi · ChillCat",
-            "[SPACE] pause",
-            "[D] dislike",
+            "◀◀ [B] previous",
+            "⏸ [SPACE] pause",
+            "▶▶ [N] next",
+            "♪ [L] lyrics",
+            "✚ [A] save",
+            "▼ [D] dislike",
+            "■ [Q] quit",
         ):
             assert text in rendered
 
@@ -116,6 +133,12 @@ class TestDrawPlayer:
         assert "[SPC]" in rendered
         assert "[Q]" in rendered
         assert "NOW PLAYING" not in rendered
+
+    def test_medium_layout_keeps_every_library_action_visible(self):
+        rendered = _render_player(height=24, width=62)
+
+        for action in ("♪ [L] lyrics", "✚ [A] save", "▼ [D] dislike", "■ [Q] quit"):
+            assert action in rendered
 
     def test_detailed_feedback_replaces_queue_context(self):
         rendered = _render_player(
@@ -204,14 +227,145 @@ class TestLyricsUI:
 
         assert is_playing.call_count == 4
 
+    def test_uses_shared_header_track_context_and_footer(self):
+        screen = _FakeScreen(24, 80, keys=[ord("q")])
+
+        with (
+            patch("ytm_cli.ui.wrapper", side_effect=lambda callback: callback(screen)),
+            patch("ytm_cli.ui.curses.curs_set"),
+            patch("ytm_cli.ui.curses.use_default_colors"),
+            patch("ytm_cli.ui.curses.init_pair"),
+            patch("ytm_cli.ui.curses.color_pair", return_value=0),
+        ):
+            display_lyrics_with_curses(
+                {"plain_lyrics": "First line\nSecond line"},
+                "Test Song",
+                artist="Test Artist",
+            )
+
+        rendered = screen.render()
+        assert "YTM // LYRICS" in rendered
+        assert "STATIC" in rendered
+        assert "NOW SINGING  Test Song · Test Artist" in rendered
+        assert "First line" in rendered
+        assert "[J/K] scroll  [SPACE] sync  [Q] back" in rendered
+
+    def test_synced_lyrics_highlight_the_line_at_the_current_playback_time(self):
+        screen = _FakeScreen(24, 80, keys=[ord("q")])
+        lyrics = {
+            "synced_lyrics": "[00:10.00]First line\n[00:20.00]Second line",
+            "parsed_lyrics": [(10.0, "First line"), (20.0, "Second line")],
+        }
+
+        with (
+            patch("ytm_cli.ui.wrapper", side_effect=lambda callback: callback(screen)),
+            patch("ytm_cli.ui.curses.curs_set"),
+            patch("ytm_cli.ui.curses.use_default_colors"),
+            patch("ytm_cli.ui.curses.init_pair"),
+            patch("ytm_cli.ui.curses.color_pair", return_value=0),
+        ):
+            display_lyrics_with_curses(
+                lyrics,
+                "Test Song",
+                artist="Test Artist",
+                socket_path="/tmp/mpv.sock",
+                get_mpv_time_position_func=lambda _socket: 15.0,
+            )
+
+        rendered = screen.render()
+        assert "SYNCED" in rendered
+        assert "│ ♪ First line" in rendered
+        assert "Second line" in rendered
+
+
+class TestSharedScreenVisuals:
+    """Render-level coverage for search and playlist screens."""
+
+    @staticmethod
+    def curses_patches():
+        return (
+            patch("ytm_cli.ui.curses.curs_set"),
+            patch("ytm_cli.ui.curses.use_default_colors"),
+            patch("ytm_cli.ui.curses.init_pair"),
+            patch("ytm_cli.ui.curses.color_pair", return_value=0),
+        )
+
+    def test_search_screen_has_numbered_results_and_navigation_context(self):
+        screen = _FakeScreen(18, 80, keys=[ord("q")])
+        results = [
+            {"title": "Neon Cruise", "artists": [{"name": "Synthwave Demo Band"}]},
+            {"title": "Rainy Afternoon", "artists": [{"name": "ChillCat"}]},
+        ]
+        curs_set, use_colors, init_pair, color_pair = self.curses_patches()
+
+        with curs_set, use_colors, init_pair, color_pair:
+            selected = selection_ui(screen, results, "night drive", 5)
+
+        rendered = screen.render()
+        assert selected is None
+        assert "YTM // SEARCH" in rendered
+        assert "2 RESULTS" in rendered
+        assert "RESULTS FOR  night drive" in rendered
+        assert "› 01  Neon Cruise · Synthwave Demo Band" in rendered
+        assert "[ENTER] play  [A] save  [↑↓/JK] move  [Q] back" in rendered
+
+    def test_empty_search_results_return_without_navigation(self):
+        screen = _FakeScreen(18, 80)
+        curs_set, use_colors, init_pair, color_pair = self.curses_patches()
+
+        with curs_set, use_colors, init_pair, color_pair:
+            assert selection_ui(screen, [], "nothing", 5) is None
+
+    def test_playlist_picker_uses_same_hierarchy_and_solid_add_icon(self):
+        screen = _FakeScreen(18, 80, keys=[ord("j"), 10])
+        curs_set, use_colors, init_pair, color_pair = self.curses_patches()
+
+        with curs_set, use_colors, init_pair, color_pair:
+            selected = select_playlist_ui(
+                screen,
+                "Neon Cruise",
+                ["Favorites", "Late Night"],
+            )
+
+        rendered = screen.render()
+        assert selected == "Favorites"
+        assert "YTM // SAVE TRACK" in rendered
+        assert "2 PLAYLISTS" in rendered
+        assert "TRACK  Neon Cruise" in rendered
+        assert "✚  Create new playlist" in rendered
+        assert "› Favorites" in rendered
+        assert "[ENTER] choose  [↑↓/JK] move  [Q] cancel" in rendered
+
+    def test_new_playlist_prompt_stays_in_the_shared_save_screen(self):
+        screen = _FakeScreen(18, 80, input_text="Road Trip")
+        curs_set, use_colors, init_pair, color_pair = self.curses_patches()
+
+        with (
+            curs_set,
+            use_colors,
+            init_pair,
+            color_pair,
+            patch("ytm_cli.ui.curses.echo"),
+            patch("ytm_cli.ui.curses.noecho"),
+        ):
+            playlist_name = new_playlist_name_ui(screen, "Neon Cruise")
+
+        rendered = screen.render()
+        assert playlist_name == "Road Trip"
+        assert "YTM // SAVE TRACK" in rendered
+        assert "NEW PLAYLIST" in rendered
+        assert "TRACK  Neon Cruise" in rendered
+        assert "Leave blank to generate a playlist name automatically." in rendered
+        assert "PLAYLIST ›" in rendered
+
 
 class TestDisplayPlayerStatus:
     """Tests for display_player_status function.
 
     The function writes a single screen frame to ``sys.stdout`` consisting of:
       * an ANSI clear-screen escape (``\\033[H\\033[2J``)
-      * a centered status line ("▶  Playing" or "⏸  Paused")
-      * a centered title line (sliced to terminal width)
+      * a branded header with playback state and queue position
+      * a centered now-playing title (sliced to terminal width)
       * blank lines for the optional visualizer / progress bar
       * a centered controls hint line
     There is no platform-specific clear-screen call (no ``os.system``).
@@ -222,18 +376,21 @@ class TestDisplayPlayerStatus:
 
         # Clears the screen via ANSI escape (no os.system call)
         assert "\033[H\033[2J" in out
-        # Renders the "Playing" status and the title
-        assert "\u25b6  Playing" in out
+        # Renders the branded status and the title
+        assert "YTM // PLAYER" in out
+        assert "\u25b6 PLAYING" in out
+        assert "NOW PLAYING" in out
         assert "Test Song - Test Artist" in out
-        assert "Paused" not in out
+        assert "PAUSED" not in out
         assert "⏸ space" in out
 
     def test_display_player_status_paused(self):
         out = _capture_status_output("Test Song - Test Artist", True, width=80)
 
-        assert "\u23f8  Paused" in out
+        assert "YTM // PLAYER" in out
+        assert "\u23f8 PAUSED" in out
         assert "Test Song - Test Artist" in out
-        assert "Playing" not in out
+        assert "▶ PLAYING" not in out
         assert "▶ space" in out
 
     def test_display_player_status_long_title(self):
@@ -264,14 +421,14 @@ class TestDisplayPlayerStatus:
         for line in rendered.split("\n"):
             assert len(line) <= 80
         assert "Test Song" in rendered
-        assert "Playing" in rendered
+        assert "PLAYING" in rendered
 
     def test_display_player_status_track_index(self):
         """Track index/total are appended to the status line when provided."""
         out = _capture_status_output("Test Song", False, width=80, track_index=3, track_total=10)
 
-        assert "[3/10]" in out
-        assert "Playing" in out
+        assert "3 / 10" in out
+        assert "PLAYING" in out
 
     def test_display_player_status_controls_display(self):
         out = _capture_status_output("Test Song", False, width=120)
@@ -293,7 +450,7 @@ class TestDisplayPlayerStatus:
         """Empty title must not raise and still renders the status + controls."""
         out = _capture_status_output("", False, width=80)
 
-        assert "Playing" in out
+        assert "PLAYING" in out
         # Controls line still rendered even with an empty title
         assert "space" in out
 

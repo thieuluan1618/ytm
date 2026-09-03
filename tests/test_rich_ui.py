@@ -104,7 +104,35 @@ class TestCreatePlayerLayout:
             duration=180.0,
         )
 
-        assert layout is not None
+        rendered = self.render(layout)
+        assert "YTM // PLAYER" in rendered
+        assert "▶ PLAYING" in rendered
+        assert "1 / 5" in rendered
+        assert "NOW PLAYING" in rendered
+        assert "Test Song" in rendered
+        assert "Test Artist" in rendered
+
+    def test_outer_border_wraps_every_player_section(self):
+        """A single frame should contain the header, track, status, and controls."""
+        layout = create_player_layout(
+            song_title="Test Song",
+            artist="Test Artist",
+            is_paused=False,
+            track_idx=1,
+            track_total=5,
+            elapsed=60.0,
+            duration=180.0,
+            next_title="Next Song",
+            next_artist="Next Artist",
+        )
+
+        lines = self.render(layout).rstrip().splitlines()
+        assert lines[0].startswith("╭") and lines[0].endswith("╮")
+        assert lines[-1].startswith("╰") and lines[-1].endswith("╯")
+        assert sum(line.startswith("╭") for line in lines) == 1
+        assert sum(line.startswith("╰") for line in lines) == 1
+        for text in ("YTM // PLAYER", "NOW PLAYING", "UP NEXT", "[SPACE]", "[Q]"):
+            assert any(text in line for line in lines[1:-1])
 
     def test_shows_paused_state(self):
         """Layout should reflect paused state."""
@@ -120,7 +148,7 @@ class TestCreatePlayerLayout:
 
         rendered = self.render(layout)
         assert "⏸ PAUSED" in rendered
-        assert "▶ space" in rendered
+        assert "▶ [SPACE] play" in rendered
 
     def test_shows_toast_message(self):
         """Layout should display toast notifications."""
@@ -136,7 +164,10 @@ class TestCreatePlayerLayout:
             toast_detail="Saved to Favorites",
         )
 
-        assert layout is not None
+        rendered = self.render(layout)
+        assert "STATUS  Added to playlist" in rendered
+        assert "Saved to Favorites" in rendered
+        assert "💬" not in rendered
 
     def test_shows_next_track_info(self):
         """Layout should show upcoming track."""
@@ -152,7 +183,8 @@ class TestCreatePlayerLayout:
             next_artist="Next Artist",
         )
 
-        assert layout is not None
+        rendered = self.render(layout)
+        assert "▶▶  UP NEXT  Next Song · Next Artist" in rendered
 
     def test_uses_solid_transport_icons(self):
         """Player hints and queue status should share the solid icon set."""
@@ -168,14 +200,16 @@ class TestCreatePlayerLayout:
         )
 
         rendered = self.render(layout)
-        assert "◀◀ b" in rendered
+        assert "YTM // PLAYER" in rendered
         assert "▶ PLAYING" in rendered
-        assert "⏸ space" in rendered
-        assert "▶▶ n" in rendered
-        assert "♪ l" in rendered
-        assert "✚ a" in rendered
-        assert "▼ d" in rendered
-        assert "■ q" in rendered
+        assert "NOW PLAYING" in rendered
+        assert "◀◀ [B] previous" in rendered
+        assert "⏸ [SPACE] pause" in rendered
+        assert "▶▶ [N] next" in rendered
+        assert "♪ [L] lyrics" in rendered
+        assert "✚ [A] save" in rendered
+        assert "▼ [D] dislike" in rendered
+        assert "■ [Q] quit" in rendered
         assert "▶▶  UP NEXT" in rendered
         assert not {"⏮", "⏯", "⏭", "📜", "➕", "👎", "🚪"} & set(rendered)
 
@@ -257,6 +291,123 @@ class TestCreatePlayerLayout:
         play_music_with_controls_rich([{"videoId": "id"}], demo=True)
 
         assert player.actions == ["pause", "resume", "cleanup"]
+
+    def test_rich_lyrics_callback_includes_artist_metadata(self, monkeypatch):
+        """Rich playback should give LRCLIB both the track and artist names."""
+        from ytm_cli import player as player_module
+
+        class FakePlayer:
+            player_type = "mpv"
+            socket_path = "/tmp/mpv.sock"
+
+            def is_available(self):
+                return True
+
+            def is_playing(self):
+                return True
+
+            def cleanup(self):
+                pass
+
+        captured = []
+
+        def exercise_lyrics_callback(**kwargs):
+            kwargs["on_lyrics"](
+                {
+                    "videoId": "video-id",
+                    "title": "Test Song",
+                    "artists": [{"name": "Test Artist"}],
+                }
+            )
+
+        monkeypatch.setattr("ytm_cli.demo.DemoPlayer", FakePlayer)
+        monkeypatch.setattr("ytm_cli.player.sys.stdin.isatty", lambda: True)
+        monkeypatch.setattr("ytm_cli.rich_ui.play_with_rich_ui", exercise_lyrics_callback)
+        monkeypatch.setattr(
+            player_module,
+            "get_and_display_lyrics",
+            lambda *args, **kwargs: captured.append((args, kwargs)),
+        )
+
+        player_module.play_music_with_controls_rich([{"videoId": "video-id"}], demo=True)
+
+        args, kwargs = captured[0]
+        assert args[:3] == ("video-id", "Test Song", "/tmp/mpv.sock")
+        assert kwargs == {"artist": "Test Artist"}
+
+    def test_lyrics_lookup_preserves_a_hyphenated_title(self, monkeypatch):
+        """Explicit artist metadata should avoid splitting a valid track title."""
+        from ytm_cli import player as player_module
+
+        lookup_items = []
+        displayed = []
+
+        def lyrics_lookup(item):
+            lookup_items.append(item)
+            return {"plain_lyrics": "First line", "parsed_lyrics": []}
+
+        monkeypatch.setattr("ytm_cli.lyrics_service.get_timestamped_lyrics", lyrics_lookup)
+        monkeypatch.setattr(
+            player_module,
+            "display_lyrics_with_curses",
+            lambda *args: displayed.append(args),
+        )
+
+        result = player_module.get_and_display_lyrics(
+            "video-id",
+            "Test Song - Remastered",
+            socket_path="/tmp/mpv.sock",
+            artist="Test Artist",
+        )
+
+        assert result is True
+        assert lookup_items == [
+            {
+                "title": "Test Song - Remastered",
+                "videoId": "video-id",
+                "artists": [{"name": "Test Artist"}],
+            }
+        ]
+        assert displayed[0][1:3] == ("Test Song - Remastered", "Test Artist")
+
+    def test_add_to_favorites_persists_the_selected_track(self, monkeypatch, tmp_path):
+        """The playback save flow should persist a track to Favorites."""
+        import curses
+
+        from ytm_cli import player as player_module
+        from ytm_cli.playlists import PlaylistManager
+
+        manager = PlaylistManager(tmp_path)
+        assert manager.create_playlist("Favorites", notify=False)
+        song = {
+            "videoId": "video-id",
+            "title": "Test Song",
+            "artists": [{"name": "Test Artist"}],
+        }
+        screen = object()
+
+        class FakeStdin:
+            @staticmethod
+            def fileno():
+                return 0
+
+        monkeypatch.setattr(player_module, "playlist_manager", manager)
+        monkeypatch.setattr(player_module.sys, "stdin", FakeStdin())
+        monkeypatch.setattr(player_module.termios, "tcgetattr", lambda _fd: "settings")
+        monkeypatch.setattr(player_module.termios, "tcsetattr", lambda *_args: None)
+        monkeypatch.setattr(player_module.tty, "setraw", lambda _fd: None)
+        monkeypatch.setattr(curses, "wrapper", lambda callback: callback(screen))
+        monkeypatch.setattr(
+            player_module,
+            "select_playlist_ui",
+            lambda stdscr, title, playlists: "Favorites",
+        )
+
+        result = player_module.add_song_to_playlist_interactive(song)
+
+        assert result == "Favorites"
+        favorites = manager.get_playlist("Favorites")
+        assert [saved["videoId"] for saved in favorites["songs"]] == ["video-id"]
 
 
 class TestProgressBarRendering:

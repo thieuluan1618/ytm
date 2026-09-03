@@ -25,7 +25,7 @@ def player_controls(is_paused: bool = False):
         (PLAY_ICON if is_paused else PAUSE_ICON, "space", "play" if is_paused else "pause"),
         (NEXT_ICON, "n", "next"),
         (LYRICS_ICON, "l", "lyrics"),
-        (ADD_ICON, "a", "add to playlist"),
+        (ADD_ICON, "a", "save"),
         (DISLIKE_ICON, "d", "dislike"),
         (QUIT_ICON, "q", "quit"),
     ]

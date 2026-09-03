@@ -9,7 +9,55 @@ from collections import deque
 from curses import wrapper
 
 from .playlists import playlist_manager
-from .utils import PAUSE_ICON, PLAY_ICON, controls_string
+from .utils import ADD_ICON, PAUSE_ICON, PLAY_ICON, player_controls
+
+_UI_MAX_WIDTH = 76
+_CP_ACCENT = 10
+_CP_DIM = 11
+_CP_TEXT = 12
+_CP_BORDER = 13
+_CP_SUCCESS = 14
+
+
+def init_ui_colors():
+    """Initialize the shared terminal color palette."""
+    curses.use_default_colors()
+    curses.init_pair(_CP_ACCENT, curses.COLOR_YELLOW, -1)
+    curses.init_pair(_CP_DIM, curses.COLOR_WHITE, -1)
+    curses.init_pair(_CP_TEXT, curses.COLOR_WHITE, -1)
+    curses.init_pair(_CP_BORDER, curses.COLOR_WHITE, -1)
+    curses.init_pair(_CP_SUCCESS, curses.COLOR_GREEN, -1)
+
+
+def _screen_bounds(scr, max_width=_UI_MAX_WIDTH):
+    """Return responsive screen and centered-content dimensions."""
+    height, width = scr.getmaxyx()
+    content_width = max(1, min(max(1, width - 4), max_width))
+    left_margin = max(0, (width - content_width) // 2)
+    return height, width, content_width, left_margin
+
+
+def _draw_screen_header(scr, row, left, width, section, right, accent, dim, border):
+    """Draw the shared YTM section header and divider."""
+    _safe_addstr(scr, row, left, "YTM", accent)
+    _safe_addstr(scr, row, left + 4, f"// {section.upper()}", dim)
+    if right:
+        right = _ellipsize(right, width)
+        right_x = left + width - len(right)
+        minimum_x = left + len(section) + 8
+        if right_x > minimum_x:
+            _safe_addstr(scr, row, right_x, right, dim)
+    _safe_addstr(scr, row + 1, left, "─" * width, border)
+    return row + 2
+
+
+def _draw_screen_footer(scr, row, left, width, hints, right, accent, dim, border):
+    """Draw the shared divider, key hints, and optional right-side status."""
+    _safe_addstr(scr, row, left, "─" * width, border)
+    hints = _ellipsize(hints, width)
+    _draw_ctrl_line(scr, row + 1, left, hints, accent, dim)
+    if right and len(hints) + len(right) + 2 <= width:
+        _safe_addstr(scr, row + 1, left + width - len(right), right, dim)
 
 
 def display_lyrics_with_curses(
@@ -24,21 +72,15 @@ def display_lyrics_with_curses(
 
     def lyrics_ui(stdscr):
         curses.curs_set(0)
-        curses.use_default_colors()
+        init_ui_colors()
 
-        curses.init_pair(1, curses.COLOR_YELLOW, -1)  # accent
-        curses.init_pair(2, curses.COLOR_WHITE, -1)  # future lines
-        curses.init_pair(3, curses.COLOR_WHITE, -1)  # past lines (dimmed via A_DIM)
-        curses.init_pair(4, curses.COLOR_WHITE, -1)  # separator
-        curses.init_pair(5, curses.COLOR_YELLOW, -1)  # active line accent marker
-
-        accent = curses.color_pair(1) | curses.A_BOLD
-        accent_n = curses.color_pair(1)
-        future_color = curses.color_pair(2) | curses.A_DIM
-        past_color = curses.color_pair(3) | curses.A_DIM
-        active_color = curses.color_pair(2) | curses.A_BOLD
-        sep_color = curses.color_pair(4) | curses.A_DIM
-        border_color = curses.color_pair(4) | curses.A_DIM
+        accent = curses.color_pair(_CP_ACCENT) | curses.A_BOLD
+        accent_n = curses.color_pair(_CP_ACCENT)
+        future_color = curses.color_pair(_CP_DIM) | curses.A_DIM
+        past_color = curses.color_pair(_CP_DIM) | curses.A_DIM
+        active_color = curses.color_pair(_CP_TEXT) | curses.A_BOLD
+        sep_color = curses.color_pair(_CP_DIM) | curses.A_DIM
+        border_color = curses.color_pair(_CP_BORDER) | curses.A_DIM
 
         timestamped_lyrics = []
 
@@ -60,9 +102,8 @@ def display_lyrics_with_curses(
         else:
             lines = [line.strip() for line in lyrics_text.split("\n")]
 
-        max_y, max_x = stdscr.getmaxyx()
-        cw = min(max_x - 4, 70)
-        lm = (max_x - cw) // 2
+        max_y, _, cw, lm = _screen_bounds(stdscr)
+        line_width = max(1, cw - 6)
 
         wrapped_lines = []
         timestamp_map = {}
@@ -71,7 +112,7 @@ def display_lyrics_with_curses(
         wrapped_to_orig = {}
 
         for orig_idx, line in enumerate(lines):
-            if len(line) <= cw - 6:
+            if len(line) <= line_width:
                 wrapped_lines.append(line)
                 wrapped_to_orig[len(wrapped_lines) - 1] = orig_idx
                 if timestamped_lyrics and orig_idx < len(timestamped_lyrics):
@@ -86,7 +127,7 @@ def display_lyrics_with_curses(
                 )
                 first_sub = True
                 for word in words:
-                    if len(current_line + " " + word) <= cw - 6:
+                    if len(current_line + " " + word) <= line_width:
                         current_line += " " + word if current_line else word
                     else:
                         wrapped_lines.append(current_line)
@@ -105,7 +146,9 @@ def display_lyrics_with_curses(
         sorted_ts = sorted(timestamp_map.items(), key=lambda x: x[1])
         scroll_pos = 0
         manual_scroll = False
-        content_height = max_y - 4
+        content_start = 4
+        footer_row = max_y - 2
+        content_height = max(0, footer_row - content_start)
         inactive_polls = 0
 
         while True:
@@ -144,14 +187,23 @@ def display_lyrics_with_curses(
                 scroll_pos = target
 
             # ── Header ──
-            _safe_addstr(stdscr, 0, lm, "lyrics", accent)
-            _safe_addstr(stdscr, 0, lm + 7, "//", sep_color)
+            mode = "MANUAL" if manual_scroll else "SYNCED" if timestamped_lyrics else "STATIC"
+            _draw_screen_header(
+                stdscr,
+                0,
+                lm,
+                cw,
+                "lyrics",
+                mode,
+                accent,
+                sep_color,
+                border_color,
+            )
             track_label = title
             if artist:
                 track_label = f"{title} · {artist}"
-            _safe_addstr(stdscr, 0, lm + 10, track_label[: cw - 12], future_color)
-
-            _safe_addstr(stdscr, 1, lm, "─" * cw, border_color)
+            _safe_addstr(stdscr, 2, lm, "NOW SINGING", accent_n)
+            _safe_addstr(stdscr, 2, lm + 13, _ellipsize(track_label, max(1, cw - 13)), future_color)
 
             # ── Lyrics content ──
             for i in range(content_height):
@@ -159,7 +211,7 @@ def display_lyrics_with_curses(
                 if line_idx >= len(lines):
                     break
                 line = lines[line_idx]
-                row = 2 + i
+                row = content_start + i
                 is_symbol = line.strip() == "♪"
                 display_text = "" if is_symbol else line
 
@@ -180,16 +232,6 @@ def display_lyrics_with_curses(
                     _safe_addstr(stdscr, row, lm + 4, display_text[: cw - 6], future_color)
 
             # ── Footer ──
-            footer_y = max_y - 2
-            _safe_addstr(stdscr, footer_y, lm, "─" * cw, border_color)
-
-            footer_y += 1
-            _safe_addstr(stdscr, footer_y, lm, "J/K", accent_n)
-            _safe_addstr(stdscr, footer_y, lm + 4, "scroll", sep_color)
-            _safe_addstr(stdscr, footer_y, lm + 11, "│", sep_color)
-            _safe_addstr(stdscr, footer_y, lm + 13, "Q", accent_n)
-            _safe_addstr(stdscr, footer_y, lm + 15, "back", sep_color)
-
             total_lines = len(lines)
             if current_time > 0:
                 time_str = f"{int(current_time // 60)}:{int(current_time % 60):02d}"
@@ -197,9 +239,18 @@ def display_lyrics_with_curses(
                 time_str = "-:--"
             vis_start = max(1, scroll_pos + 1)
             vis_end = min(total_lines, scroll_pos + content_height)
-            right_info = f"{time_str} │ [{vis_start}–{vis_end}/{total_lines}]"
-            rx = lm + cw - len(right_info)
-            _safe_addstr(stdscr, footer_y, rx, right_info, sep_color)
+            right_info = f"{time_str} · {vis_start}–{vis_end}/{total_lines}"
+            _draw_screen_footer(
+                stdscr,
+                footer_row,
+                lm,
+                cw,
+                "[J/K] scroll  [SPACE] sync  [Q] back",
+                right_info,
+                accent_n,
+                sep_color,
+                border_color,
+            )
 
             stdscr.refresh()
 
@@ -238,95 +289,91 @@ def selection_ui(stdscr, results, query, songs_to_display):
     """Interactive song selection UI using curses"""
 
     curses.curs_set(0)
-    curses.use_default_colors()
-
-    curses.init_pair(_CP_ACCENT, curses.COLOR_YELLOW, -1)
-    curses.init_pair(_CP_DIM, curses.COLOR_WHITE, -1)
-    curses.init_pair(_CP_TEXT, curses.COLOR_WHITE, -1)
-    curses.init_pair(_CP_BORDER, curses.COLOR_WHITE, -1)
-    curses.init_pair(3, curses.COLOR_GREEN, -1)
+    init_ui_colors()
 
     accent = curses.color_pair(_CP_ACCENT)
     accent_b = accent | curses.A_BOLD
     dim = curses.color_pair(_CP_DIM) | curses.A_DIM
     text = curses.color_pair(_CP_TEXT)
     border = curses.color_pair(_CP_BORDER) | curses.A_DIM
-    green = curses.color_pair(3)
+    green = curses.color_pair(_CP_SUCCESS) | curses.A_BOLD
 
     current_selection = 0
     status_message = ""
     status_timer = 0
     display_count = min(songs_to_display, len(results))
+    if display_count == 0:
+        return None
 
     while True:
         stdscr.erase()
-        max_y, max_x = stdscr.getmaxyx()
+        max_y, _, cw, lm = _screen_bounds(stdscr)
+        footer_row = max_y - 2
 
-        cw = min(max_x - 4, 70)
-        lm = (max_x - cw) // 2
+        row = _draw_screen_header(
+            stdscr,
+            0,
+            lm,
+            cw,
+            "search",
+            f"{display_count} RESULTS",
+            accent_b,
+            dim,
+            border,
+        )
+        _safe_addstr(stdscr, row, lm, "RESULTS FOR", accent)
+        _safe_addstr(stdscr, row, lm + 13, _ellipsize(query, max(1, cw - 13)), dim)
 
-        row = 1
-        _safe_addstr(stdscr, row, lm, "search", accent_b)
-        _safe_addstr(stdscr, row, lm + 7, f"// {query}", dim)
+        list_start = row + 2
+        list_height = max(1, footer_row - list_start - 1)
+        window_start = max(0, current_selection - list_height + 1)
+        window_end = min(display_count, window_start + list_height)
 
-        row += 1
-        _safe_addstr(stdscr, row, lm, "─" * cw, border)
-
-        row += 1
-        shortcuts = [("↵", "play"), ("A", "add to playlist"), ("↑↓/JK", "navigate"), ("Q", "back")]
-        col = lm
-        for skey, slabel in shortcuts:
-            _safe_addstr(stdscr, row, col, skey, accent)
-            col += len(skey) + 1
-            _safe_addstr(stdscr, row, col, slabel, dim)
-            col += len(slabel) + 3
-
-        row += 1
-        _safe_addstr(stdscr, row, lm, "─" * cw, border)
-
-        row += 1
-        for i, song in enumerate(results[:display_count]):
-            if row + i >= max_y - 3:
-                break
+        for visible_row, i in enumerate(range(window_start, window_end)):
+            song = results[i]
 
             title = song["title"]
             artists = song.get("artists") or []
             artist = artists[0].get("name", "Unknown Artist") if artists else "Unknown Artist"
-            line = f"{title} - {artist}"
+            line = _ellipsize(f"{title} · {artist}", max(1, cw - 7))
 
-            if len(line) > cw - 6:
-                line = line[: cw - 9] + "..."
-
-            r = row + i
+            r = list_start + visible_row
             is_sel = i == current_selection
+            number = f"{i + 1:02d}"
 
             try:
                 if is_sel:
                     _safe_addstr(stdscr, r, lm, "›", accent_b)
-                    _safe_addstr(stdscr, r, lm + 2, line, text | curses.A_BOLD)
+                    _safe_addstr(stdscr, r, lm + 2, number, accent_b)
+                    _safe_addstr(stdscr, r, lm + 6, line, text | curses.A_BOLD)
                 else:
-                    num = str(i + 1)
-                    _safe_addstr(stdscr, r, lm + 2 - len(num), num, dim)
-                    _safe_addstr(stdscr, r, lm + 3, line, dim)
+                    _safe_addstr(stdscr, r, lm + 2, number, dim)
+                    _safe_addstr(stdscr, r, lm + 6, line, dim)
             except curses.error:
                 safe_line = line.encode("ascii", "replace").decode("ascii")
                 if is_sel:
-                    _safe_addstr(stdscr, r, lm, f"› {safe_line}", accent_b)
+                    _safe_addstr(stdscr, r, lm, f"› {number}  {safe_line}", accent_b)
                 else:
-                    _safe_addstr(stdscr, r, lm + 2, safe_line, dim)
+                    _safe_addstr(stdscr, r, lm + 2, f"{number}  {safe_line}", dim)
 
         # Status message (temporary feedback)
         if status_message and time.time() - status_timer < 3:
-            status_y = min(row + display_count + 1, max_y - 3)
-            _safe_addstr(stdscr, status_y, lm, status_message, green)
+            _safe_addstr(stdscr, footer_row - 1, lm, _ellipsize(f"✓ {status_message}", cw), green)
         elif time.time() - status_timer >= 3:
             status_message = ""
 
         # Footer
-        footer_y = max_y - 2
-        _safe_addstr(stdscr, footer_y, lm, "─" * cw, border)
-        count_str = f"{display_count} RESULTS"
-        _safe_addstr(stdscr, footer_y + 1, lm, count_str, border)
+        _draw_screen_footer(
+            stdscr,
+            footer_row,
+            lm,
+            cw,
+            "[ENTER] play  [A] save  [↑↓/JK] move  [Q] back",
+            f"{current_selection + 1}/{display_count}",
+            accent,
+            dim,
+            border,
+        )
 
         stdscr.refresh()
         key = stdscr.getch()
@@ -348,8 +395,140 @@ def selection_ui(stdscr, results, query, songs_to_display):
             return key - ord("1")
 
 
+def select_playlist_ui(stdscr, song_title, playlists):
+    """Select an existing playlist or request creation of a new one."""
+    if len(playlists) == 1:
+        return playlists[0]
+
+    curses.curs_set(0)
+    init_ui_colors()
+
+    accent = curses.color_pair(_CP_ACCENT)
+    accent_b = accent | curses.A_BOLD
+    dim = curses.color_pair(_CP_DIM) | curses.A_DIM
+    text = curses.color_pair(_CP_TEXT)
+    border = curses.color_pair(_CP_BORDER) | curses.A_DIM
+
+    options = [(f"{ADD_ICON}  Create new playlist", "CREATE_NEW")]
+    options.extend((name, name) for name in playlists)
+    selected_index = 0
+
+    while True:
+        stdscr.erase()
+        height, _, width, left = _screen_bounds(stdscr)
+        footer_row = height - 2
+        row = _draw_screen_header(
+            stdscr,
+            0,
+            left,
+            width,
+            "save track",
+            f"{len(playlists)} PLAYLISTS",
+            accent_b,
+            dim,
+            border,
+        )
+        _safe_addstr(stdscr, row, left, "TRACK", accent)
+        _safe_addstr(stdscr, row, left + 7, _ellipsize(song_title, max(1, width - 7)), dim)
+
+        list_start = row + 2
+        list_height = max(1, footer_row - list_start)
+        window_start = max(0, selected_index - list_height + 1)
+        window_end = min(len(options), window_start + list_height)
+        for visible_row, i in enumerate(range(window_start, window_end)):
+            label, _ = options[i]
+            item_row = list_start + visible_row
+            label = _ellipsize(label, max(1, width - 6))
+            if i == selected_index:
+                _safe_addstr(stdscr, item_row, left, "›", accent_b)
+                _safe_addstr(stdscr, item_row, left + 2, label, text | curses.A_BOLD)
+            else:
+                _safe_addstr(stdscr, item_row, left + 2, label, dim)
+
+        _draw_screen_footer(
+            stdscr,
+            footer_row,
+            left,
+            width,
+            "[ENTER] choose  [↑↓/JK] move  [Q] cancel",
+            f"{selected_index + 1}/{len(options)}",
+            accent,
+            dim,
+            border,
+        )
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if key in (ord("q"), ord("Q"), 27):
+            return None
+        if key in (ord("j"), curses.KEY_DOWN):
+            selected_index = (selected_index + 1) % len(options)
+        elif key in (ord("k"), curses.KEY_UP):
+            selected_index = (selected_index - 1) % len(options)
+        elif key in (10, 13, curses.KEY_ENTER):
+            return options[selected_index][1]
+
+
+def new_playlist_name_ui(stdscr, song_title):
+    """Prompt for a new playlist name using the shared save-track screen."""
+    curses.curs_set(1)
+    init_ui_colors()
+    stdscr.erase()
+
+    max_y, max_x, width, left = _screen_bounds(stdscr)
+    accent = curses.color_pair(_CP_ACCENT)
+    accent_b = accent | curses.A_BOLD
+    dim = curses.color_pair(_CP_DIM) | curses.A_DIM
+    text = curses.color_pair(_CP_TEXT)
+    border = curses.color_pair(_CP_BORDER) | curses.A_DIM
+
+    row = _draw_screen_header(
+        stdscr,
+        0,
+        left,
+        width,
+        "save track",
+        "NEW PLAYLIST",
+        accent_b,
+        dim,
+        border,
+    )
+    _safe_addstr(stdscr, row, left, "TRACK", accent)
+    _safe_addstr(
+        stdscr,
+        row,
+        left + 7,
+        _ellipsize(song_title, max(1, width - 7)),
+        text | curses.A_BOLD,
+    )
+    _safe_addstr(
+        stdscr,
+        row + 2,
+        left,
+        _ellipsize("Leave blank to generate a playlist name automatically.", width),
+        dim,
+    )
+
+    input_row = max(0, max_y - 1)
+    _safe_addstr(stdscr, max(0, input_row - 1), left, "─" * width, border)
+    prompt = "PLAYLIST › "
+    _safe_addstr(stdscr, input_row, left, prompt, accent_b)
+    stdscr.refresh()
+
+    curses.echo()
+    try:
+        input_x = min(max_x - 1, left + len(prompt))
+        value = stdscr.getstr(input_row, input_x, max(1, max_x - input_x - 1))
+        return value.decode("utf-8").strip()
+    except (curses.error, UnicodeDecodeError):
+        return ""
+    finally:
+        curses.noecho()
+        curses.curs_set(0)
+
+
 def add_song_to_playlist_ui(stdscr, song):
-    """UI for adding a song to a playlist"""
+    """Add a song to an existing or newly named playlist."""
 
     # Get available playlists
     playlists = playlist_manager.get_playlist_names()
@@ -359,50 +538,69 @@ def add_song_to_playlist_ui(stdscr, song):
         playlist_name = playlists[0]
         return playlist_manager.add_song_to_playlist(playlist_name, song, notify=False)
 
-    curses.curs_set(1)  # Show cursor for input
-    _, max_x = stdscr.getmaxyx()
-
-    # Clear and draw dialog
+    curses.curs_set(1)
+    init_ui_colors()
     stdscr.erase()
+    max_y, max_x, width, left = _screen_bounds(stdscr)
+    accent = curses.color_pair(_CP_ACCENT)
+    accent_b = accent | curses.A_BOLD
+    dim = curses.color_pair(_CP_DIM) | curses.A_DIM
+    text = curses.color_pair(_CP_TEXT)
+    border = curses.color_pair(_CP_BORDER) | curses.A_DIM
 
-    # Title
-    title = f"Add '{song['title']}' to playlist"
-    if len(title) > max_x - 4:
-        title = title[: max_x - 7] + "..."
+    row = _draw_screen_header(
+        stdscr,
+        0,
+        left,
+        width,
+        "save track",
+        f"{len(playlists)} PLAYLISTS",
+        accent_b,
+        dim,
+        border,
+    )
+    _safe_addstr(stdscr, row, left, "TRACK", accent)
+    _safe_addstr(
+        stdscr,
+        row,
+        left + 7,
+        _ellipsize(song.get("title", "Unknown"), max(1, width - 7)),
+        text | curses.A_BOLD,
+    )
 
-    stdscr.addstr(2, 2, title)
-    stdscr.addstr(3, 2, "─" * min(len(title), max_x - 4))
-
-    current_line = 5
+    row += 2
 
     if playlists:
-        stdscr.addstr(current_line, 2, "Existing playlists:")
-        current_line += 1
-
-        for i, playlist_name in enumerate(playlists[:8]):  # Show max 8 playlists
-            display_name = playlist_name
-            if len(display_name) > max_x - 10:
-                display_name = display_name[: max_x - 13] + "..."
-            stdscr.addstr(current_line, 4, f"[{i + 1}] {display_name}")
-            current_line += 1
-
-        current_line += 1
-        stdscr.addstr(current_line, 2, "Enter number to select existing playlist,")
-        current_line += 1
-        stdscr.addstr(current_line, 2, "or type new playlist name:")
+        _safe_addstr(stdscr, row, left, "DESTINATIONS", accent)
+        row += 1
+        max_options = max(0, min(8, max_y - row - 4))
+        for i, playlist_name in enumerate(playlists[:max_options]):
+            _safe_addstr(stdscr, row, left + 2, f"[{i + 1}]", accent)
+            _safe_addstr(
+                stdscr,
+                row,
+                left + 6,
+                _ellipsize(playlist_name, max(1, width - 6)),
+                dim,
+            )
+            row += 1
+        instruction = "Enter a number to reuse a playlist, or type a new name."
     else:
-        stdscr.addstr(current_line, 2, "No playlists found. Enter new playlist name:")
-        current_line += 1
+        instruction = "No playlists yet. Type a name to create the first one."
 
-    current_line += 1
-    stdscr.addstr(current_line, 2, "> ")
+    input_row = max(0, max_y - 1)
+    _safe_addstr(stdscr, max(0, input_row - 2), left, _ellipsize(instruction, width), dim)
+    _safe_addstr(stdscr, max(0, input_row - 1), left, "─" * width, border)
+    prompt = "PLAYLIST › "
+    _safe_addstr(stdscr, input_row, left, prompt, accent_b)
     stdscr.refresh()
 
     # Get user input
     curses.echo()
     input_str = ""
     try:
-        input_bytes = stdscr.getstr(current_line, 4, max_x - 6)
+        input_x = min(max_x - 1, left + len(prompt))
+        input_bytes = stdscr.getstr(input_row, input_x, max(1, max_x - input_x - 1))
         input_str = input_bytes.decode("utf-8").strip()
     except (curses.error, UnicodeDecodeError):
         input_str = ""
@@ -477,37 +675,63 @@ def display_player_status(
 ):
     """Display player status (non-curses fallback for non-TTY)"""
     try:
-        width = os.get_terminal_size().columns
+        terminal_width = max(1, os.get_terminal_size().columns)
     except OSError:
-        width = 80
+        terminal_width = 80
 
     sys.stdout.write("\033[H\033[2J")
 
-    status = f"{PAUSE_ICON}  Paused" if is_paused else f"{PLAY_ICON}  Playing"
-    if track_index is not None and track_total is not None:
-        status += f" [{track_index}/{track_total}]"
+    content_width = max(1, min(max(1, terminal_width - 4), _UI_MAX_WIDTH))
+    left = max(0, (terminal_width - content_width) // 2)
+    prefix = " " * left
 
-    lines = ["", status.center(width), "", title.center(width)[:width], ""]
+    state = f"{PAUSE_ICON} PAUSED" if is_paused else f"{PLAY_ICON} PLAYING"
+    if track_index is not None and track_total is not None:
+        state += f"  {track_index} / {track_total}"
+
+    brand = "YTM // PLAYER"
+    if len(brand) + len(state) + 2 <= content_width:
+        header = f"{brand}{' ' * (content_width - len(brand) - len(state))}{state}"
+    else:
+        header = _ellipsize(state, content_width)
+
+    def content_line(value, centered=False):
+        value = _ellipsize(value, content_width)
+        if centered:
+            value = value.center(content_width)
+        return f"{prefix}{value}"[:terminal_width]
+
+    lines = [
+        content_line(header),
+        content_line("─" * content_width),
+        "",
+        content_line("NOW PLAYING", centered=True),
+        content_line(title, centered=True),
+        "",
+    ]
 
     if visualizer_bars:
-        lines.append(_render_visualizer(visualizer_bars, width))
+        lines.append(content_line(_render_visualizer(visualizer_bars, content_width)))
     else:
         lines.append("")
 
     if elapsed is not None and duration and duration > 0:
         time_str = f" {_format_time(elapsed)} / {_format_time(duration)} "
-        bar_width = min(width - 2, 40)
+        bar_width = max(0, min(content_width - len(time_str), 40))
         filled = int(bar_width * min(elapsed / duration, 1.0))
         empty = bar_width - filled
         bar = "\u2593" * filled + "\u2591" * empty
         bar_line = f"{bar}{time_str}"
-        lines.append(bar_line.center(width))
+        lines.append(content_line(bar_line, centered=True))
     else:
         lines.append("")
 
-    controls = controls_string(is_paused)
+    controls = player_controls(is_paused)
+    playback_controls = "  ".join(f"{icon} {key}" for icon, key, _ in controls[:3])
+    library_controls = "  ".join(f"{icon} {key}" for icon, key, _ in controls[3:])
     lines.append("")
-    lines.append(controls.center(width))
+    lines.append(content_line(playback_controls, centered=True))
+    lines.append(content_line(library_controls, centered=True))
 
     sys.stdout.write("\n".join(lines))
     sys.stdout.flush()
@@ -578,19 +802,9 @@ def push_wave_sample(levels):
     _WAVE_HISTORY.append((min(1.0, left), min(1.0, right)))
 
 
-_CP_ACCENT = 10
-_CP_DIM = 11
-_CP_TEXT = 12
-_CP_BORDER = 13
-
-
 def init_player_colors():
     """Initialize color pairs for the player UI."""
-    curses.use_default_colors()
-    curses.init_pair(_CP_ACCENT, curses.COLOR_YELLOW, -1)
-    curses.init_pair(_CP_DIM, curses.COLOR_WHITE, -1)
-    curses.init_pair(_CP_TEXT, curses.COLOR_WHITE, -1)
-    curses.init_pair(_CP_BORDER, curses.COLOR_WHITE, -1)
+    init_ui_colors()
 
 
 def _safe_addstr(scr, y, x, text, attr=0):
@@ -664,22 +878,27 @@ def draw_player(
     cw = max(1, min(w - 4, 76))
     lm = (w - cw) // 2
     state = "PAUSED" if is_paused else "PLAYING"
+    state_icon = PAUSE_ICON if is_paused else PLAY_ICON
     position = f"{track_idx} / {track_total}"
     toast_visible = bool(toast_msg and time.time() < toast_expire)
     compact = h < 18 or cw < 58
+    control_items = player_controls(is_paused)
 
     # The compact layout keeps the core controls usable in short or narrow terminals.
     if compact:
-        header = f"● {state}  {position}"
+        header = f"{state_icon} {state}  {position}"
         if len(header) + 5 <= cw:
             _safe_addstr(scr, 0, lm, "YTM", accent)
-        _safe_addstr(scr, 0, lm + cw - len(header), "●", accent_n if not is_paused else dim)
-        _safe_addstr(scr, 0, lm + cw - len(header) + 2, header[2:], dim)
+        header_x = lm + cw - len(header)
+        _safe_addstr(scr, 0, header_x, state_icon, accent_n)
+        _safe_addstr(scr, 0, header_x + len(state_icon) + 1, header[len(state_icon) + 1 :], dim)
         if h > 2:
             _safe_addstr(scr, 1, lm, "─" * cw, bdr)
 
         footer_row = h - 1
-        content_end = max(2, footer_row - 1)
+        two_line_controls = h >= 8
+        separator_row = footer_row - (2 if two_line_controls else 1)
+        content_end = max(2, separator_row)
         content_lines = 3 + int(elapsed is not None and duration and duration > 0)
         if toast_visible:
             content_lines += 2 if toast_detail else 1
@@ -742,11 +961,47 @@ def draw_player(
                 _safe_addstr(scr, row, lm + 4, queue_line[4:], dim)
 
         if h > 4:
-            _safe_addstr(scr, footer_row - 1, lm, "─" * cw, bdr)
-        key_controls = "[B] [SPC] [N] · [L] [A] [D] [Q]"
-        controls = key_controls if len(key_controls) <= cw else "B SPC N · L A D Q"
-        controls = _ellipsize(controls, cw)
-        _draw_ctrl_line(scr, footer_row, max(lm, cx - len(controls) // 2), controls, accent_n, dim)
+            _safe_addstr(scr, separator_row, lm, "─" * cw, bdr)
+        if two_line_controls:
+            playback_controls = "  ".join(
+                f"{icon}[{'SPC' if key == 'space' else key.upper()}]"
+                for icon, key, _ in control_items[:3]
+            )
+            library_controls = "  ".join(
+                f"{icon}[{key.upper()}]" for icon, key, _ in control_items[3:]
+            )
+            if len(playback_controls) > cw:
+                playback_controls = "[B] [SPC] [N]"
+            if len(library_controls) > cw:
+                library_controls = "[L] [A] [D] [Q]"
+            _draw_ctrl_line(
+                scr,
+                footer_row - 1,
+                max(lm, cx - len(playback_controls) // 2),
+                playback_controls,
+                accent_n,
+                dim,
+            )
+            _draw_ctrl_line(
+                scr,
+                footer_row,
+                max(lm, cx - len(library_controls) // 2),
+                library_controls,
+                accent_n,
+                dim,
+            )
+        else:
+            key_controls = "[B] [SPC] [N] · [L] [A] [D] [Q]"
+            controls = key_controls if len(key_controls) <= cw else "B S N · L A D Q"
+            controls = _ellipsize(controls, cw)
+            _draw_ctrl_line(
+                scr,
+                footer_row,
+                max(lm, cx - len(controls) // 2),
+                controls,
+                accent_n,
+                dim,
+            )
         scr.refresh()
         return
 
@@ -755,10 +1010,10 @@ def draw_player(
     # Header: brand, playback state, and queue position form one scan line.
     _safe_addstr(scr, top, lm, "YTM", accent)
     _safe_addstr(scr, top, lm + 4, "// PLAYER", dim)
-    header = f"● {state}  {position}"
+    header = f"{state_icon} {state}  {position}"
     header_x = lm + cw - len(header)
-    _safe_addstr(scr, top, header_x, "●", accent_n if not is_paused else dim)
-    _safe_addstr(scr, top, header_x + 2, header[2:], dim)
+    _safe_addstr(scr, top, header_x, state_icon, accent_n)
+    _safe_addstr(scr, top, header_x + len(state_icon) + 1, header[len(state_icon) + 1 :], dim)
     _safe_addstr(scr, top + 1, lm, "─" * cw, bdr)
 
     # Visualizer priority: FFT spectrum, stereo audio history, then animated fallback.
@@ -867,8 +1122,12 @@ def draw_player(
         _safe_addstr(scr, top + 14, lm + 7, "End of queue", dim)
 
     _safe_addstr(scr, top + 15, lm, "─" * cw, bdr)
-    playback_controls = f"[B] previous   [SPACE] {'play' if is_paused else 'pause'}   [N] next"
-    library_controls = "[L] lyrics   [A] save   [D] dislike   [Q] quit"
+    playback_controls = "   ".join(
+        f"{icon} [{key.upper()}] {description}" for icon, key, description in control_items[:3]
+    )
+    library_controls = "   ".join(
+        f"{icon} [{key.upper()}] {description}" for icon, key, description in control_items[3:]
+    )
     _draw_ctrl_line(
         scr,
         top + 16,

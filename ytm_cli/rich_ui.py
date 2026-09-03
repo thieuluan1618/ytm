@@ -41,11 +41,11 @@ class CustomProgressBar(ProgressColumn):
         filled = int(percentage * (width - 1))
         filled = max(0, min(filled, width - 1))
 
-        # Style: filled portion in cyan/bold, rest dimmed
+        # Match the shared YTM accent used by the curses screens.
         text = Text()
         if filled > 0:
-            text.append("━" * filled, style="cyan bold")
-        text.append("●", style="cyan bold")
+            text.append("━" * filled, style="yellow bold")
+        text.append("●", style="yellow bold")
         if filled < width - 1:
             text.append("─" * (width - filled - 1), style="dim")
 
@@ -127,21 +127,25 @@ def create_player_layout(
         Rich Layout ready to render
     """
     layout = Layout()
+    content = Layout()
 
-    # Status header
+    # Shared brand header, playback state, and queue position.
     state = f"{PAUSE_ICON} PAUSED" if is_paused else f"{PLAY_ICON} PLAYING"
-    position = f"Track {track_idx} of {track_total}"
-    header = Text.assemble(
-        (f"  {state}", "cyan bold" if not is_paused else "yellow"),
-        ("  •  ", "dim"),
-        (position, "dim"),
+    position = f"{track_idx} / {track_total}"
+    header = Table.grid(expand=True)
+    header.add_column(justify="left", no_wrap=True)
+    header.add_column(justify="right", no_wrap=True)
+    header.add_row(
+        Text.assemble(("YTM", "yellow bold"), (" // PLAYER", "dim")),
+        Text.assemble((state, "yellow"), (f"  {position}", "dim")),
     )
 
     # Song info
     song_info = Table.grid(padding=(0, 1))
-    song_info.add_column(justify="center", style="bold cyan")
-    song_info.add_row(f"♪ {song_title}")
-    song_info.add_row(artist, style="dim")
+    song_info.add_column(justify="center")
+    song_info.add_row(Text("NOW PLAYING", style="yellow"))
+    song_info.add_row(Text(song_title, style="bold"))
+    song_info.add_row(Text(artist, style="dim"))
 
     # Progress bar
     progress = create_progress_bar(elapsed, duration)
@@ -149,9 +153,9 @@ def create_player_layout(
     # Queue context or toast
     footer_content = ""
     if toast_msg:
-        footer_parts = [("💬 ", ""), (toast_msg, "yellow bold")]
+        footer_parts = [("STATUS  ", "yellow"), (toast_msg, "bold")]
         if toast_detail:
-            footer_parts.append(("\n   ", ""))
+            footer_parts.append(("\n        ", ""))
             footer_parts.append((toast_detail, "dim"))
         footer_content = Text.assemble(*footer_parts)
     elif next_title:
@@ -159,28 +163,42 @@ def create_player_layout(
         if next_artist:
             next_info += f" · {next_artist}"
         footer_content = Text.assemble(
-            (f"{NEXT_ICON}  UP NEXT: ", "cyan"),
+            (f"{NEXT_ICON}  UP NEXT  ", "yellow"),
             (next_info, "dim"),
         )
     else:
         footer_content = ""
 
-    # Controls help
-    controls_parts = []
-    for i, (icon, key, _desc) in enumerate(player_controls(is_paused)):
-        if i:
-            controls_parts.append((" • ", "dim"))
-        controls_parts.append((f"{icon} {key}", "cyan"))
-    controls = Text.assemble(*controls_parts)
+    # Keep transport and library actions readable on separate scan lines.
+    def control_line(items):
+        parts = []
+        for i, (icon, key, description) in enumerate(items):
+            if i:
+                parts.append(("   ", ""))
+            key = key.upper()
+            parts.extend(
+                [
+                    (f"{icon} [{key}]", "yellow"),
+                    (f" {description}", "dim"),
+                ]
+            )
+        return Text.assemble(*parts)
 
-    # Build the layout
-    layout.split_column(
-        Layout(Align.center(header), size=1),
-        Layout(Panel(Align.center(song_info), border_style="dim"), size=5),
+    control_items = player_controls(is_paused)
+    controls = Table.grid(expand=True)
+    controls.add_column(justify="center")
+    controls.add_row(control_line(control_items[:3]))
+    controls.add_row(control_line(control_items[3:]))
+
+    # Keep every player section inside one continuous frame.
+    content.split_column(
+        Layout(header, size=1),
+        Layout(Align.center(song_info, vertical="middle"), size=5),
         Layout(Align.center(progress), size=1),
         Layout(Align.center(footer_content) if footer_content else "", size=2),
-        Layout(Align.center(controls), size=1),
+        Layout(controls, size=2),
     )
+    layout.update(Panel(content, border_style="dim", padding=(0, 1)))
 
     return layout
 
