@@ -66,14 +66,14 @@ main.py → play_music_with_controls()
 
 ### rich UI (new):
 ```
-                            ▶ PLAYING  •  Track 1 of 5                          
+                            ▶ PLAYING  •  Track 1 of 5
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │                                 ♪ Test Song                                  │
 │                                 Test Artist                                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-            0:54 / 3:00 ━━━━━━━━━━━●──────────────────────────── 30%            
-                      ⏭  UP NEXT: Next Song · Next Artist                       
-                ⏯ Space • ⏭ N • ⏮ B • 📜 L • ➕ A • 👎 D • 🚪 Q                 
+            0:54 / 3:00 ━━━━━━━━━━━●──────────────────────────── 30%
+                      ⏭  UP NEXT: Next Song · Next Artist
+                ⏯ Space • ⏭ N • ⏮ B • 📜 L • ➕ A • 👎 D • 🚪 Q
 ```
 - Auto-layout
 - Panels and borders
@@ -99,6 +99,7 @@ $ uv run pytest tests/ -q
 
 ### Player Integration:
 - ✅ MPV backend integration
+- ✅ Real-time 24-band FFT spectrum with animated fallback bars
 - ✅ Real-time progress updates (elapsed/duration)
 - ✅ Keyboard controls (space, n, b, l, a, d, q)
 - ✅ Toast notifications with detail lines
@@ -185,10 +186,10 @@ with Live(layout, console=console, refresh_per_second=10, screen=True) as live:
     while player.is_playing():
         # Update elapsed time
         elapsed = get_elapsed()
-        
+
         # Handle keyboard input
         key = getch_nonblocking(0.05)
-        
+
         # Update layout
         layout = create_player_layout(...)
         live.update(layout)
@@ -199,15 +200,15 @@ with Live(layout, console=console, refresh_per_second=10, screen=True) as live:
 ## 📝 Known Limitations
 
 ### Not Yet Implemented in Rich UI:
-- ❌ Spectrum visualizer (audio bars)
 - ❌ Song selection menu (still uses curses)
-- ❌ Lyrics viewer (still uses curses)  
+- ❌ Lyrics viewer (still uses curses)
 - ❌ Playlist selection menu (still uses curses)
 - ❌ Prefetch progress indication
 
 **These will be migrated in future iterations.**
 
 ### Works in Rich UI:
+- ✅ Spectrum visualizer
 - ✅ Progress bar
 - ✅ Player controls
 - ✅ Toast notifications
@@ -234,7 +235,7 @@ with Live(layout, console=console, refresh_per_second=10, screen=True) as live:
 2. 🔄 Song selection menu
 3. 🔄 Lyrics viewer
 4. 🔄 Playlist selection menu
-5. 🔄 Spectrum visualizer (rich-compatible)
+5. ✅ Spectrum visualizer (DONE)
 
 ### Phase 4: Enhancement
 1. Better error handling

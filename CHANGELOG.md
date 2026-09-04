@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Rich player spectrum visualizer**: Shows the existing 24-band FFT spectrum inside the Rich player, with animated fallback bars while live analyzer data is unavailable
+
 ## [0.10.0] - 2026-08-29
 
 ### Added

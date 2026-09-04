@@ -9,6 +9,7 @@ from ytm_cli.rich_ui import (
     CustomProgressBar,
     create_player_layout,
     create_progress_bar,
+    create_wave_visualizer,
     play_with_rich_ui,
 )
 
@@ -82,6 +83,18 @@ class TestCreateProgressBar:
         assert task.fields["percent"] == "50%"
 
 
+class TestWaveVisualizer:
+    """Tests for the Rich spectrum rendering."""
+
+    def test_renders_three_rows_from_live_bands(self):
+        wave = create_wave_visualizer([0.25, 0.5, 0.75, 1.0] * 6)
+
+        lines = str(wave).splitlines()
+        assert len(lines) == 3
+        assert any("█" in line for line in lines)
+        assert any(character in str(wave) for character in "▁▂▃▄▅▆▇")
+
+
 class TestCreatePlayerLayout:
     """Tests for player layout creation."""
 
@@ -111,6 +124,23 @@ class TestCreatePlayerLayout:
         assert "NOW PLAYING" in rendered
         assert "Test Song" in rendered
         assert "Test Artist" in rendered
+
+    def test_wave_visualizer_stays_inside_the_outer_border(self):
+        layout = create_player_layout(
+            song_title="Test Song",
+            artist="Test Artist",
+            is_paused=False,
+            track_idx=1,
+            track_total=5,
+            elapsed=60.0,
+            duration=180.0,
+            bands=[0.25, 0.5, 0.75, 1.0] * 6,
+        )
+
+        lines = self.render(layout).rstrip().splitlines()
+        wave_rows = [i for i, line in enumerate(lines) if any(char in line for char in "▁▂▃▄▅▆▇█")]
+        assert len(wave_rows) == 3
+        assert all(0 < row < len(lines) - 1 for row in wave_rows)
 
     def test_outer_border_wraps_every_player_section(self):
         """A single frame should contain the header, track, status, and controls."""
@@ -279,8 +309,10 @@ class TestCreatePlayerLayout:
                 self.actions.append("cleanup")
 
         player = FakePlayer()
+        captured_bands = []
 
         def exercise_pause_callback(**kwargs):
+            captured_bands.extend(kwargs["get_bands"]({"videoId": "id"}, 0))
             kwargs["on_pause"](True)
             kwargs["on_pause"](False)
 
@@ -291,6 +323,7 @@ class TestCreatePlayerLayout:
         play_music_with_controls_rich([{"videoId": "id"}], demo=True)
 
         assert player.actions == ["pause", "resume", "cleanup"]
+        assert len(captured_bands) == 24
 
     def test_rich_lyrics_callback_includes_artist_metadata(self, monkeypatch):
         """Rich playback should give LRCLIB both the track and artist names."""

@@ -807,6 +807,16 @@ def play_music_with_controls_rich(
         _play_non_interactive(player, playlist)
         return
 
+    if demo:
+        from .demo import DemoSpectrum
+
+        spectrum = DemoSpectrum(n_bands=24)
+    else:
+        from .spectrum import SpectrumAnalyzer
+
+        spectrum = SpectrumAnalyzer(n_bands=24) if SpectrumAnalyzer.available() else None
+    spectrum_track = None
+
     def get_elapsed():
         if player.player_type == "mpv" and player.socket_path:
             return get_mpv_time_position(player.socket_path)
@@ -816,6 +826,26 @@ def play_music_with_controls_rich(
         if player.player_type == "mpv" and player.socket_path:
             return get_mpv_duration(player.socket_path)
         return None
+
+    def get_visualizer_bands(song, track_index):
+        nonlocal spectrum_track
+        if spectrum is None:
+            return None
+
+        track = (track_index, song.get("videoId"))
+        if track != spectrum_track:
+            source = "demo" if demo else None
+            if player.player_type == "mpv" and player.socket_path:
+                source = get_mpv_resolved_url(player.socket_path)
+            if not source:
+                return None
+
+            spectrum.stop()
+            if not spectrum.start(source):
+                return None
+            spectrum_track = track
+
+        return spectrum.get_bands()
 
     def on_pause(is_paused):
         if is_paused:
@@ -850,12 +880,15 @@ def play_music_with_controls_rich(
             playlist_name=playlist_name,
             get_elapsed=get_elapsed,
             get_duration=get_duration,
+            get_bands=get_visualizer_bands,
             on_pause=on_pause,
             on_lyrics=on_lyrics,
             on_add_playlist=on_add_playlist,
             on_dislike=on_dislike,
         )
     finally:
+        if spectrum is not None:
+            spectrum.stop()
         player.cleanup()
 
 
