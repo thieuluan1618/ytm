@@ -48,9 +48,7 @@ class TestCLIHybridPlayerInitialization(unittest.TestCase):
         with patch("builtins.print") as mock_print:
             CLIHybridPlayerService()
 
-        mock_print.assert_any_call(
-            "⚠ yt-dlp 2026.7.4 is outdated and may cause songs to skip."
-        )
+        mock_print.assert_any_call("⚠ yt-dlp 2026.7.4 is outdated and may cause songs to skip.")
         mock_print.assert_any_call("  Run ytm-cli --update to install 2026.8.19 or newer.")
 
     @patch("shutil.which")

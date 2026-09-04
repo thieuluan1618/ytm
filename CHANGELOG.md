@@ -4,9 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-04
+
 ### Added
 
+- **Rich terminal player**: Uses a modern Rich-based playback screen by default, with the curses player still available through `[ui] use_rich = false`
 - **Rich player spectrum visualizer**: Shows the existing 24-band FFT spectrum inside the Rich player, with animated fallback bars while live analyzer data is unavailable
+
+### Changed
+
+- **Unified terminal screens**: Search, lyrics, playlist save, and playback views now share one visual hierarchy and consistent controls
+- **Indirect dependency**: Updated `idna` from 3.13 to 3.15
+
+### Fixed
+
+- **Rich player rendering**: Uses change-driven refreshes to prevent flickering, reduce unnecessary redraws, and restore the player cleanly after lyrics or playlist screens
+- **Synced lyrics matching**: Passes artist metadata separately so hyphenated song titles are no longer misparsed
 
 ## [0.10.0] - 2026-08-29
 
