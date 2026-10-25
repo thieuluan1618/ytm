@@ -20,6 +20,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 - **🔍 Smart Search**: Search and play any song from YouTube Music
 - **🎮 Interactive Controls**: Play/pause, skip, go back with simple key presses
 - **📱 Vim-like Navigation**: Use `j/k` keys or arrow keys to navigate
+- **♥ Local Favorites**: Toggle favorite songs instantly with `f`
 - **📋 Local Playlists**: Create and manage personal playlists
 - **👎 Smart Filtering**: Dislike songs to filter them from future results
 - **📜 Synced Lyrics**: Live-highlighted lyrics with auto-scroll (press `l`)
@@ -117,6 +118,8 @@ ytm-cli --update                                          # Update the app and d
 
 - `↑/↓` or `j/k` - Navigate through results
 - `Enter` - Select and play song
+- `f` - Add to or remove from Favorites
+- `a` - Add to a playlist
 - `q` - Quit
 
 ### During Playback
@@ -125,6 +128,7 @@ ytm-cli --update                                          # Update the app and d
 - `n` - Next song
 - `b` - Previous song
 - `l` - Show lyrics (synced highlighting with auto-scroll)
+- `f` - Add to or remove from Favorites
 - `a` - Add to playlist
 - `d` - Dislike song (skip and filter from future results)
 - `q` - Quit
@@ -154,6 +158,14 @@ ytm-cli playlist delete "My Songs" # Delete playlist
 - Press `a` during song selection or playback
 - Choose existing playlist or create new one
 - Song added without interrupting playback
+
+**Favorite songs:**
+
+- Press `f` during song selection or playback to toggle a favorite
+- The local `Favorites` playlist is created automatically on first use
+- Play favorites with `ytm-cli playlist play Favorites`
+- Favoriting a song clears its global dislike; globally disliking a song removes it from Favorites
+- During local playlist playback, `d` first removes the song from that playlist; press it again to globally dislike and skip the song
 
 ## 🤖 AI Music Assistant
 

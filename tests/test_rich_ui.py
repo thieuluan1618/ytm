@@ -237,11 +237,36 @@ class TestCreatePlayerLayout:
         assert "⏸ [SPACE] pause" in rendered
         assert "▶▶ [N] next" in rendered
         assert "♪ [L] lyrics" in rendered
+        assert "♥ [F] favorite" in rendered
         assert "✚ [A] save" in rendered
         assert "▼ [D] dislike" in rendered
         assert "■ [Q] quit" in rendered
         assert "▶▶  UP NEXT" in rendered
         assert not {"⏮", "⏯", "⏭", "📜", "➕", "👎", "🚪"} & set(rendered)
+
+    def test_medium_width_keeps_every_library_action_visible(self):
+        layout = create_player_layout(
+            song_title="Test Song",
+            artist="Test Artist",
+            is_paused=False,
+            track_idx=1,
+            track_total=5,
+            elapsed=60.0,
+            duration=180.0,
+        )
+        output = StringIO()
+        console = Console(file=output, width=62, height=20, color_system=None)
+        console.print(layout)
+        rendered = output.getvalue()
+
+        for action in (
+            "♪ [L] lyrics",
+            "♥ [F] favorite",
+            "✚ [A] save",
+            "▼ [D] dislike",
+            "■ [Q] quit",
+        ):
+            assert action in rendered
 
     def test_play_pause_callback_receives_new_state(self, monkeypatch):
         """Space should request pause first and resume on the second press."""
@@ -284,6 +309,52 @@ class TestCreatePlayerLayout:
         )
 
         assert states == [True, False]
+
+    def test_favorite_key_invokes_callback_without_stopping_playback(self, monkeypatch):
+        class FakeLive:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                pass
+
+            def refresh(self):
+                pass
+
+            def update(self, *_args, **_kwargs):
+                pass
+
+        class FakePlayer:
+            def __init__(self):
+                self.stop_calls = 0
+
+            def play(self, *_args):
+                return True
+
+            def is_playing(self):
+                return True
+
+            def stop(self):
+                self.stop_calls += 1
+
+        song = {"videoId": "id", "title": "Song"}
+        keys = iter(["f", "q"])
+        favorited = []
+        player = FakePlayer()
+        monkeypatch.setattr("ytm_cli.rich_ui.Live", FakeLive)
+        monkeypatch.setattr("ytm_cli.rich_ui.getch_nonblocking", lambda _timeout: next(keys))
+
+        play_with_rich_ui(
+            player=player,
+            playlist=[song],
+            on_favorite=lambda selected: favorited.append(selected) or "added",
+        )
+
+        assert favorited == [song]
+        assert player.stop_calls == 1
 
     def test_play_pause_state_controls_player(self, monkeypatch):
         """The Rich player bridge should map state changes to pause and resume."""

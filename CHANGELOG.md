@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Local Favorites**: Press `f` during song selection or playback to toggle songs in an automatically created `Favorites` playlist without interrupting playback
+
+### Fixed
+
+- **Favorite/dislike consistency**: Favoriting clears an existing global dislike, and globally disliking removes the song from Favorites
+- **Rich player dislikes**: Matches the curses player's playlist-first removal behavior and keeps playback running when a dislike cannot be saved
+- **Dislike persistence**: Keeps a song disliked in memory when removing its saved dislike fails
+- **Playlist picker**: Still offers playlist creation when Favorites is the only existing playlist
+- **Player controls**: Keeps favorite and other library actions visible at medium and compact terminal sizes
+
 ## [0.11.0] - 2026-09-04
 
 ### Added

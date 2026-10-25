@@ -261,7 +261,8 @@ def create_player_layout(
     controls = Table.grid(expand=True)
     controls.add_column(justify="center")
     controls.add_row(control_line(control_items[:3]))
-    controls.add_row(control_line(control_items[3:]))
+    controls.add_row(control_line(control_items[3:6]))
+    controls.add_row(control_line(control_items[6:]))
 
     # Keep every player section inside one continuous frame.
     content.split_column(
@@ -270,7 +271,7 @@ def create_player_layout(
         Layout(Align.center(song_info, vertical="middle"), size=5),
         Layout(Align.center(progress), size=1),
         Layout(Align.center(footer_content) if footer_content else "", size=2),
-        Layout(controls, size=2),
+        Layout(controls, size=3),
     )
     layout.update(Panel(content, border_style="dim", padding=(0, 1)))
 
@@ -390,8 +391,9 @@ def play_with_rich_ui(
     on_previous: Callable[[], None] | None = None,
     on_pause: Callable[[bool], None] | None = None,
     on_lyrics: Callable[[dict], None] | None = None,
+    on_favorite: Callable[[dict], str] | None = None,
     on_add_playlist: Callable[[dict], None] | None = None,
-    on_dislike: Callable[[dict], None] | None = None,
+    on_dislike: Callable[[dict], str] | None = None,
 ) -> None:
     """Play music with rich-based UI.
 
@@ -409,8 +411,9 @@ def play_with_rich_ui(
         on_previous: Callback for previous track
         on_pause: Callback receiving the desired paused state
         on_lyrics: Callback for lyrics display
+        on_favorite: Callback for toggling the song in Favorites
         on_add_playlist: Callback for adding to playlist
-        on_dislike: Callback for disliking song
+        on_dislike: Callback for playlist removal or disliking
     """
     console = Console()
 
@@ -536,6 +539,19 @@ def play_with_rich_ui(
                             live.stop()
                             on_lyrics(song)
                             live.start(refresh=True)
+                    elif key == "f":
+                        if on_favorite:
+                            result = on_favorite(song)
+                            if result == "added":
+                                toast_msg = f"Favorited · {song_title} · {artist}"
+                                toast_detail = "Saved to Favorites"
+                            elif result == "removed":
+                                toast_msg = f"Unfavorited · {song_title} · {artist}"
+                                toast_detail = "Removed from Favorites"
+                            else:
+                                toast_msg = f"Could not update Favorites · {song_title}"
+                                toast_detail = "Playback will continue"
+                            toast_expire = time.time() + 3.5
                     elif key == "a":
                         if on_add_playlist:
                             live.stop()
@@ -554,12 +570,25 @@ def play_with_rich_ui(
                                 toast_expire = time.time() + 1.5
                     elif key == "d":
                         if on_dislike:
-                            on_dislike(song)
-                        toast_msg = f"Disliked · {song_title} · {artist}"
-                        toast_detail = "Hidden from future searches and radio playlists"
-                        toast_expire = time.time() + 3.5
-                        player.stop()
-                        break
+                            result = on_dislike(song)
+                            if result == "removed":
+                                toast_msg = "Removed from playlist"
+                                toast_detail = "Press D again to hide it from search and radio"
+                                toast_expire = time.time() + 3.5
+                            elif result == "disliked":
+                                toast_msg = f"Disliked · {song_title} · {artist}"
+                                toast_detail = "Hidden from future searches and radio playlists"
+                                toast_expire = time.time() + 3.5
+                                player.stop()
+                                break
+                            elif result == "already":
+                                toast_msg = "Already disliked"
+                                toast_detail = None
+                                toast_expire = time.time() + 1.5
+                            else:
+                                toast_msg = "Could not dislike track"
+                                toast_detail = "Playback will continue"
+                                toast_expire = time.time() + 3
                     elif key == "q" or key == "\x03":  # q or Ctrl+C
                         player.stop()
                         return

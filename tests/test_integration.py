@@ -249,3 +249,48 @@ class TestDataValidation:
 
             # Only valid song should be disliked
             assert dislike_manager.get_dislike_count() == 1
+
+
+class TestFavoriteDislikeIntegration:
+    """Favorites and dislikes should remain mutually exclusive."""
+
+    @staticmethod
+    def configure_managers(monkeypatch, temp_dir):
+        from ytm_cli import player as player_module
+
+        playlists = PlaylistManager(temp_dir)
+        dislikes = DislikeManager(os.path.join(temp_dir, "dislikes.json"))
+        monkeypatch.setattr(player_module, "playlist_manager", playlists)
+        monkeypatch.setattr(player_module, "dislike_manager", dislikes)
+        return player_module, playlists, dislikes
+
+    def test_favoriting_removes_existing_dislike(self, monkeypatch, temp_dir, sample_song):
+        player_module, playlists, dislikes = self.configure_managers(monkeypatch, temp_dir)
+        assert dislikes.dislike_song(sample_song, notify=False)
+
+        assert player_module.toggle_song_favorite(sample_song) == "added"
+
+        assert not dislikes.is_disliked(sample_song["videoId"])
+        assert playlists.get_playlist("Favorites")["songs"][0]["videoId"] == sample_song["videoId"]
+
+    def test_disliking_removes_existing_favorite(self, monkeypatch, temp_dir, sample_song):
+        player_module, playlists, dislikes = self.configure_managers(monkeypatch, temp_dir)
+        assert playlists.toggle_favorite(sample_song) == "added"
+
+        assert player_module.update_song_dislike(sample_song) == "disliked"
+
+        assert dislikes.is_disliked(sample_song["videoId"])
+        assert playlists.get_playlist("Favorites")["songs"] == []
+
+    def test_playlist_song_is_removed_before_being_disliked(
+        self, monkeypatch, temp_dir, sample_song
+    ):
+        player_module, playlists, dislikes = self.configure_managers(monkeypatch, temp_dir)
+        assert playlists.create_playlist("Road Trip", notify=False)
+        assert playlists.add_song_to_playlist("Road Trip", sample_song, notify=False)
+
+        assert player_module.update_song_dislike(sample_song, "Road Trip") == "removed"
+        assert not dislikes.is_disliked(sample_song["videoId"])
+
+        assert player_module.update_song_dislike(sample_song, "Road Trip") == "disliked"
+        assert dislikes.is_disliked(sample_song["videoId"])

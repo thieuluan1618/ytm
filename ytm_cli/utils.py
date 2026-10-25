@@ -13,6 +13,7 @@ PLAY_ICON = "▶"
 PAUSE_ICON = "⏸"
 NEXT_ICON = "▶▶"
 LYRICS_ICON = "♪"
+FAVORITE_ICON = "♥"
 ADD_ICON = "✚"
 DISLIKE_ICON = "▼"
 QUIT_ICON = "■"
@@ -25,6 +26,7 @@ def player_controls(is_paused: bool = False):
         (PLAY_ICON if is_paused else PAUSE_ICON, "space", "play" if is_paused else "pause"),
         (NEXT_ICON, "n", "next"),
         (LYRICS_ICON, "l", "lyrics"),
+        (FAVORITE_ICON, "f", "favorite"),
         (ADD_ICON, "a", "save"),
         (DISLIKE_ICON, "d", "dislike"),
         (QUIT_ICON, "q", "quit"),

@@ -9,6 +9,8 @@ from typing import Any
 
 from rich import print
 
+FAVORITES_PLAYLIST_NAME = "Favorites"
+
 
 def get_playlists_dir() -> Path:
     """Get the playlists directory (~/.config/ytm-cli/playlists/)"""
@@ -112,6 +114,31 @@ class PlaylistManager:
             if notify:
                 print(f"[red]Error adding song to playlist: {e}[/red]")
             return False
+
+    def toggle_favorite(self, song: dict[str, Any]) -> str:
+        """Toggle a song in the built-in Favorites playlist."""
+        video_id = song.get("videoId", "")
+        if not video_id:
+            return "error"
+
+        favorites = self.get_playlist(FAVORITES_PLAYLIST_NAME)
+        if favorites and any(
+            saved_song.get("videoId") == video_id for saved_song in favorites.get("songs", [])
+        ):
+            if self.remove_song_from_playlist_by_id(FAVORITES_PLAYLIST_NAME, video_id):
+                return "removed"
+            return "error"
+
+        if favorites is None and not self.create_playlist(
+            FAVORITES_PLAYLIST_NAME,
+            "Songs marked as favorites",
+            notify=False,
+        ):
+            return "error"
+
+        if self.add_song_to_playlist(FAVORITES_PLAYLIST_NAME, song, notify=False):
+            return "added"
+        return "error"
 
     def list_playlists(self) -> list[dict[str, Any]]:
         """List all available playlists"""

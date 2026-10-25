@@ -146,8 +146,8 @@ class DislikeManager:
             print(f"[red]Error loading disliked songs: {e}[/red]")
             return []
 
-    def remove_dislike(self, video_id: str) -> bool:
-        """Remove a song from dislikes"""
+    def remove_dislike(self, video_id: str, notify: bool = True) -> bool:
+        """Remove a song from dislikes, optionally suppressing terminal feedback."""
         try:
             if video_id not in self._disliked_ids:
                 return False
@@ -155,14 +155,17 @@ class DislikeManager:
             songs = self.get_disliked_songs()
             filtered_songs = [s for s in songs if s.get("videoId") != video_id]
 
-            self._save_dislikes(filtered_songs)
+            if not self._save_dislikes(filtered_songs, notify=notify):
+                return False
             self._disliked_ids.discard(video_id)
 
-            print("[green]Removed song from dislikes[/green]")
+            if notify:
+                print("[green]Removed song from dislikes[/green]")
             return True
 
         except Exception as e:
-            print(f"[red]Error removing dislike: {e}[/red]")
+            if notify:
+                print(f"[red]Error removing dislike: {e}[/red]")
             return False
 
     def clear_all_dislikes(self) -> bool:

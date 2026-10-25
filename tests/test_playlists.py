@@ -214,6 +214,35 @@ class TestAddSongToPlaylist:
         assert updated_timestamp > initial_timestamp
 
 
+class TestFavorites:
+    """Tests for the built-in Favorites playlist."""
+
+    def test_toggle_favorite_creates_adds_and_removes(self, temp_dir, sample_song):
+        manager = PlaylistManager(temp_dir)
+
+        assert manager.toggle_favorite(sample_song) == "added"
+        favorites = manager.get_playlist("Favorites")
+        assert favorites["description"] == "Songs marked as favorites"
+        assert [song["videoId"] for song in favorites["songs"]] == [sample_song["videoId"]]
+
+        assert manager.toggle_favorite(sample_song) == "removed"
+        assert manager.get_playlist("Favorites")["songs"] == []
+
+    def test_toggle_favorite_reuses_existing_playlist(self, temp_dir, sample_song):
+        manager = PlaylistManager(temp_dir)
+        assert manager.create_playlist("favorites", notify=False)
+
+        assert manager.toggle_favorite(sample_song) == "added"
+        assert len(manager.list_playlists()) == 1
+        assert manager.get_playlist("favorites")["songs"][0]["videoId"] == sample_song["videoId"]
+
+    def test_toggle_favorite_rejects_song_without_video_id(self, temp_dir):
+        manager = PlaylistManager(temp_dir)
+
+        assert manager.toggle_favorite({"title": "Incomplete"}) == "error"
+        assert manager.list_playlists() == []
+
+
 class TestListPlaylists:
     """Tests for list_playlists method"""
 

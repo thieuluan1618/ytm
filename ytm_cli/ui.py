@@ -8,7 +8,8 @@ import time
 from collections import deque
 from curses import wrapper
 
-from .playlists import playlist_manager
+from .dislikes import dislike_manager
+from .playlists import FAVORITES_PLAYLIST_NAME, playlist_manager
 from .utils import ADD_ICON, PAUSE_ICON, PLAY_ICON, player_controls
 
 _UI_MAX_WIDTH = 76
@@ -368,7 +369,7 @@ def selection_ui(stdscr, results, query, songs_to_display):
             footer_row,
             lm,
             cw,
-            "[ENTER] play  [A] save  [↑↓/JK] move  [Q] back",
+            "[ENTER] play  [F] favorite  [A] save  [↑↓/JK] move  [Q] back",
             f"{current_selection + 1}/{display_count}",
             accent,
             dim,
@@ -386,6 +387,22 @@ def selection_ui(stdscr, results, query, songs_to_display):
             return current_selection
         elif key == ord("q"):
             return None
+        elif key in (ord("f"), ord("F")):
+            selected_song = results[current_selection]
+            favorite_result = playlist_manager.toggle_favorite(selected_song)
+            video_id = selected_song.get("videoId", "")
+            if favorite_result == "added" and dislike_manager.is_disliked(video_id):
+                if not dislike_manager.remove_dislike(video_id, notify=False):
+                    playlist_manager.toggle_favorite(selected_song)
+                    favorite_result = "error"
+
+            if favorite_result == "added":
+                status_message = f"Favorited '{selected_song['title']}'"
+            elif favorite_result == "removed":
+                status_message = f"Removed '{selected_song['title']}' from Favorites"
+            else:
+                status_message = f"Could not update Favorites for '{selected_song['title']}'"
+            status_timer = time.time()
         elif key == ord("a") or key == ord("A"):
             selected_song = results[current_selection]
             if add_song_to_playlist_ui(stdscr, selected_song):
@@ -397,7 +414,7 @@ def selection_ui(stdscr, results, query, songs_to_display):
 
 def select_playlist_ui(stdscr, song_title, playlists):
     """Select an existing playlist or request creation of a new one."""
-    if len(playlists) == 1:
+    if len(playlists) == 1 and playlists[0].lower() != FAVORITES_PLAYLIST_NAME.lower():
         return playlists[0]
 
     curses.curs_set(0)
@@ -534,7 +551,7 @@ def add_song_to_playlist_ui(stdscr, song):
     playlists = playlist_manager.get_playlist_names()
 
     # If only one playlist exists, auto-select it (keep music simple!)
-    if len(playlists) == 1:
+    if len(playlists) == 1 and playlists[0].lower() != FAVORITES_PLAYLIST_NAME.lower():
         playlist_name = playlists[0]
         return playlist_manager.add_song_to_playlist(playlist_name, song, notify=False)
 
@@ -881,8 +898,13 @@ def draw_player(
     state_icon = PAUSE_ICON if is_paused else PLAY_ICON
     position = f"{track_idx} / {track_total}"
     toast_visible = bool(toast_msg and time.time() < toast_expire)
-    compact = h < 18 or cw < 58
     control_items = player_controls(is_paused)
+    library_control_width = len(
+        "   ".join(
+            f"{icon} [{key.upper()}] {description}" for icon, key, description in control_items[3:]
+        )
+    )
+    compact = h < 18 or cw < 58 or (h < 19 and library_control_width > cw)
 
     # The compact layout keeps the core controls usable in short or narrow terminals.
     if compact:
@@ -973,7 +995,7 @@ def draw_player(
             if len(playback_controls) > cw:
                 playback_controls = "[B] [SPC] [N]"
             if len(library_controls) > cw:
-                library_controls = "[L] [A] [D] [Q]"
+                library_controls = "[L] [F] [A] [D] [Q]"
             _draw_ctrl_line(
                 scr,
                 footer_row - 1,
@@ -991,8 +1013,8 @@ def draw_player(
                 dim,
             )
         else:
-            key_controls = "[B] [SPC] [N] · [L] [A] [D] [Q]"
-            controls = key_controls if len(key_controls) <= cw else "B S N · L A D Q"
+            key_controls = "[B] [SPC] [N] · [L] [F] [A] [D] [Q]"
+            controls = key_controls if len(key_controls) <= cw else "B S N · L F A D Q"
             controls = _ellipsize(controls, cw)
             _draw_ctrl_line(
                 scr,
@@ -1136,14 +1158,28 @@ def draw_player(
         accent_n,
         dim,
     )
-    _draw_ctrl_line(
-        scr,
-        top + 17,
-        cx - len(library_controls) // 2,
-        library_controls,
-        accent_n,
-        dim,
-    )
+    if len(library_controls) <= cw:
+        _draw_ctrl_line(
+            scr,
+            top + 17,
+            cx - len(library_controls) // 2,
+            library_controls,
+            accent_n,
+            dim,
+        )
+    else:
+        for row_offset, items in enumerate((control_items[3:6], control_items[6:])):
+            control_line = "   ".join(
+                f"{icon} [{key.upper()}] {description}" for icon, key, description in items
+            )
+            _draw_ctrl_line(
+                scr,
+                top + 17 + row_offset,
+                cx - len(control_line) // 2,
+                control_line,
+                accent_n,
+                dim,
+            )
 
     scr.refresh()
 

@@ -20,6 +20,7 @@ from .ui import selection_ui
 from .utils import (
     ADD_ICON,
     DISLIKE_ICON,
+    FAVORITE_ICON,
     LYRICS_ICON,
     NEXT_ICON,
     PAUSE_ICON,
@@ -585,6 +586,7 @@ Examples:
 
 During song selection:
   • Enter: Play selected song with radio
+  • f: Add to or remove from Favorites
   • a: Add song to playlist
   • q: Quit to search
   • ↑↓ or j/k: Navigate
@@ -592,7 +594,8 @@ During song selection:
 During music playback:
   • {PLAY_ICON}/{PAUSE_ICON} space: Play/pause
   • {NEXT_ICON} n: Next song, {PREVIOUS_ICON} b: Previous song
-  • {LYRICS_ICON} l: Show lyrics, {ADD_ICON} a: Add to playlist
+  • {LYRICS_ICON} l: Show lyrics, {FAVORITE_ICON} f: Toggle favorite
+  • {ADD_ICON} a: Add to playlist
   • {DISLIKE_ICON} d: Dislike (playlist: remove first, then global), {QUIT_ICON} q: Quit to search
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,

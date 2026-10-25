@@ -312,6 +312,16 @@ class TestUndislikeSong:
 
         assert result is False
 
+    def test_undislike_can_suppress_terminal_feedback(self, temp_dir, sample_song):
+        manager = DislikeManager(os.path.join(temp_dir, "dislikes.json"))
+        assert manager.dislike_song(sample_song, notify=False)
+
+        with patch("ytm_cli.dislikes.print") as mock_print:
+            result = manager.remove_dislike(sample_song["videoId"], notify=False)
+
+        assert result is True
+        mock_print.assert_not_called()
+
     def test_undislike_song_file_error(self, temp_dir, sample_dislikes_data):
         """Test undisliking song with file I/O error"""
         dislikes_file = os.path.join(temp_dir, "dislikes.json")
@@ -327,9 +337,8 @@ class TestUndislikeSong:
         ):
             result = manager.remove_dislike("disliked_song_1")
 
-            # remove_dislike still returns True because in-memory state is updated
-            # even though the file save fails (exception caught in _save_dislikes)
-            assert result is True
+            assert result is False
+            assert manager.is_disliked("disliked_song_1")
             # Verify the save error was reported
             mock_print.assert_any_call("[red]Error saving dislikes: Permission denied[/red]")
 

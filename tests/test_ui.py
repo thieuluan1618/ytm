@@ -118,6 +118,7 @@ class TestDrawPlayer:
             "⏸ [SPACE] pause",
             "▶▶ [N] next",
             "♪ [L] lyrics",
+            "♥ [F] favorite",
             "✚ [A] save",
             "▼ [D] dislike",
             "■ [Q] quit",
@@ -131,13 +132,20 @@ class TestDrawPlayer:
         assert "Neon Cruise" in rendered
         assert "Synthwave Demo Band" in rendered
         assert "[SPC]" in rendered
+        assert "[F]" in rendered
         assert "[Q]" in rendered
         assert "NOW PLAYING" not in rendered
 
     def test_medium_layout_keeps_every_library_action_visible(self):
         rendered = _render_player(height=24, width=62)
 
-        for action in ("♪ [L] lyrics", "✚ [A] save", "▼ [D] dislike", "■ [Q] quit"):
+        for action in (
+            "♪ [L] lyrics",
+            "♥ [F] favorite",
+            "✚ [A] save",
+            "▼ [D] dislike",
+            "■ [Q] quit",
+        ):
             assert action in rendered
 
     def test_detailed_feedback_replaces_queue_context(self):
@@ -307,7 +315,30 @@ class TestSharedScreenVisuals:
         assert "2 RESULTS" in rendered
         assert "RESULTS FOR  night drive" in rendered
         assert "› 01  Neon Cruise · Synthwave Demo Band" in rendered
-        assert "[ENTER] play  [A] save  [↑↓/JK] move  [Q] back" in rendered
+        assert "[ENTER] play  [F] favorite  [A] save  [↑↓/JK] move  [Q] back" in rendered
+
+    def test_search_favorite_key_toggles_selected_song(self):
+        screen = _FakeScreen(18, 80, keys=[ord("f"), ord("q")])
+        song = {
+            "videoId": "favorite-id",
+            "title": "Neon Cruise",
+            "artists": [{"name": "Synthwave Demo Band"}],
+        }
+        curs_set, use_colors, init_pair, color_pair = self.curses_patches()
+
+        with (
+            curs_set,
+            use_colors,
+            init_pair,
+            color_pair,
+            patch("ytm_cli.ui.playlist_manager.toggle_favorite", return_value="added") as toggle,
+            patch("ytm_cli.ui.dislike_manager.is_disliked", return_value=False),
+        ):
+            selected = selection_ui(screen, [song], "night drive", 5)
+
+        assert selected is None
+        toggle.assert_called_once_with(song)
+        assert "Favorited 'Neon Cruise'" in screen.render()
 
     def test_empty_search_results_return_without_navigation(self):
         screen = _FakeScreen(18, 80)
@@ -335,6 +366,17 @@ class TestSharedScreenVisuals:
         assert "✚  Create new playlist" in rendered
         assert "› Favorites" in rendered
         assert "[ENTER] choose  [↑↓/JK] move  [Q] cancel" in rendered
+
+    def test_favorites_only_picker_still_offers_new_playlist(self):
+        screen = _FakeScreen(18, 80, keys=[ord("q")])
+        curs_set, use_colors, init_pair, color_pair = self.curses_patches()
+
+        with curs_set, use_colors, init_pair, color_pair:
+            selected = select_playlist_ui(screen, "Neon Cruise", ["Favorites"])
+
+        assert selected is None
+        assert "✚  Create new playlist" in screen.render()
+        assert "Favorites" in screen.render()
 
     def test_new_playlist_prompt_stays_in_the_shared_save_screen(self):
         screen = _FakeScreen(18, 80, input_text="Road Trip")

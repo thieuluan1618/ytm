@@ -17,7 +17,7 @@ from ytm_cli.utils import goodbye_message
 
 from .config import get_ytmusic
 from .dislikes import dislike_manager
-from .playlists import playlist_manager
+from .playlists import FAVORITES_PLAYLIST_NAME, playlist_manager
 from .ui import display_lyrics_with_curses, new_playlist_name_ui, select_playlist_ui
 
 
@@ -211,6 +211,35 @@ def get_mpv_audio_level(socket_path):
     """Back-compat: overall RMS as float 0..1, or None."""
     levels = get_mpv_audio_levels(socket_path)
     return levels.get("rms") if levels else None
+
+
+def toggle_song_favorite(song):
+    """Toggle a favorite while keeping favorite and dislike states exclusive."""
+    result = playlist_manager.toggle_favorite(song)
+    video_id = song.get("videoId", "")
+    if result == "added" and dislike_manager.is_disliked(video_id):
+        if not dislike_manager.remove_dislike(video_id, notify=False):
+            playlist_manager.toggle_favorite(song)
+            return "error"
+    return result
+
+
+def update_song_dislike(song, playlist_name=None):
+    """Apply the playlist-first dislike behavior and return the resulting state."""
+    video_id = song.get("videoId", "")
+    if video_id and dislike_manager.is_disliked(video_id):
+        return "already"
+
+    if playlist_name and video_id:
+        if playlist_manager.remove_song_from_playlist_by_id(playlist_name, video_id):
+            return "removed"
+
+    if not dislike_manager.dislike_song(song, notify=False):
+        return "error"
+
+    if video_id:
+        playlist_manager.remove_song_from_playlist_by_id(FAVORITES_PLAYLIST_NAME, video_id)
+    return "disliked"
 
 
 def add_song_to_playlist_interactive(song_data):
@@ -445,21 +474,6 @@ def play_music_with_controls_curses(
             toast_detail = detail
             toast_expire = time.time() + duration
 
-        def dislike_and_skip(song, title, artist_name):
-            nonlocal current_song_index
-            if not dislike_manager.dislike_song(song, notify=False):
-                fire("Could not dislike track", "Playback will continue", duration=3)
-                return False
-
-            fire(
-                f"Disliked · {title} · {artist_name}",
-                "Hidden from future searches and radio playlists",
-                duration=3.5,
-            )
-            player.stop()
-            current_song_index += 1
-            return True
-
         try:
             while 0 <= current_song_index < len(playlist):
                 reset_wave_history()
@@ -681,6 +695,26 @@ def play_music_with_controls_curses(
                         curses.curs_set(0)
                         stdscr.timeout(200)
                         lyrics_just_viewed = True
+                    elif key == ord("f"):
+                        favorite_result = toggle_song_favorite(item)
+                        if favorite_result == "added":
+                            fire(
+                                f"Favorited · {song_title} · {artist}",
+                                "Saved to Favorites",
+                                duration=3.5,
+                            )
+                        elif favorite_result == "removed":
+                            fire(
+                                f"Unfavorited · {song_title} · {artist}",
+                                "Removed from Favorites",
+                                duration=3.5,
+                            )
+                        else:
+                            fire(
+                                f"Could not update Favorites · {song_title}",
+                                "Playback will continue",
+                                duration=3.5,
+                            )
                     elif key == ord("a"):
                         curses.endwin()
                         add_result = add_song_to_playlist_interactive(item)
@@ -703,26 +737,26 @@ def play_music_with_controls_curses(
                         else:
                             fire("Add cancelled")
                     elif key == ord("d"):
-                        vid = item.get("videoId")
-                        stitle = item.get("title", "Unknown")
-
-                        if playlist_name and vid:
-                            if dislike_manager.is_disliked(vid):
-                                fire("Already disliked")
-                            elif playlist_manager.remove_song_from_playlist_by_id(
-                                playlist_name, vid
-                            ):
-                                fire(
-                                    "Removed from playlist",
-                                    "Press D again to hide it from search and radio",
-                                    duration=3.5,
-                                )
-                            else:
-                                if dislike_and_skip(item, stitle, artist):
-                                    break
+                        dislike_result = update_song_dislike(item, playlist_name)
+                        if dislike_result == "removed":
+                            fire(
+                                "Removed from playlist",
+                                "Press D again to hide it from search and radio",
+                                duration=3.5,
+                            )
+                        elif dislike_result == "disliked":
+                            fire(
+                                f"Disliked · {song_title} · {artist}",
+                                "Hidden from future searches and radio playlists",
+                                duration=3.5,
+                            )
+                            player.stop()
+                            current_song_index += 1
+                            break
+                        elif dislike_result == "already":
+                            fire("Already disliked")
                         else:
-                            if dislike_and_skip(item, stitle, artist):
-                                break
+                            fire("Could not dislike track", "Playback will continue", duration=3)
                     elif key == ord("q") or key == 3:
                         quit_pressed = True
                         return
@@ -870,8 +904,11 @@ def play_music_with_controls_rich(
     def on_add_playlist(song):
         return add_song_to_playlist_interactive(song)
 
+    def on_favorite(song):
+        return toggle_song_favorite(song)
+
     def on_dislike(song):
-        dislike_manager.dislike_song(song, notify=False)
+        return update_song_dislike(song, playlist_name)
 
     try:
         play_with_rich_ui(
@@ -883,6 +920,7 @@ def play_music_with_controls_rich(
             get_bands=get_visualizer_bands,
             on_pause=on_pause,
             on_lyrics=on_lyrics,
+            on_favorite=on_favorite,
             on_add_playlist=on_add_playlist,
             on_dislike=on_dislike,
         )
