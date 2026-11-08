@@ -48,7 +48,7 @@ ytm-cli --update
 # Update a uv-managed checkout
 uv sync --upgrade-package yt-dlp
 
-# Update via Homebrew (macOS/Linux)
+# Update via Homebrew
 brew upgrade yt-dlp
 
 # Update via pip (if not using system package)
@@ -99,17 +99,6 @@ command not found: mpv
 **macOS (Homebrew):**
 ```bash
 brew install mpv
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt update
-sudo apt install mpv
-```
-
-**Arch Linux:**
-```bash
-sudo pacman -S mpv
 ```
 
 **Verify installation:**

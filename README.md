@@ -32,9 +32,10 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 
 ### Requirements
 
+- **macOS** (the only platform maintained for now)
 - Python **3.10+** (set in `pyproject.toml`)
-- [mpv media player](https://mpv.io/installation/) (must be installed system-wide)
-- [`ffmpeg`](https://ffmpeg.org/) on `PATH` for the real-time spectrum visualizer (optional — falls back to animated bars if missing)
+- [mpv media player](https://mpv.io/installation/), installed system-wide: `brew install mpv`
+- [`ffmpeg`](https://ffmpeg.org/) on `PATH` for the real-time spectrum visualizer: `brew install ffmpeg` (optional — falls back to animated bars if missing)
 
 ### Installation
 
@@ -57,7 +58,7 @@ uv run ytm-cli "song name"
 </details>
 
 <details>
-<summary>Alternative: one-shot setup script (Linux / macOS)</summary>
+<summary>Alternative: one-shot setup script (macOS)</summary>
 
 ```bash
 git clone https://github.com/thieuluan1618/ytm.git
@@ -83,7 +84,7 @@ uv sync                   # installs runtime deps from pyproject.toml + uv.lock
 
 </details>
 
-> **Windows users:** native Windows is not supported (the codebase uses POSIX-only `termios`/`tty`/`fcntl`). Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and follow the Linux instructions above.
+> **Platform support:** macOS is the only platform maintained for now. Linux and WSL2 may still work but aren't maintained. Native Windows is not supported (the codebase uses POSIX-only `termios`/`tty`/`fcntl`).
 
 ### Basic Usage
 

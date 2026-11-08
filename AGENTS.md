@@ -33,15 +33,16 @@ pip install .                     # runtime deps from pyproject.toml
 pip install '.[dev]' || true      # if you need test/lint extras
 ```
 
-> **Platform support:** Linux, macOS, and WSL2 only. The codebase uses
+> **Platform support:** macOS is the only platform maintained for now.
+> Linux and WSL2 may still work but aren't maintained. The codebase uses
 > POSIX-only modules (`termios`, `tty`, `fcntl`) and will not import on
-> native Windows — Windows users should run the project under WSL2.
+> native Windows.
 
 ### Quick Setup (Recommended)
 
 For easier access, set up the `ytm` command alias.
 
-#### Linux / macOS / WSL2
+#### macOS
 
 Supports: **zsh**, **bash**, **fish** shells.
 
