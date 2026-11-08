@@ -14,6 +14,7 @@ from yt_dlp.version import __version__ as YTDLP_VERSION
 
 from .config import clear_player_pid, get_cookies_browser, get_mpv_flags, save_player_pid
 from .ffmpeg_player import FFmpegPlayerService
+from .spectrum import mpv_audio_filter
 from .verbose_logger import is_verbose, log_error, log_info, log_section
 
 _NEXT_REQUEST_PROPERTY = "user-data/ytm-cli/next-requested"
@@ -164,7 +165,7 @@ class CLIHybridPlayerService:
             mpv_flags.extend(
                 [
                     f"--input-ipc-server={self.socket_path}",
-                    "--af-append=@vstats:lavfi=[astats=metadata=1:reset=1:length=0.1]",
+                    f"--af-append={mpv_audio_filter()}",
                 ]
             )
             user_agent = resolved_audio.user_agent if resolved_audio else std_headers["User-Agent"]

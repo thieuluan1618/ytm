@@ -78,7 +78,7 @@ class DemoPlayer:
 
 
 class DemoSpectrum:
-    """Synthetic but visually believable band data — replaces SpectrumAnalyzer."""
+    """Synthetic but visually believable band data — replaces MpvSpectrum."""
 
     def __init__(self, n_bands: int = 24):
         self.n_bands = n_bands

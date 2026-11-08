@@ -11,7 +11,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 </p>
 
 <p align="center">
-  <em>Player UI with the real-time FFT spectrum visualizer (synthetic demo capture).
+  <em>Player UI with the real-time spectrum visualizer (synthetic demo capture).
   Click for the higher-quality .webm.</em>
 </p>
 
@@ -25,7 +25,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 - **👎 Smart Filtering**: Dislike songs to filter them from future results
 - **📜 Synced Lyrics**: Live-highlighted lyrics with auto-scroll (press `l`)
 - **🎯 Radio Mode**: Automatic playlist generation based on your selection
-- **📊 Real-time Spectrum Visualizer**: 24-band FFT bars in both player layouts, driven by an `ffmpeg` sidecar with animated fallback bars when live data is unavailable
+- **📊 Real-time Spectrum Visualizer**: 24-band bars in both player layouts that follow the audio mpv is playing, including pause and seek — no microphone needed
 - **🤖 AI-Powered**: Natural language music requests and AI-generated playlists
 
 ## 🚀 Quick Start
@@ -35,7 +35,6 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 - **macOS** (the only platform maintained for now)
 - Python **3.10+** (set in `pyproject.toml`)
 - [mpv media player](https://mpv.io/installation/), installed system-wide: `brew install mpv`
-- [`ffmpeg`](https://ffmpeg.org/) on `PATH` for the real-time spectrum visualizer: `brew install ffmpeg` (optional — falls back to animated bars if missing)
 
 ### Installation
 

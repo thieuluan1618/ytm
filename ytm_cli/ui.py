@@ -757,32 +757,6 @@ def display_player_status(
 # \u2500\u2500 Curses player UI (redesigned) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 _WAVE_BARS = 24
-_WAVE_SEEDS = [
-    6,
-    18,
-    10,
-    30,
-    14,
-    38,
-    8,
-    28,
-    22,
-    12,
-    36,
-    16,
-    24,
-    8,
-    32,
-    18,
-    6,
-    28,
-    14,
-    20,
-    34,
-    10,
-    26,
-    16,
-]
 _BLOCKS = " \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"
 
 # Rolling history of real audio samples driving the visualizer.
@@ -1076,11 +1050,9 @@ def draw_player(
                 level = recent[nbars - 1 - i][1]
             _draw_bar(scr, bar_bottom, wave_x + i * 2, level, _WAVE_ROWS, bar_attr)
     else:
+        # No audio data: stay flat rather than animating something that isn't there.
         for i in range(nbars):
-            seed = _WAVE_SEEDS[i % len(_WAVE_SEEDS)]
-            phase = frame * 0.7 + i * 0.65
-            level = (seed / 40.0) * (0.7 + 0.3 * math.sin(phase))
-            _draw_bar(scr, bar_bottom, wave_x + i * 2, level, _WAVE_ROWS, bar_attr)
+            _draw_bar(scr, bar_bottom, wave_x + i * 2, 0.0, _WAVE_ROWS, bar_attr)
 
     # Track identity is deliberately the strongest element on screen.
     overline = "NOW PLAYING"

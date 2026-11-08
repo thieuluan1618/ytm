@@ -12,6 +12,7 @@ from ytm_cli.hybrid_player import (
     _is_ytdlp_outdated,
     resolve_audio_url,
 )
+from ytm_cli.spectrum import mpv_audio_filter
 
 
 def test_ytdlp_version_check_handles_date_versions():
@@ -287,6 +288,27 @@ class TestCLIHybridPlayerPlayback(unittest.TestCase):
 
         command = mock_popen.call_args.args[0]
         assert any(flag.startswith("--user-agent=Mozilla/") for flag in command)
+
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_play_mpv_measures_the_audio_it_plays(self, mock_which):
+        """The visualizer's bands must come from mpv's own filter chain."""
+        with patch("builtins.print"):
+            player = CLIHybridPlayerService()
+
+        process = MagicMock(pid=123)
+        process.poll.return_value = None
+
+        with (
+            patch("ytm_cli.hybrid_player.get_mpv_flags", return_value=["--no-video"]),
+            patch("ytm_cli.hybrid_player.get_cookies_browser", return_value=None),
+            patch("ytm_cli.hybrid_player.save_player_pid"),
+            patch("ytm_cli.hybrid_player.subprocess.Popen", return_value=process) as mock_popen,
+            patch("ytm_cli.hybrid_player.os.path.exists", return_value=True),
+            patch("ytm_cli.hybrid_player.time.sleep"),
+        ):
+            assert player.play("video-id", "Test Song") is True
+
+        assert f"--af-append={mpv_audio_filter()}" in mock_popen.call_args.args[0]
 
     @patch("shutil.which", return_value="/usr/bin/mpv")
     def test_play_mpv_routes_next_media_keys_to_cli(self, mock_which):

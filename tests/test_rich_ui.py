@@ -636,3 +636,12 @@ def test_rich_recovers_raw_output_on_entry_and_after_dialog(monkeypatch):
     finally:
         os.close(slave)
         os.close(master)
+
+
+class TestWaveVisualizerWithoutAudio:
+    def test_no_audio_is_a_flat_line(self):
+        lines = str(create_wave_visualizer(None)).splitlines()
+
+        assert len(lines) == 3
+        assert set(lines[2].replace(" ", "")) == {"▁"}
+        assert not lines[0].strip() and not lines[1].strip()

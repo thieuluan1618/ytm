@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Waves follow the real audio**: The visualizer reads band levels from mpv's own audio chain, timed to what you hear and following pause, seek, and buffering. It no longer animates fake bars when there's no data, and needs no microphone, second stream, `ffmpeg`, or `numpy`
+
 ### Fixed
 
 - **Desktop lyrics on pause**: The overlay dismisses however playback is paused, including media keys and Control Center, and stays hidden until playback resumes
