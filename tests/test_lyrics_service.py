@@ -520,3 +520,36 @@ class TestLyricsServiceIntegration:
         assert artist_name == ""
         assert album_name == "Test Album"
         assert duration == 225
+
+
+@pytest.mark.parametrize("value", [None, "", "unknown"])
+def test_optional_duration_does_not_break_lookup(value):
+    metadata = get_song_metadata_from_item(
+        {"title": "Song", "duration_seconds": value, "duration": "3:45"}
+    )
+    assert metadata[3] == 225
+
+
+def test_lrc_whole_seconds_and_multiple_timestamps():
+    assert LRCParser.parse_lrc("[00:12][01:12.5]Repeated line") == [
+        (12.0, "Repeated line"),
+        (72.5, "Repeated line"),
+    ]
+
+
+@pytest.mark.parametrize("exact", [None, {"plainLyrics": "Plain only"}])
+def test_full_metadata_retries_terminal_lookup_before_search(exact):
+    with patch("ytm_cli.lyrics_service.LyricsService") as factory:
+        service = factory.return_value
+        service.get_lyrics.side_effect = [exact, {"syncedLyrics": "[00:01]Found"}]
+        result = get_timestamped_lyrics(
+            {
+                "title": "Song",
+                "artists": [{"name": "Artist"}],
+                "album": "Video release",
+                "duration_seconds": None,
+            }
+        )
+        assert result["parsed_lyrics"] == [(1.0, "Found")]
+        service.get_lyrics.assert_called_with("Song", "Artist")
+        service.search_lyrics.assert_not_called()

@@ -93,21 +93,21 @@ class LRCParser:
             return []
 
         lines = []
-        lrc_pattern = r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)"
+        lrc_pattern = r"\[(\d+):(\d{2})(?:\.(\d{1,3}))?\]"
 
         for line in lrc_content.split("\n"):
             line = line.strip()
             if not line:
                 continue
 
-            match = re.match(lrc_pattern, line)
-            if match:
+            matches = list(re.finditer(lrc_pattern, line))
+            text = re.sub(lrc_pattern, "", line).strip()
+            for match in matches:
                 minutes = int(match.group(1))
                 seconds = int(match.group(2))
                 centiseconds = int(
-                    match.group(3).ljust(3, "0")[:3]
+                    (match.group(3) or "0").ljust(3, "0")[:3]
                 )  # Handle 2 or 3 digit centiseconds
-                text = match.group(4).strip()
 
                 # Convert to total seconds
                 timestamp = minutes * 60 + seconds + centiseconds / 1000.0
@@ -169,17 +169,37 @@ def get_song_metadata_from_item(item: dict) -> tuple[str, str, str, int]:
 
     # Extract duration (convert to seconds if needed)
     duration = 0
-    if "duration_seconds" in item:
-        duration = int(item["duration_seconds"])
-    elif "duration" in item:
-        duration_str = item["duration"]
+    try:
+        duration = int(item.get("duration_seconds") or 0)
+    except (TypeError, ValueError, OverflowError):
+        pass
+    if not duration:
+        duration_str = item.get("duration")
         if isinstance(duration_str, str) and ":" in duration_str:
-            # Convert MM:SS to seconds
-            parts = duration_str.split(":")
-            if len(parts) == 2:
-                duration = int(parts[0]) * 60 + int(parts[1])
+            try:
+                parts = duration_str.split(":")
+                if len(parts) in (2, 3):
+                    for part in parts:
+                        duration = duration * 60 + int(part)
+            except ValueError:
+                duration = 0
 
     return track_name, artist_name, album_name, duration
+
+
+def get_playback_lyrics(item: dict) -> dict | None:
+    """Use identical lookup metadata for terminal and desktop lyrics."""
+    title = item.get("title", "")
+    artists = item.get("artists") or []
+    artist = artists[0].get("name") if artists else None
+    if artist == "Unknown Artist":
+        artist = None
+    if not artist and " - " in title:
+        title, artist = title.split(" - ", 1)
+    song = {"title": title, "videoId": item.get("videoId")}
+    if artist:
+        song["artists"] = [{"name": artist}]
+    return get_timestamped_lyrics(song)
 
 
 def get_timestamped_lyrics(item: dict) -> dict | None:
@@ -201,6 +221,13 @@ def get_timestamped_lyrics(item: dict) -> dict | None:
 
     # Try exact match first
     lyrics_data = lyrics_service.get_lyrics(track_name, artist_name, album_name, duration)
+
+    # Radio metadata can describe a different release or video duration. Match
+    # the terminal viewer's title/artist lookup before trying a broad search.
+    if (album_name or duration) and (not lyrics_data or not lyrics_data.get("syncedLyrics")):
+        relaxed_data = lyrics_service.get_lyrics(track_name, artist_name)
+        if relaxed_data and (relaxed_data.get("syncedLyrics") or not lyrics_data):
+            lyrics_data = relaxed_data
 
     # If no exact match, try search
     if not lyrics_data:

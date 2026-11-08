@@ -11,12 +11,12 @@ import tempfile
 import termios
 import threading
 import time
-import tty
 
 from ytm_cli.utils import goodbye_message
 
 from .config import get_ytmusic
 from .dislikes import dislike_manager
+from .lyrics_overlay import LyricsOverlay
 from .playlists import FAVORITES_PLAYLIST_NAME, playlist_manager
 from .ui import display_lyrics_with_curses, new_playlist_name_ui, select_playlist_ui
 
@@ -254,9 +254,6 @@ def add_song_to_playlist_interactive(song_data):
     old_settings = termios.tcgetattr(fd)
 
     try:
-        # Reset terminal to normal mode for curses
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
         # Run playlist selection UI
         song_title = song_data.get("title", "Unknown")
         playlists = playlist_manager.get_playlist_names()
@@ -303,13 +300,15 @@ def add_song_to_playlist_interactive(song_data):
         return False
 
     finally:
-        # Restore raw terminal mode for player controls
-        tty.setraw(sys.stdin.fileno())
+        # Restore the caller's mode, including output newline processing.
+        # Rich only enters raw mode while reading a key; leaving it enabled
+        # here makes subsequent frames render with broken line positioning.
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 def get_and_display_lyrics(video_id, title, socket_path=None, is_playing_func=None, artist=None):
     """Get and display lyrics for a song"""
-    from .lyrics_service import get_timestamped_lyrics
+    from .lyrics_service import get_playback_lyrics
 
     try:
         # First try to get timestamped lyrics from LRCLIB
@@ -322,7 +321,7 @@ def get_and_display_lyrics(video_id, title, socket_path=None, is_playing_func=No
         if artist_name:
             song_item["artists"] = [{"name": artist_name}]
 
-        timestamped_lyrics = get_timestamped_lyrics(song_item)
+        timestamped_lyrics = get_playback_lyrics(song_item)
 
         if timestamped_lyrics and (
             timestamped_lyrics.get("synced_lyrics") or timestamped_lyrics.get("plain_lyrics")
@@ -411,6 +410,9 @@ def play_music_with_controls_curses(
         _play_non_interactive(player, playlist)
         return
 
+    overlay = LyricsOverlay(
+        lambda: get_mpv_time_position(player.socket_path) if player.socket_path else None
+    )
     quit_pressed = False
 
     def _curses_main(stdscr):
@@ -476,6 +478,7 @@ def play_music_with_controls_curses(
 
         try:
             while 0 <= current_song_index < len(playlist):
+                overlay.set_track(None)
                 reset_wave_history()
                 if spectrum is not None:
                     spectrum.stop()
@@ -584,6 +587,7 @@ def play_music_with_controls_curses(
                     current_song_index += 1
                     continue
 
+                overlay.set_track(item)
                 is_paused = False
                 if toast_msg == "Loading...":
                     toast_msg = None
@@ -656,6 +660,7 @@ def play_music_with_controls_curses(
 
                     if key == ord(" "):
                         is_paused = not is_paused
+                        overlay.set_paused(is_paused)
                         if is_paused:
                             player.pause()
                         else:
@@ -695,6 +700,11 @@ def play_music_with_controls_curses(
                         curses.curs_set(0)
                         stdscr.timeout(200)
                         lyrics_just_viewed = True
+                    elif key == ord("o"):
+                        if player.player_type == "mpv":
+                            fire(overlay.toggle(), duration=4)
+                        else:
+                            fire("Desktop lyrics require mpv playback", duration=3)
                     elif key == ord("f"):
                         favorite_result = toggle_song_favorite(item)
                         if favorite_result == "added":
@@ -767,6 +777,7 @@ def play_music_with_controls_curses(
     try:
         curses.wrapper(_curses_main)
     finally:
+        overlay.close()
         player.cleanup()
 
     if quit_pressed:
@@ -861,6 +872,13 @@ def play_music_with_controls_rich(
             return get_mpv_duration(player.socket_path)
         return None
 
+    overlay = LyricsOverlay(get_elapsed)
+
+    def on_overlay():
+        if player.player_type != "mpv":
+            return "Desktop lyrics require mpv playback"
+        return overlay.toggle()
+
     def get_visualizer_bands(song, track_index):
         nonlocal spectrum_track
         if spectrum is None:
@@ -882,6 +900,7 @@ def play_music_with_controls_rich(
         return spectrum.get_bands()
 
     def on_pause(is_paused):
+        overlay.set_paused(is_paused)
         if is_paused:
             player.pause()
         else:
@@ -918,6 +937,8 @@ def play_music_with_controls_rich(
             get_elapsed=get_elapsed,
             get_duration=get_duration,
             get_bands=get_visualizer_bands,
+            on_track=overlay.set_track,
+            on_overlay=on_overlay,
             on_pause=on_pause,
             on_lyrics=on_lyrics,
             on_favorite=on_favorite,
@@ -925,6 +946,7 @@ def play_music_with_controls_rich(
             on_dislike=on_dislike,
         )
     finally:
+        overlay.close()
         if spectrum is not None:
             spectrum.stop()
         player.cleanup()

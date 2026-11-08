@@ -21,7 +21,7 @@ QUIT_ICON = "■"
 
 def player_controls(is_paused: bool = False):
     """Return controls with the play/pause icon showing the next action."""
-    return [
+    controls = [
         (PREVIOUS_ICON, "p", "previous"),
         (PLAY_ICON if is_paused else PAUSE_ICON, "space", "play" if is_paused else "pause"),
         (NEXT_ICON, "n", "next"),
@@ -31,6 +31,9 @@ def player_controls(is_paused: bool = False):
         (DISLIKE_ICON, "d", "dislike"),
         (QUIT_ICON, "q", "quit"),
     ]
+    if sys.platform == "darwin":
+        controls.append((LYRICS_ICON, "o", "overlay"))
+    return controls
 
 
 def controls_string(is_paused: bool = False, separator: str = "  ") -> str:

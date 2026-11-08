@@ -310,7 +310,8 @@ class TestCreatePlayerLayout:
 
         assert states == [True, False]
 
-    def test_favorite_key_invokes_callback_without_stopping_playback(self, monkeypatch):
+    @pytest.mark.parametrize("key", ["f", "o"])
+    def test_library_key_invokes_callback_without_stopping_playback(self, monkeypatch, key):
         class FakeLive:
             def __init__(self, *_args, **_kwargs):
                 pass
@@ -341,8 +342,8 @@ class TestCreatePlayerLayout:
                 self.stop_calls += 1
 
         song = {"videoId": "id", "title": "Song"}
-        keys = iter(["f", "q"])
-        favorited = []
+        keys = iter([key, "q"])
+        handled = []
         player = FakePlayer()
         monkeypatch.setattr("ytm_cli.rich_ui.Live", FakeLive)
         monkeypatch.setattr("ytm_cli.rich_ui.getch_nonblocking", lambda _timeout: next(keys))
@@ -350,10 +351,11 @@ class TestCreatePlayerLayout:
         play_with_rich_ui(
             player=player,
             playlist=[song],
-            on_favorite=lambda selected: favorited.append(selected) or "added",
+            on_favorite=lambda selected: handled.append((selected, player.stop_calls)) or "added",
+            on_overlay=lambda: handled.append((song, player.stop_calls)) or "Desktop lyrics on",
         )
 
-        assert favorited == [song]
+        assert handled == [(song, 0)]
         assert player.stop_calls == 1
 
     def test_play_pause_state_controls_player(self, monkeypatch):
@@ -499,7 +501,6 @@ class TestCreatePlayerLayout:
         monkeypatch.setattr(player_module.sys, "stdin", FakeStdin())
         monkeypatch.setattr(player_module.termios, "tcgetattr", lambda _fd: "settings")
         monkeypatch.setattr(player_module.termios, "tcsetattr", lambda *_args: None)
-        monkeypatch.setattr(player_module.tty, "setraw", lambda _fd: None)
         monkeypatch.setattr(curses, "wrapper", lambda callback: callback(screen))
         monkeypatch.setattr(
             player_module,
@@ -557,3 +558,81 @@ class TestProgressBarRendering:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("outcome", ["saved", "cancelled", "error"])
+def test_playlist_dialog_restores_terminal_mode(monkeypatch, outcome):
+    import curses
+    import os
+    import pty
+    import termios
+    import tty
+    from unittest.mock import Mock
+
+    from ytm_cli import player as player_module
+
+    master, slave = pty.openpty()
+    try:
+        original = termios.tcgetattr(slave)
+        original[1] |= termios.OPOST | termios.ONLCR
+        termios.tcsetattr(slave, termios.TCSANOW, original)
+        original = termios.tcgetattr(slave)
+        monkeypatch.setattr(player_module.sys, "stdin", Mock(fileno=lambda: slave))
+        manager = Mock()
+        manager.get_playlist_names.return_value = ["Favorites"]
+        manager.add_song_to_playlist.return_value = True
+        monkeypatch.setattr(player_module, "playlist_manager", manager)
+
+        def dialog(_callback):
+            tty.setraw(slave)  # Simulate terminal changes made inside the dialog.
+            if outcome == "error":
+                raise RuntimeError("Dialog failed")
+            return ("Favorites" if outcome == "saved" else None), None
+
+        monkeypatch.setattr(curses, "wrapper", dialog)
+        if outcome == "error":
+            with pytest.raises(RuntimeError, match="Dialog failed"):
+                player_module.add_song_to_playlist_interactive({"title": "Song"})
+        else:
+            result = player_module.add_song_to_playlist_interactive({"title": "Song"})
+            assert result == ("Favorites" if outcome == "saved" else None)
+        restored = termios.tcgetattr(slave)
+        # macOS sets PENDIN when canonical mode is restored; it is a transient
+        # kernel input-reprocessing flag, not a caller terminal preference.
+        pending_input = getattr(termios, "PENDIN", 0)
+        restored[3] &= ~pending_input
+        original[3] &= ~pending_input
+        assert restored == original
+        os.write(slave, b"first\nsecond\n")
+        assert os.read(master, 1024) == b"first\r\nsecond\r\n"
+    finally:
+        os.close(slave)
+        os.close(master)
+
+
+def test_rich_recovers_raw_output_on_entry_and_after_dialog(monkeypatch):
+    import os
+    import pty
+    import termios
+    import tty
+    from unittest.mock import Mock
+
+    from ytm_cli import rich_ui
+
+    master, slave = pty.openpty()
+    try:
+        tty.setraw(slave)
+        original = termios.tcgetattr(slave)
+        output = Mock(isatty=lambda: True, fileno=lambda: slave)
+        monkeypatch.setattr(rich_ui.sys, "stdout", output)
+        with rich_ui._player_output_mode():
+            os.write(slave, b"first\nsecond\n")
+            assert os.read(master, 1024) == b"first\r\nsecond\r\n"
+            tty.setraw(slave)  # A dialog can leave output processing disabled.
+            rich_ui._enable_output_newlines()
+            os.write(slave, b"restored\n")
+            assert os.read(master, 1024) == b"restored\r\n"
+        assert termios.tcgetattr(slave) == original
+    finally:
+        os.close(slave)
+        os.close(master)

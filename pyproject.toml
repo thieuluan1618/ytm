@@ -58,6 +58,9 @@ ytm-cli = "ytm_cli.main:main"
 [tool.setuptools.packages.find]
 include = ["ytm_cli*"]
 
+[tool.setuptools.package-data]
+ytm_cli = ["lyrics_overlay.swift"]
+
 [tool.ruff]
 # Set line length to match pylint (100 characters)
 line-length = 100

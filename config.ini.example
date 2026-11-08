@@ -8,3 +8,5 @@ songs_to_display = 5
 [ui]
 # Use rich-based UI instead of curses (experimental)
 use_rich = true
+# macOS desktop lyrics: false shows only the current lyric; true also previews the next
+lyrics_overlay_show_next_line = false

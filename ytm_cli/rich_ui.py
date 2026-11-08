@@ -11,6 +11,7 @@ import termios
 import time
 import tty
 from collections.abc import Callable
+from contextlib import contextmanager
 
 from rich.align import Align
 from rich.console import Console, RenderableType
@@ -357,6 +358,27 @@ def demo_player():
             live.update(layout, refresh=True)
 
 
+def _enable_output_newlines():
+    """Rich emits LF between rows, so the terminal must also return to column 1."""
+    if sys.stdout.isatty():
+        fd = sys.stdout.fileno()
+        settings = termios.tcgetattr(fd)
+        settings[1] |= termios.OPOST | termios.ONLCR
+        termios.tcsetattr(fd, termios.TCSADRAIN, settings)
+
+
+@contextmanager
+def _player_output_mode():
+    fd = sys.stdout.fileno() if sys.stdout.isatty() else None
+    original = termios.tcgetattr(fd) if fd is not None else None
+    try:
+        _enable_output_newlines()
+        yield
+    finally:
+        if original is not None:
+            termios.tcsetattr(fd, termios.TCSADRAIN, original)
+
+
 def getch_nonblocking(timeout: float = 0.0) -> str | None:
     """Get a single character from stdin without blocking.
 
@@ -369,7 +391,7 @@ def getch_nonblocking(timeout: float = 0.0) -> str | None:
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
-        tty.setraw(fd)
+        tty.setcbreak(fd)
         # Use select to check if input is available
         ready, _, _ = select.select([sys.stdin], [], [], timeout)
         if ready:
@@ -380,6 +402,7 @@ def getch_nonblocking(timeout: float = 0.0) -> str | None:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
+@_player_output_mode()
 def play_with_rich_ui(
     player,
     playlist: list[dict],
@@ -394,6 +417,8 @@ def play_with_rich_ui(
     on_favorite: Callable[[dict], str] | None = None,
     on_add_playlist: Callable[[dict], None] | None = None,
     on_dislike: Callable[[dict], str] | None = None,
+    on_track: Callable[[dict | None], None] | None = None,
+    on_overlay: Callable[[], str] | None = None,
 ) -> None:
     """Play music with rich-based UI.
 
@@ -414,6 +439,8 @@ def play_with_rich_ui(
         on_favorite: Callback for toggling the song in Favorites
         on_add_playlist: Callback for adding to playlist
         on_dislike: Callback for playlist removal or disliking
+        on_track: Callback when a track starts, or None between tracks
+        on_overlay: Callback for toggling macOS desktop lyrics
     """
     console = Console()
 
@@ -430,6 +457,8 @@ def play_with_rich_ui(
     console.print(f"[cyan]🎵 Playing {len(playlist)} tracks...[/cyan]\n")
 
     while current_idx < len(playlist):
+        if on_track:
+            on_track(None)
         song = playlist[current_idx]
         song_title = song.get("title", "Unknown")
         artist = (
@@ -449,6 +478,8 @@ def play_with_rich_ui(
             current_idx += 1
             continue
 
+        if on_track:
+            on_track(song)
         current_bands = get_bands(song, current_idx) if get_bands else None
         wave_frame = 0
 
@@ -539,8 +570,16 @@ def play_with_rich_ui(
                     elif key == "l":
                         if on_lyrics:
                             live.stop()
-                            on_lyrics(song)
-                            live.start(refresh=True)
+                            try:
+                                on_lyrics(song)
+                            finally:
+                                _enable_output_newlines()
+                                live.start(refresh=True)
+                    elif key == "o":
+                        if on_overlay:
+                            toast_msg = on_overlay()
+                            toast_detail = None
+                            toast_expire = time.time() + 4
                     elif key == "f":
                         if on_favorite:
                             result = on_favorite(song)
@@ -557,8 +596,11 @@ def play_with_rich_ui(
                     elif key == "a":
                         if on_add_playlist:
                             live.stop()
-                            result = on_add_playlist(song)
-                            live.start(refresh=True)
+                            try:
+                                result = on_add_playlist(song)
+                            finally:
+                                _enable_output_newlines()
+                                live.start(refresh=True)
                             if result:
                                 toast_msg = f"Added · {song_title} · {artist}"
                                 toast_detail = f"Saved to playlist · {result}"
