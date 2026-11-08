@@ -22,7 +22,7 @@ QUIT_ICON = "■"
 def player_controls(is_paused: bool = False):
     """Return controls with the play/pause icon showing the next action."""
     return [
-        (PREVIOUS_ICON, "b", "previous"),
+        (PREVIOUS_ICON, "p", "previous"),
         (PLAY_ICON if is_paused else PAUSE_ICON, "space", "play" if is_paused else "pause"),
         (NEXT_ICON, "n", "next"),
         (LYRICS_ICON, "l", "lyrics"),

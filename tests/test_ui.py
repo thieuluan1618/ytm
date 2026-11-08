@@ -114,7 +114,7 @@ class TestDrawPlayer:
             "40%",
             "UP NEXT",
             "Rainy Afternoon Lo-Fi · ChillCat",
-            "◀◀ [B] previous",
+            "◀◀ [P] previous",
             "⏸ [SPACE] pause",
             "▶▶ [N] next",
             "♪ [L] lyrics",
@@ -476,10 +476,10 @@ class TestDisplayPlayerStatus:
         out = _capture_status_output("Test Song", False, width=120)
 
         # All control hint glyphs/letters are present
-        for token in ["b", "space", "n", "l", "a", "d", "q"]:
+        for token in ["p", "space", "n", "l", "a", "d", "q"]:
             assert token in out
         # All controls consistently use solid text glyphs.
-        assert "◀◀ b" in out
+        assert "◀◀ p" in out
         assert "⏸ space" in out
         assert "▶▶ n" in out
         assert "♪ l" in out

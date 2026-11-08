@@ -126,7 +126,7 @@ ytm-cli --update                                          # Update the app and d
 
 - `Space` - Play/pause
 - `n` - Next song
-- `b` - Previous song
+- `p` - Previous song
 - `l` - Show lyrics (synced highlighting with auto-scroll)
 - `f` - Add to or remove from Favorites
 - `a` - Add to playlist

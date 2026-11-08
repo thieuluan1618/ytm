@@ -993,7 +993,7 @@ def draw_player(
                 f"{icon}[{key.upper()}]" for icon, key, _ in control_items[3:]
             )
             if len(playback_controls) > cw:
-                playback_controls = "[B] [SPC] [N]"
+                playback_controls = "[P] [SPC] [N]"
             if len(library_controls) > cw:
                 library_controls = "[L] [F] [A] [D] [Q]"
             _draw_ctrl_line(
@@ -1013,8 +1013,8 @@ def draw_player(
                 dim,
             )
         else:
-            key_controls = "[B] [SPC] [N] · [L] [F] [A] [D] [Q]"
-            controls = key_controls if len(key_controls) <= cw else "B S N · L F A D Q"
+            key_controls = "[P] [SPC] [N] · [L] [F] [A] [D] [Q]"
+            controls = key_controls if len(key_controls) <= cw else "P S N · L F A D Q"
             controls = _ellipsize(controls, cw)
             _draw_ctrl_line(
                 scr,

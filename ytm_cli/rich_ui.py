@@ -526,10 +526,12 @@ def play_with_rich_ui(
                         toast_msg = f"{NEXT_ICON} Next"
                         toast_expire = time.time() + 1.5
                         break
-                    elif key == "b":
+                    elif key == "p":
                         if on_previous:
                             on_previous()
-                        current_idx = max(0, current_idx - 1)
+                        # The loop adds 1 after break, so step back 2 to net -1
+                        # (floor at -1 so the first track replays instead of skipping).
+                        current_idx = max(-1, current_idx - 2)
                         player.stop()
                         toast_msg = f"{PREVIOUS_ICON} Previous"
                         toast_expire = time.time() + 1.5

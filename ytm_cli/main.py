@@ -593,7 +593,7 @@ During song selection:
 
 During music playback:
   • {PLAY_ICON}/{PAUSE_ICON} space: Play/pause
-  • {NEXT_ICON} n: Next song, {PREVIOUS_ICON} b: Previous song
+  • {NEXT_ICON} n: Next song, {PREVIOUS_ICON} p: Previous song
   • {LYRICS_ICON} l: Show lyrics, {FAVORITE_ICON} f: Toggle favorite
   • {ADD_ICON} a: Add to playlist
   • {DISLIKE_ICON} d: Dislike (playlist: remove first, then global), {QUIT_ICON} q: Quit to search

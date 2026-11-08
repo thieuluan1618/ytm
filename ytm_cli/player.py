@@ -665,7 +665,7 @@ def play_music_with_controls_curses(
                         current_song_index += 1
                         fire("Next →")
                         break
-                    elif key == ord("b"):
+                    elif key == ord("p"):
                         player.stop()
                         if current_song_index > 0:
                             current_song_index -= 1

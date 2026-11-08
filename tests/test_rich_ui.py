@@ -233,7 +233,7 @@ class TestCreatePlayerLayout:
         assert "YTM // PLAYER" in rendered
         assert "▶ PLAYING" in rendered
         assert "NOW PLAYING" in rendered
-        assert "◀◀ [B] previous" in rendered
+        assert "◀◀ [P] previous" in rendered
         assert "⏸ [SPACE] pause" in rendered
         assert "▶▶ [N] next" in rendered
         assert "♪ [L] lyrics" in rendered
