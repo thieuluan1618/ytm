@@ -18,8 +18,9 @@ from .lyrics_service import LRCParser, get_playback_lyrics
 class LyricsOverlay:
     """Send current/next lyric lines to a non-activating AppKit helper over stdin."""
 
-    def __init__(self, get_elapsed):
+    def __init__(self, get_elapsed, get_paused=lambda: False):
         self.get_elapsed = get_elapsed
+        self.get_paused = get_paused
         self._show_next_line = config.getboolean(
             "ui", "lyrics_overlay_show_next_line", fallback=False
         )
@@ -143,9 +144,14 @@ class LyricsOverlay:
                         self._generation,
                     )
                     paused = self._paused
-                elapsed = self.get_elapsed() if enabled and lyrics else None
-                message = {"visible": enabled, "current": "", "next": ""}
-                if enabled:
+                # Media keys and Control Center pause mpv without touching the terminal UI.
+                dismissed = enabled and (paused or self.get_paused())
+                elapsed = self.get_elapsed() if enabled and lyrics and not dismissed else None
+                message = {"visible": enabled and not dismissed, "current": "", "next": ""}
+                if dismissed:
+                    # Independent of playback time, so the panel can't reappear during a pause.
+                    message["fade_after"] = 0
+                elif enabled:
                     if lyrics is None:
                         message["current"] = "Loading synced lyrics…"
                     elif not lyrics:
@@ -158,8 +164,6 @@ class LyricsOverlay:
                         message["current"] = lyrics[index][1] if index >= 0 else "♪"
                         if self._show_next_line and index + 1 < len(lyrics):
                             message["next"] = lyrics[index + 1][1]
-                    if paused:
-                        message["fade_after"] = 0
                 with self._lock:
                     if self._closed.is_set():
                         return

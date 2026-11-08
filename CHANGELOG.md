@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Desktop lyrics on pause**: The overlay dismisses however playback is paused, including media keys and Control Center, and stays hidden until playback resumes
+
 ## [0.12.0] - 2026-11-08
 
 ### Added

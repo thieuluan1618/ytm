@@ -411,7 +411,8 @@ def play_music_with_controls_curses(
         return
 
     overlay = LyricsOverlay(
-        lambda: get_mpv_time_position(player.socket_path) if player.socket_path else None
+        lambda: get_mpv_time_position(player.socket_path) if player.socket_path else None,
+        lambda: get_mpv_pause_state(player.socket_path) if player.socket_path else False,
     )
     quit_pressed = False
 
@@ -872,7 +873,12 @@ def play_music_with_controls_rich(
             return get_mpv_duration(player.socket_path)
         return None
 
-    overlay = LyricsOverlay(get_elapsed)
+    def get_paused():
+        if player.player_type == "mpv" and player.socket_path:
+            return get_mpv_pause_state(player.socket_path)
+        return False
+
+    overlay = LyricsOverlay(get_elapsed, get_paused)
 
     def on_overlay():
         if player.player_type != "mpv":

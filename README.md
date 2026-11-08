@@ -149,7 +149,7 @@ Press `o` **in the terminal player** to show or hide a floating, click-through l
 
 - Requires **mpv** playback and **Apple Command Line Tools** (`xcode-select --install` if missing).
 - The small native AppKit helper compiles in the background on first use and is cached in `~/Library/Caches/ytm-cli/`. No extra Python dependencies or Accessibility permission are needed.
-- Lyrics follow mpv's playback position, including pause and seek, and refresh automatically when the track changes.
+- Lyrics follow mpv's playback position, including seek, and refresh automatically when the track changes. The panel hides while playback is paused, including from media keys or Control Center.
 - Songs with only plain lyrics or no matching synced lyrics show **“No synced lyrics available”** for 3 seconds, then fade out over 0.4 seconds; no timing is invented. Normal synced lyrics stay visible.
 - The overlay starts off each session and closes when playback exits. `o` is a terminal shortcut, not a system-wide hotkey.
 - The window is configured to join Spaces and fullscreen spaces, but visibility above other apps' fullscreen windows depends on macOS window management.

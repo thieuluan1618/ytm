@@ -207,6 +207,7 @@ def test_pause_fades_and_resume_restores_same_line(overlay_output, monkeypatch):
         wait_for(lambda: messages() and messages()[-1].get("current") == "Current line")
         overlay.set_paused(True)
         wait_for(lambda: messages()[-1].get("fade_after") == 0)
+        assert messages()[-1]["visible"] is False
         count = len(messages())
         time.sleep(0.5)
         assert len(messages()) == count  # Do not keep restarting the fade.
@@ -222,5 +223,34 @@ def test_pause_fades_and_resume_restores_same_line(overlay_output, monkeypatch):
                 and "fade_after" not in messages()[-1]
             )
         )
+    finally:
+        overlay.close()
+
+
+def test_pause_outside_the_terminal_dismisses_and_stays_dismissed(overlay_output, monkeypatch):
+    """Media keys pause mpv directly, and a moving position must not re-show the panel."""
+    _, messages = overlay_output
+    monkeypatch.setattr(
+        "ytm_cli.lyrics_overlay.get_playback_lyrics",
+        lambda _: {"parsed_lyrics": [(0, "First"), (5, "Second")]},
+    )
+    position, paused = [1.0], [False]
+    overlay = LyricsOverlay(lambda: position[0], lambda: paused[0])
+    try:
+        overlay.set_track({"videoId": "song"})
+        overlay.toggle()
+        wait_for(lambda: messages() and messages()[-1].get("current") == "First")
+
+        paused[0] = True
+        wait_for(lambda: messages()[-1].get("visible") is False)
+        assert messages()[-1]["fade_after"] == 0
+        count = len(messages())
+        position[0] = 6.0
+        time.sleep(0.5)
+        assert len(messages()) == count
+
+        paused[0] = False
+        wait_for(lambda: messages()[-1].get("current") == "Second")
+        assert messages()[-1]["visible"] is True
     finally:
         overlay.close()
