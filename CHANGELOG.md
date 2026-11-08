@@ -4,12 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-08
+
 ### Added
 
 - **Local Favorites**: Press `f` during song selection or playback to toggle songs in an automatically created `Favorites` playlist without interrupting playback
+- **macOS desktop lyrics**: Press `o` in either terminal player to toggle a native, click-through overlay at the top center of the screen, showing the current synced lyric using mpv's playback position
+- **Optional next-lyric preview**: The overlay shows only the current lyric by default; set `[ui] lyrics_overlay_show_next_line = true` to also preview the next lyric
+- **Transient no-lyrics notice**: The desktop overlay's “No synced lyrics available” notice fades away after 3 seconds instead of remaining on screen
+
+### Changed
+
+- **Previous key**: Previous track moved from `b` to `p` in both players; `b` no longer does anything
+- **Platform support**: macOS is the only platform maintained for now; Linux and WSL2 may still work but aren't maintained
 
 ### Fixed
 
+- **Rich player previous**: Goes back one track instead of replaying the current song, and restarts the first track instead of skipping ahead
+- **Rich player rendering**: Keeps rows aligned after returning from the lyrics view or playlist picker
+- **Synced lyrics**: Parses LRC lines with several timestamps and retries by title and artist when the album or duration doesn't match
 - **Favorite/dislike consistency**: Favoriting clears an existing global dislike, and globally disliking removes the song from Favorites
 - **Rich player dislikes**: Matches the curses player's playlist-first removal behavior and keeps playback running when a dislike cannot be saved
 - **Dislike persistence**: Keeps a song disliked in memory when removing its saved dislike fails
