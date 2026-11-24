@@ -254,3 +254,29 @@ def test_pause_outside_the_terminal_dismisses_and_stays_dismissed(overlay_output
         assert messages()[-1]["visible"] is True
     finally:
         overlay.close()
+
+
+def test_live_pause_state_overrides_terminal_pause(overlay_output, monkeypatch):
+    _, messages = overlay_output
+    monkeypatch.setattr(
+        "ytm_cli.lyrics_overlay.get_playback_lyrics",
+        lambda _: {"parsed_lyrics": [(0, "Current line")]},
+    )
+    paused = [False]
+    overlay = LyricsOverlay(lambda: 2, lambda: paused[0])
+    try:
+        overlay.set_track({"videoId": "song"})
+        overlay.toggle()
+        wait_for(lambda: messages() and messages()[-1].get("current") == "Current line")
+
+        paused[0] = True
+        overlay.set_paused(True)
+        wait_for(lambda: messages()[-1].get("visible") is False)
+        paused[0] = False
+        wait_for(lambda: messages()[-1].get("visible") is True)
+        assert messages()[-1]["current"] == "Current line"
+
+        paused[0] = True
+        wait_for(lambda: messages()[-1].get("visible") is False)
+    finally:
+        overlay.close()

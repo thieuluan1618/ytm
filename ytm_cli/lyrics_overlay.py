@@ -18,7 +18,7 @@ from .lyrics_service import LRCParser, get_playback_lyrics
 class LyricsOverlay:
     """Send current/next lyric lines to a non-activating AppKit helper over stdin."""
 
-    def __init__(self, get_elapsed, get_paused=lambda: False):
+    def __init__(self, get_elapsed, get_paused=None):
         self.get_elapsed = get_elapsed
         self.get_paused = get_paused
         self._show_next_line = config.getboolean(
@@ -145,7 +145,10 @@ class LyricsOverlay:
                     )
                     paused = self._paused
                 # Media keys and Control Center pause mpv without touching the terminal UI.
-                dismissed = enabled and (paused or self.get_paused())
+                is_paused = (
+                    self.get_paused() if self.get_paused is not None else paused
+                )
+                dismissed = enabled and is_paused
                 elapsed = self.get_elapsed() if enabled and lyrics and not dismissed else None
                 message = {"visible": enabled and not dismissed, "current": "", "next": ""}
                 if dismissed:
