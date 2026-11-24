@@ -145,9 +145,7 @@ class LyricsOverlay:
                     )
                     paused = self._paused
                 # Media keys and Control Center pause mpv without touching the terminal UI.
-                is_paused = (
-                    self.get_paused() if self.get_paused is not None else paused
-                )
+                is_paused = self.get_paused() if self.get_paused is not None else paused
                 dismissed = enabled and is_paused
                 elapsed = self.get_elapsed() if enabled and lyrics and not dismissed else None
                 message = {"visible": enabled and not dismissed, "current": "", "next": ""}
