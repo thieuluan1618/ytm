@@ -85,8 +85,6 @@ dislikes.json
 ytm_debug.log
 *.log
 
-# Serena cache
-.serena/cache/
 **.log
 
 # LLM credentials

@@ -1,192 +1,169 @@
-"""Tests for ytm_cli.spectrum.SpectrumAnalyzer.
+"""Tests for the visualizer's mpv-driven spectrum."""
 
-These cover the parts that don't require an ffmpeg subprocess: band-bin
-construction, availability detection, start/stop guard behaviour, and
-get_bands gating on _has_data.
-"""
+import re
+from unittest.mock import patch
 
-from unittest.mock import MagicMock, patch
-
-import numpy as np
 import pytest
 
-from ytm_cli.spectrum import SpectrumAnalyzer
+from ytm_cli.player import get_mpv_audio_levels, read_mpv_band_metadata
+from ytm_cli.spectrum import BAND_COUNT, MpvSpectrum, mpv_audio_filter
+
+FIRST_BAND_CHANNEL = 3
 
 
-class TestInitAndBandBins:
-    def test_default_n_bands(self):
-        sa = SpectrumAnalyzer()
-        assert sa.n_bands == 24
-        assert sa._bands.shape == (24,)
-        assert sa._bands.dtype == np.float32
-        assert np.all(sa._bands == 0.0)
-
-    def test_custom_n_bands(self):
-        sa = SpectrumAnalyzer(n_bands=8)
-        assert sa.n_bands == 8
-        assert sa._bands.shape == (8,)
-        assert len(sa._band_slices) == 8
-
-    def test_band_slices_are_monotonic_and_non_empty(self):
-        sa = SpectrumAnalyzer(n_bands=12)
-        last_hi = -1
-        for lo, hi in sa._band_slices:
-            assert hi > lo, "every band must contain at least one bin"
-            assert lo >= last_hi or lo == 0, "bands should be non-decreasing"
-            last_hi = hi
-
-    def test_window_matches_chunk_size(self):
-        sa = SpectrumAnalyzer()
-        assert sa._window.shape == (SpectrumAnalyzer.CHUNK,)
-        assert sa._window.dtype == np.float32
-        # Hann window peaks near the center.
-        assert sa._window.max() == pytest.approx(1.0, rel=1e-2)
-
-    def test_initial_state_flags(self):
-        sa = SpectrumAnalyzer()
-        assert sa._running is False
-        assert sa._has_data is False
-        assert sa._proc is None
-        assert sa._thread is None
+def metadata(db="-27"):
+    """Build mpv's af-metadata with one value for every band, or a per-band list."""
+    values = db if isinstance(db, list) else [db] * BAND_COUNT
+    return {
+        f"lavfi.astats.{FIRST_BAND_CHANNEL + band}.RMS_level": value
+        for band, value in enumerate(values)
+    }
 
 
-class TestAvailable:
-    def test_available_returns_true_when_ffmpeg_in_path(self):
-        with patch("ytm_cli.spectrum.shutil.which", return_value="/usr/bin/ffmpeg"):
-            assert SpectrumAnalyzer.available() is True
-
-    def test_available_returns_false_when_ffmpeg_missing(self):
-        with patch("ytm_cli.spectrum.shutil.which", return_value=None):
-            assert SpectrumAnalyzer.available() is False
+def spectrum_reading(*readings):
+    """Create a spectrum that returns each reading from mpv in turn."""
+    source = iter(readings)
+    return MpvSpectrum(lambda: next(source))
 
 
-class TestGetBands:
-    def test_get_bands_returns_none_before_any_data(self):
-        sa = SpectrumAnalyzer()
-        assert sa.get_bands() is None
+class TestMpvAudioFilter:
+    def test_quoted_length_matches_the_graph(self):
+        match = re.fullmatch(r"@vstats:lavfi=graph=%(\d+)%(.+)", mpv_audio_filter())
 
-    def test_get_bands_returns_list_after_data_flag(self):
-        sa = SpectrumAnalyzer(n_bands=4)
-        sa._bands = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
-        sa._has_data = True
-        sa._running = True
-        sa._last_update = 10.0
+        assert match is not None
+        assert int(match.group(1)) == len(match.group(2).encode())
 
-        with patch("ytm_cli.spectrum.time.monotonic", return_value=10.1):
-            bands = sa.get_bands()
-        assert isinstance(bands, list)
-        assert len(bands) == 4
-        for got, want in zip(bands, [0.1, 0.2, 0.3, 0.4], strict=True):
-            assert got == pytest.approx(want, rel=1e-5)
+    def test_measures_every_band_and_outputs_only_the_music(self):
+        graph = mpv_audio_filter()
 
-    def test_get_bands_returns_none_when_analyzer_data_is_stale(self):
-        sa = SpectrumAnalyzer(n_bands=4)
-        sa._bands.fill(0.5)
-        sa._has_data = True
-        sa._running = True
-        sa._last_update = 10.0
-
-        with patch(
-            "ytm_cli.spectrum.time.monotonic",
-            return_value=10.0 + SpectrumAnalyzer.STALE_AFTER_SECONDS + 0.1,
-        ):
-            assert sa.get_bands() is None
-
-    def test_get_bands_returns_none_after_analyzer_stops(self):
-        sa = SpectrumAnalyzer(n_bands=4)
-        sa._bands.fill(0.5)
-        sa._has_data = True
-        sa._last_update = 10.0
-
-        assert sa.get_bands() is None
+        assert graph.count("bandpass=") == BAND_COUNT
+        assert f"amerge=inputs={BAND_COUNT + 1}" in graph
+        assert graph.endswith("pan=stereo|c0=c0|c1=c1")
 
 
-class TestStart:
-    def test_start_returns_false_when_ffmpeg_unavailable(self):
-        sa = SpectrumAnalyzer()
-        with patch.object(SpectrumAnalyzer, "available", return_value=False):
-            assert sa.start("http://example/audio") is False
-        assert sa._running is False
+class TestLevels:
+    @pytest.mark.parametrize("master_level", ["0", "-12", "-24"])
+    def test_loudest_band_fills_the_bar_at_any_master_level(self, master_level):
+        assert spectrum_reading(metadata(master_level)).get_bands()[-1] == 1.0
 
-    def test_start_returns_false_with_empty_url(self):
-        sa = SpectrumAnalyzer()
-        with patch.object(SpectrumAnalyzer, "available", return_value=True):
-            assert sa.start("") is False
+    def test_near_silence_is_not_amplified(self):
+        assert spectrum_reading(metadata("-90")).get_bands() == [0.0] * BAND_COUNT
 
-    def test_start_returns_false_when_popen_raises_oserror(self):
-        sa = SpectrumAnalyzer()
+    def test_quiet_passage_slowly_regains_height(self):
+        readings = [metadata("-6")] + [metadata("-18")] * 4
         with (
-            patch.object(SpectrumAnalyzer, "available", return_value=True),
-            patch("ytm_cli.spectrum.subprocess.Popen", side_effect=OSError("boom")),
+            patch("ytm_cli.spectrum._DISPLAY_DELAY_SECONDS", 0.0),
+            patch("ytm_cli.spectrum._FALL", 1.0),
+            patch("ytm_cli.spectrum._RISE", 1.0),
+            patch("ytm_cli.spectrum.time.monotonic", side_effect=[1.0, 2.0, 3.0, 4.0, 5.0]),
         ):
-            assert sa.start("http://example/audio") is False
-        assert sa._running is False
+            spectrum = spectrum_reading(*readings)
+            bars = [spectrum.get_bands() for _ in readings]
 
-    def test_start_spawns_ffmpeg_and_marks_running(self):
-        sa = SpectrumAnalyzer()
-        fake_proc = MagicMock()
-        fake_proc.poll.return_value = None
-        # Reader will hit `len(data) < chunk_bytes` immediately and exit.
-        fake_proc.stdout.read.return_value = b""
+        assert bars[4][0] > bars[1][0]
 
-        with (
-            patch.object(SpectrumAnalyzer, "available", return_value=True),
-            patch("ytm_cli.spectrum.subprocess.Popen", return_value=fake_proc) as mock_popen,
-        ):
-            ok = sa.start("http://example/audio")
+    @pytest.mark.parametrize("silence", ["-inf", "nan"])
+    def test_silence_reads_as_empty(self, silence):
+        assert spectrum_reading(metadata(silence)).get_bands() == [0.0] * BAND_COUNT
 
-        assert ok is True
-        assert sa._proc is fake_proc
-        assert sa._thread is not None
-        # Ensure we asked ffmpeg for s16le mono at the analyzer's sample rate.
-        cmd = mock_popen.call_args.args[0]
-        assert cmd[0] == "ffmpeg"
-        assert cmd.index("-re") < cmd.index("-i")
-        assert "-f" in cmd and cmd[cmd.index("-f") + 1] == "s16le"
-        assert "-ac" in cmd and cmd[cmd.index("-ac") + 1] == "1"
-        assert "-ar" in cmd and cmd[cmd.index("-ar") + 1] == str(SpectrumAnalyzer.SR)
+    def test_treble_is_lifted_to_match_bass(self):
+        bands = spectrum_reading(metadata()).get_bands()
+
+        assert bands[-1] > bands[0]
+
+    def test_each_band_keeps_its_own_level(self):
+        values = ["-90"] * BAND_COUNT
+        values[5] = "-20"
+
+        bands = spectrum_reading(metadata(values)).get_bands()
+
+        assert bands[5] > 0.5
+        assert bands[4] == 0.0
+
+    def test_incomplete_metadata_is_not_drawn(self):
+        partial = metadata()
+        del partial[f"lavfi.astats.{FIRST_BAND_CHANNEL}.RMS_level"]
+
+        assert spectrum_reading(partial).get_bands() is None
+
+    @pytest.mark.parametrize("nothing_playing", [None, {}])
+    def test_no_audio_gives_no_bars(self, nothing_playing):
+        assert spectrum_reading(nothing_playing).get_bands() is None
 
 
-class TestStop:
-    def test_stop_when_never_started_is_safe(self):
-        sa = SpectrumAnalyzer(n_bands=4)
-        sa._bands = np.array([0.5, 0.5, 0.5, 0.5], dtype=np.float32)
-        sa._has_data = True
+class TestTiming:
+    def run_at(self, spectrum, *times):
+        with patch("ytm_cli.spectrum.time.monotonic", side_effect=times):
+            return [spectrum.get_bands() for _ in times]
 
-        sa.stop()
+    def test_shows_the_reading_that_is_audible_now(self):
+        spectrum = spectrum_reading(metadata("-90"), metadata("-12"), metadata("-12"))
 
-        assert sa._running is False
-        assert sa._proc is None
-        assert sa._thread is None
-        assert sa._has_data is False
-        assert np.all(sa._bands == 0.0)
+        bars = self.run_at(spectrum, 10.0, 10.15, 10.30)
 
-    def test_stop_terminates_running_process(self):
-        sa = SpectrumAnalyzer()
-        fake_proc = MagicMock()
-        fake_proc.wait.return_value = 0
-        sa._proc = fake_proc
-        sa._running = True
+        # 0.25s behind at 10.30 is the 10.0 reading, nearest of 0.30s and 0.15s old.
+        assert bars[2][0] == 0.0
 
-        sa.stop()
+    def test_catches_up_once_the_delay_has_passed(self):
+        spectrum = spectrum_reading(*[metadata("-90"), metadata("-12"), metadata("-12")] * 2)
 
-        fake_proc.terminate.assert_called_once()
-        fake_proc.wait.assert_called()
-        assert sa._proc is None
-        assert sa._running is False
+        bars = self.run_at(spectrum, 10.0, 10.15, 10.30, 10.45, 10.60, 10.75)
 
-    def test_stop_kills_process_on_terminate_timeout(self):
-        sa = SpectrumAnalyzer()
-        fake_proc = MagicMock()
-        # First wait raises TimeoutExpired, then kill+wait succeed.
-        from subprocess import TimeoutExpired
+        assert bars[-1][0] > bars[2][0]
 
-        fake_proc.wait.side_effect = [TimeoutExpired(cmd="ffmpeg", timeout=1), 0]
-        sa._proc = fake_proc
-        sa._running = True
+    def test_bars_rise_faster_than_they_fall(self):
+        with patch("ytm_cli.spectrum._DISPLAY_DELAY_SECONDS", 0.0):
+            rising = spectrum_reading(metadata("-90"), metadata("-12"))
+            rising_bars = self.run_at(rising, 1.0, 2.0)
+            falling = spectrum_reading(metadata("-12"), metadata("-90"))
+            falling_bars = self.run_at(falling, 1.0, 2.0)
 
-        sa.stop()
+        target = falling_bars[0][0]
+        assert rising_bars[1][0] == pytest.approx(target * 0.7)  # Rises 70% of the way.
+        assert falling_bars[1][0] == pytest.approx(target * 0.7)  # Falls only 30% of the way.
 
-        fake_proc.terminate.assert_called_once()
-        fake_proc.kill.assert_called_once()
-        assert sa._proc is None
+    def test_stopped_audio_forgets_earlier_bars(self):
+        with patch("ytm_cli.spectrum._DISPLAY_DELAY_SECONDS", 0.0):
+            spectrum = spectrum_reading(metadata("-12"), None, metadata("-90"))
+            bars = self.run_at(spectrum, 1.0, 2.0, 3.0)
+
+        assert bars[1] is None
+        assert bars[2][0] == 0.0  # Not smoothed against the pre-pause level.
+
+    def test_stop_forgets_earlier_bars(self):
+        with patch("ytm_cli.spectrum._DISPLAY_DELAY_SECONDS", 0.0):
+            spectrum = spectrum_reading(metadata("-12"), metadata("-90"))
+            with patch("ytm_cli.spectrum.time.monotonic", return_value=1.0):
+                spectrum.get_bands()
+                spectrum.stop()
+                bars = spectrum.get_bands()
+
+        assert bars[0] == 0.0
+
+
+class TestMpvReaders:
+    def test_reads_metadata_while_audio_plays(self):
+        with patch("ytm_cli.player._mpv_ipc", side_effect=[False, {"key": "value"}]):
+            assert read_mpv_band_metadata("/tmp/mpv.sock") == {"key": "value"}
+
+    @pytest.mark.parametrize("idle", [True, None])
+    def test_reports_nothing_unless_mpv_is_playing(self, idle):
+        with patch("ytm_cli.player._mpv_ipc", return_value=idle) as ipc:
+            assert read_mpv_band_metadata("/tmp/mpv.sock") is None
+
+        ipc.assert_called_once()  # Frozen metadata from before a pause is never read.
+
+    def test_stereo_levels_ignore_the_analysis_channels(self):
+        readings = {
+            "lavfi.astats.1.RMS_level": "-30",
+            "lavfi.astats.2.RMS_level": "-30",
+            "lavfi.astats.1.Peak_level": "-12",
+            "lavfi.astats.2.Peak_level": "-6",
+            "lavfi.astats.3.RMS_level": "0",
+        }
+        with patch("ytm_cli.player._mpv_ipc", return_value=readings):
+            levels = get_mpv_audio_levels("/tmp/mpv.sock")
+
+        assert levels["rms"] == pytest.approx(0.5)
+        assert levels["left"] == levels["right"] == pytest.approx(0.5)
+        assert levels["peak"] == pytest.approx(0.9)

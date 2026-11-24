@@ -32,7 +32,6 @@ dependencies = [
     "mpv",
     "requests",
     "pyperclip",
-    "numpy",
     "yt-dlp>=2026.8.19",
     "yt-dlp-ejs",
 ]

@@ -4,7 +4,6 @@ This module provides a rich-based alternative to the curses UI,
 starting with the progress bar and player interface.
 """
 
-import math
 import select
 import sys
 import termios
@@ -25,32 +24,6 @@ from rich.text import Text
 from .utils import NEXT_ICON, PAUSE_ICON, PLAY_ICON, PREVIOUS_ICON, player_controls
 
 _WAVE_BLOCKS = " ▁▂▃▄▅▆▇█"
-_WAVE_SEEDS = [
-    6,
-    18,
-    10,
-    30,
-    14,
-    38,
-    8,
-    28,
-    22,
-    12,
-    36,
-    16,
-    24,
-    8,
-    32,
-    18,
-    6,
-    28,
-    14,
-    20,
-    34,
-    10,
-    26,
-    16,
-]
 
 
 class CustomProgressBar(ProgressColumn):
@@ -127,24 +100,17 @@ def create_progress_bar(elapsed: float | None, duration: float | None) -> Progre
 
 def create_wave_visualizer(
     bands: list[float] | None = None,
-    frame: int = 0,
     is_paused: bool = False,
     height: int = 3,
 ) -> Text:
-    """Render real spectrum bands, with an animated fallback while data loads."""
+    """Render live spectrum bands, or a flat line when no audio is playing."""
     bar_count = 24
+    levels = [0.0] * bar_count
     if bands:
-        levels = []
         for i in range(bar_count):
             low = int(i * len(bands) / bar_count)
             high = max(low + 1, int((i + 1) * len(bands) / bar_count))
-            levels.append(max(bands[low:high]))
-    else:
-        levels = []
-        for i in range(bar_count):
-            seed = _WAVE_SEEDS[i]
-            phase = frame * 0.7 + i * 0.65
-            levels.append((seed / 40.0) * (0.7 + 0.3 * math.sin(phase)))
+            levels[i] = max(bands[low:high])
 
     if is_paused:
         levels = [level * 0.2 for level in levels]
@@ -155,7 +121,7 @@ def create_wave_visualizer(
         row_offset = (height - row - 1) * 8
         cells = []
         for level in levels:
-            units = max(0, min(total_units, round(level * total_units)))
+            units = max(1, min(total_units, round(level * total_units)))
             cell = max(0, min(8, units - row_offset))
             cells.append(_WAVE_BLOCKS[cell])
         rows.append(" ".join(cells).rstrip())
@@ -176,7 +142,6 @@ def create_player_layout(
     next_title: str | None = None,
     next_artist: str | None = None,
     bands: list[float] | None = None,
-    wave_frame: int = 0,
 ) -> Layout:
     """Create the full player layout using rich.
 
@@ -193,7 +158,6 @@ def create_player_layout(
         next_title: Next track title
         next_artist: Next track artist
         bands: Optional normalized spectrum values
-        wave_frame: Animation frame used until real spectrum data is available
 
     Returns:
         Rich Layout ready to render
@@ -219,7 +183,7 @@ def create_player_layout(
     song_info.add_row(Text(song_title, style="bold"))
     song_info.add_row(Text(artist, style="dim"))
 
-    visualizer = create_wave_visualizer(bands, wave_frame, is_paused)
+    visualizer = create_wave_visualizer(bands, is_paused)
 
     # Progress bar
     progress = create_progress_bar(elapsed, duration)
@@ -293,7 +257,6 @@ def render_player_frame(
     next_title: str | None = None,
     next_artist: str | None = None,
     bands: list[float] | None = None,
-    wave_frame: int = 0,
 ) -> None:
     """Render a single frame of the player UI.
 
@@ -315,7 +278,6 @@ def render_player_frame(
         next_title=next_title,
         next_artist=next_artist,
         bands=bands,
-        wave_frame=wave_frame,
     )
     # Don't clear - let rich.Live handle updates
     console.print(layout)
@@ -481,7 +443,6 @@ def play_with_rich_ui(
         if on_track:
             on_track(song)
         current_bands = get_bands(song, current_idx) if get_bands else None
-        wave_frame = 0
 
         # Create initial layout
         layout = create_player_layout(
@@ -495,7 +456,6 @@ def play_with_rich_ui(
             toast_msg=toast_msg,
             toast_detail=toast_detail,
             bands=current_bands,
-            wave_frame=wave_frame,
         )
 
         with Live(
@@ -537,7 +497,6 @@ def play_with_rich_ui(
                 if now - last_wave_update >= 0.15:
                     if get_bands:
                         current_bands = get_bands(song, current_idx)
-                    wave_frame += 1
                     last_wave_update = now
                     wave_changed = True
 
@@ -666,7 +625,6 @@ def play_with_rich_ui(
                         next_title=next_title,
                         next_artist=next_artist,
                         bands=current_bands,
-                        wave_frame=wave_frame,
                     )
 
                     live.update(layout, refresh=True)

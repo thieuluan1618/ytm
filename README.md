@@ -11,7 +11,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 </p>
 
 <p align="center">
-  <em>Player UI with the real-time FFT spectrum visualizer (synthetic demo capture).
+  <em>Player UI with the real-time spectrum visualizer (synthetic demo capture).
   Click for the higher-quality .webm.</em>
 </p>
 
@@ -25,8 +25,7 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 - **👎 Smart Filtering**: Dislike songs to filter them from future results
 - **📜 Synced Lyrics**: Live-highlighted lyrics with auto-scroll (press `l`)
 - **🎯 Radio Mode**: Automatic playlist generation based on your selection
-- **📊 Real-time Spectrum Visualizer**: 24-band FFT bars in both player layouts, driven by an `ffmpeg` sidecar with animated fallback bars when live data is unavailable
-- **🤖 AI-Powered**: Natural language music requests and AI-generated playlists
+- **📊 Real-time Spectrum Visualizer**: 24-band bars in both player layouts that follow the audio mpv is playing, including pause and seek — no microphone needed
 
 ## 🚀 Quick Start
 
@@ -35,7 +34,6 @@ Stream music directly from YouTube Music in your terminal with intuitive control
 - **macOS** (the only platform maintained for now)
 - Python **3.10+** (set in `pyproject.toml`)
 - [mpv media player](https://mpv.io/installation/), installed system-wide: `brew install mpv`
-- [`ffmpeg`](https://ffmpeg.org/) on `PATH` for the real-time spectrum visualizer: `brew install ffmpeg` (optional — falls back to animated bars if missing)
 
 ### Installation
 
@@ -109,6 +107,8 @@ ytm-cli search "song" -s 1 --verbose                      # With verbose output
 ytm-cli search "song" -s 1 --verbose --log-file debug.log # Save debug logs
 ytm-cli -v                                                # Print version
 ytm-cli --update                                          # Update the app and dependencies
+ytm-cli --terminate                                       # Stop all running ytm-cli sessions
+ytm-cli --demo                                            # Fake playlist + synthetic spectrum (screenshots/docs)
 ```
 
 > **Tip:** Set up the shell alias to use `ytm` as a shortcut for `ytm-cli`. See the setup scripts above.
@@ -119,6 +119,7 @@ ytm-cli --update                                          # Update the app and d
 
 - `↑/↓` or `j/k` - Navigate through results
 - `Enter` - Select and play song
+- `1`-`9` - Jump straight to a result
 - `f` - Add to or remove from Favorites
 - `a` - Add to a playlist
 - `q` - Quit
@@ -149,7 +150,7 @@ Press `o` **in the terminal player** to show or hide a floating, click-through l
 
 - Requires **mpv** playback and **Apple Command Line Tools** (`xcode-select --install` if missing).
 - The small native AppKit helper compiles in the background on first use and is cached in `~/Library/Caches/ytm-cli/`. No extra Python dependencies or Accessibility permission are needed.
-- Lyrics follow mpv's playback position, including pause and seek, and refresh automatically when the track changes.
+- Lyrics follow mpv's playback position, including seek, and refresh automatically when the track changes. The panel hides while playback is paused, including from media keys or Control Center.
 - Songs with only plain lyrics or no matching synced lyrics show **“No synced lyrics available”** for 3 seconds, then fade out over 0.4 seconds; no timing is invented. Normal synced lyrics stay visible.
 - The overlay starts off each session and closes when playback exits. `o` is a terminal shortcut, not a system-wide hotkey.
 - The window is configured to join Spaces and fullscreen spaces, but visibility above other apps' fullscreen windows depends on macOS window management.
@@ -189,37 +190,23 @@ ytm-cli playlist delete "My Songs" # Delete playlist
 - Favoriting a song clears its global dislike; globally disliking a song removes it from Favorites
 - During local playlist playback, `d` first removes the song from that playlist; press it again to globally dislike and skip the song
 
-## 🤖 AI Music Assistant
-
-Use natural language to search and create playlists powered by AI (supports Google Gemini, OpenAI, Anthropic):
-
-```bash
-ytm-cli llm ask "play something chill for studying"       # AI picks and auto-plays
-ytm-cli llm ask "upbeat pop songs for a workout"           # Natural language search
-ytm-cli llm playlist "lo-fi beats for rainy days" --play   # AI-generated playlist
-ytm-cli llm playlist "90s rock classics" -n 20             # 20-song playlist
-```
-
-Configure your provider in `config.ini`:
-
-```ini
-[llm]
-provider = google       # google, openai, or anthropic
-model = gemini-2.5-pro
-```
-
 ## 🛠️ Configuration
 
-The app uses `config.ini` for customization:
+The app reads `~/.config/ytm-cli/config.ini`. See [`config.ini.example`](config.ini.example) for a starting point:
 
 ```ini
 [general]
-songs_to_display = 10
-show_thumbnails = true
+songs_to_display = 5
 
 [mpv]
 # Add custom mpv flags
 flags = --no-video
+
+[ui]
+# Rich-based player UI (set false for the curses UI)
+use_rich = true
+# macOS desktop lyrics: also preview the next lyric
+lyrics_overlay_show_next_line = false
 
 [playlists]
 directory = playlists
@@ -240,6 +227,7 @@ Having issues? Check out the [**Troubleshooting Guide**](TROUBLESHOOTING.md) for
 
 - 🔧 [Songs Skipping Continuously](TROUBLESHOOTING.md#songs-skipping-continuously)
 - 📦 [MPV Not Found](TROUBLESHOOTING.md#mpv-not-found)
+- 🔑 [Authentication Issues](TROUBLESHOOTING.md#authentication-issues)
 - 💻 [Terminal/Curses Errors](TROUBLESHOOTING.md#terminalcurses-errors)
 - 📝 [Using Verbose Logging](TROUBLESHOOTING.md#using-verbose-logging)
 

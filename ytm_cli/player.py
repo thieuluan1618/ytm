@@ -155,19 +155,35 @@ def get_mpv_duration(socket_path):
     return result if result is not None else 0
 
 
-def get_mpv_resolved_url(socket_path):
-    """Return the direct media URL mpv resolved via yt-dlp, or None.
-
-    `stream-open-filename` exposes the post-resolution URL ffmpeg can fetch.
-    """
+def read_mpv_band_metadata(socket_path):
+    """Return mpv's audio-filter metadata, or None while no audio is actually playing."""
+    # core-idle also covers buffering and media-key pauses, not just the terminal's pause.
+    idle = _mpv_ipc(socket_path, {"command": ["get_property", "core-idle"]}, expect_response=True)
+    if idle is not False:
+        return None
     result = _mpv_ipc(
         socket_path,
-        {"command": ["get_property", "stream-open-filename"]},
+        {"command": ["get_property", "af-metadata/vstats"]},
         expect_response=True,
     )
-    if isinstance(result, str) and result.startswith(("http://", "https://")):
-        return result
-    return None
+    return result if isinstance(result, dict) else None
+
+
+def _create_spectrum(player, demo):
+    """Return the visualizer's band source: demo data, or levels from mpv itself."""
+    if demo:
+        from .demo import DemoSpectrum
+
+        return DemoSpectrum(n_bands=24)
+
+    from .spectrum import MpvSpectrum
+
+    def read_metadata():
+        if player.player_type == "mpv" and player.socket_path:
+            return read_mpv_band_metadata(player.socket_path)
+        return None
+
+    return MpvSpectrum(read_metadata)
 
 
 def get_mpv_audio_levels(socket_path):
@@ -199,11 +215,17 @@ def get_mpv_audio_levels(socket_path):
             return 1.0
         return (db - floor_db) / (-floor_db)
 
+    # Only channels 1-2 are music; the rest are analysis bands, so "Overall" is not used.
+    left = _norm("lavfi.astats.1.RMS_level")
+    right = _norm("lavfi.astats.2.RMS_level")
+    peaks = [_norm("lavfi.astats.1.Peak_level"), _norm("lavfi.astats.2.Peak_level")]
+    peaks = [peak for peak in peaks if peak is not None]
+    channels = [channel for channel in (left, right) if channel is not None]
     return {
-        "peak": _norm("lavfi.astats.Overall.Peak_level"),
-        "rms": _norm("lavfi.astats.Overall.RMS_level"),
-        "left": _norm("lavfi.astats.1.RMS_level"),
-        "right": _norm("lavfi.astats.2.RMS_level"),
+        "peak": max(peaks) if peaks else None,
+        "rms": sum(channels) / len(channels) if channels else None,
+        "left": left,
+        "right": right,
     }
 
 
@@ -411,7 +433,8 @@ def play_music_with_controls_curses(
         return
 
     overlay = LyricsOverlay(
-        lambda: get_mpv_time_position(player.socket_path) if player.socket_path else None
+        lambda: get_mpv_time_position(player.socket_path) if player.socket_path else None,
+        lambda: get_mpv_pause_state(player.socket_path) if player.socket_path else False,
     )
     quit_pressed = False
 
@@ -420,14 +443,7 @@ def play_music_with_controls_curses(
         from .ui import draw_player, init_player_colors, push_wave_sample, reset_wave_history
 
         init_player_colors()
-        if demo:
-            from .demo import DemoSpectrum
-
-            spectrum = DemoSpectrum(n_bands=24)
-        else:
-            from .spectrum import SpectrumAnalyzer
-
-            spectrum = SpectrumAnalyzer(n_bands=24) if SpectrumAnalyzer.available() else None
+        spectrum = _create_spectrum(player, demo)
         curses.curs_set(0)
         stdscr.timeout(200)
 
@@ -480,8 +496,7 @@ def play_music_with_controls_curses(
             while 0 <= current_song_index < len(playlist):
                 overlay.set_track(None)
                 reset_wave_history()
-                if spectrum is not None:
-                    spectrum.stop()
+                spectrum.stop()
                 spectrum_started = False
                 item = playlist[current_song_index]
                 video_id = item["videoId"]
@@ -616,22 +631,19 @@ def play_music_with_controls_curses(
                     if demo:
                         elapsed = (time.time() - player._start_time) if player._playing else 0
                         duration = player._duration
-                        if spectrum is not None and not spectrum_started:
+                        if not spectrum_started:
                             spectrum_started = spectrum.start("demo")
                     elif player.player_type == "mpv" and player.socket_path:
                         elapsed = get_mpv_time_position(player.socket_path)
                         duration = get_mpv_duration(player.socket_path)
                         audio_levels = get_mpv_audio_levels(player.socket_path)
 
-                        if spectrum is not None and not spectrum_started:
-                            resolved = get_mpv_resolved_url(player.socket_path)
-                            if resolved:
-                                spectrum_started = spectrum.start(resolved)
-
                     if audio_levels and not is_paused:
                         push_wave_sample(audio_levels)
 
-                    bands = spectrum.get_bands() if spectrum is not None else None
+                    bands = spectrum.get_bands()
+                    if bands is None:
+                        audio_levels = None  # Don't draw the last levels from before a pause.
 
                     track_total, next_title, next_artist = queue_context(current_song_index)
                     draw_player(
@@ -771,8 +783,7 @@ def play_music_with_controls_curses(
                         quit_pressed = True
                         return
         finally:
-            if spectrum is not None:
-                spectrum.stop()
+            spectrum.stop()
 
     try:
         curses.wrapper(_curses_main)
@@ -852,14 +863,7 @@ def play_music_with_controls_rich(
         _play_non_interactive(player, playlist)
         return
 
-    if demo:
-        from .demo import DemoSpectrum
-
-        spectrum = DemoSpectrum(n_bands=24)
-    else:
-        from .spectrum import SpectrumAnalyzer
-
-        spectrum = SpectrumAnalyzer(n_bands=24) if SpectrumAnalyzer.available() else None
+    spectrum = _create_spectrum(player, demo)
     spectrum_track = None
 
     def get_elapsed():
@@ -872,7 +876,12 @@ def play_music_with_controls_rich(
             return get_mpv_duration(player.socket_path)
         return None
 
-    overlay = LyricsOverlay(get_elapsed)
+    def get_paused():
+        if player.player_type == "mpv" and player.socket_path:
+            return get_mpv_pause_state(player.socket_path)
+        return False
+
+    overlay = LyricsOverlay(get_elapsed, get_paused)
 
     def on_overlay():
         if player.player_type != "mpv":
@@ -881,20 +890,11 @@ def play_music_with_controls_rich(
 
     def get_visualizer_bands(song, track_index):
         nonlocal spectrum_track
-        if spectrum is None:
-            return None
-
         track = (track_index, song.get("videoId"))
         if track != spectrum_track:
-            source = "demo" if demo else None
-            if player.player_type == "mpv" and player.socket_path:
-                source = get_mpv_resolved_url(player.socket_path)
-            if not source:
-                return None
-
             spectrum.stop()
-            if not spectrum.start(source):
-                return None
+            if demo:
+                spectrum.start("demo")
             spectrum_track = track
 
         return spectrum.get_bands()
@@ -947,8 +947,7 @@ def play_music_with_controls_rich(
         )
     finally:
         overlay.close()
-        if spectrum is not None:
-            spectrum.stop()
+        spectrum.stop()
         player.cleanup()
 
 

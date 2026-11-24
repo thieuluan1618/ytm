@@ -66,6 +66,21 @@ let screenObserver = NotificationCenter.default.addObserver(
 ) { _ in positionPanel() }
 var dismissTimer: Timer?
 
+func fadeOut(after delay: Double) {
+    let fadeStart = ProcessInfo.processInfo.systemUptime + delay
+    let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { timer in
+        let progress = (ProcessInfo.processInfo.systemUptime - fadeStart) / 0.4
+        panel.alphaValue = max(0, min(1, 1 - progress))
+        if progress >= 1 {
+            timer.invalidate()
+            panel.orderOut(nil)
+        }
+    }
+    timer.fireDate = Date().addingTimeInterval(delay)
+    RunLoop.main.add(timer, forMode: .common)
+    dismissTimer = timer
+}
+
 // Newline-delimited JSON from the Python owner; EOF closes orphaned overlays.
 DispatchQueue.global(qos: .userInitiated).async {
     while let line = readLine() {
@@ -76,27 +91,21 @@ DispatchQueue.global(qos: .userInitiated).async {
             dismissTimer?.invalidate()
             dismissTimer = nil
             panel.alphaValue = 1
+            let fadeDelay = message["fade_after"] as? Double
             if message["visible"] as? Bool == false {
-                panel.orderOut(nil)
+                if let delay = fadeDelay, panel.isVisible {
+                    fadeOut(after: delay)
+                } else {
+                    panel.orderOut(nil)
+                }
             } else {
                 current.stringValue = message["current"] as? String ?? ""
                 next.stringValue = message["next"] as? String ?? ""
                 next.isHidden = next.stringValue.isEmpty
                 positionPanel()
                 panel.orderFrontRegardless()
-                if let delay = message["fade_after"] as? Double {
-                    let fadeStart = ProcessInfo.processInfo.systemUptime + delay
-                    let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { timer in
-                        let progress = (ProcessInfo.processInfo.systemUptime - fadeStart) / 0.4
-                        panel.alphaValue = max(0, min(1, 1 - progress))
-                        if progress >= 1 {
-                            timer.invalidate()
-                            panel.orderOut(nil)
-                        }
-                    }
-                    timer.fireDate = Date().addingTimeInterval(delay)
-                    RunLoop.main.add(timer, forMode: .common)
-                    dismissTimer = timer
+                if let delay = fadeDelay {
+                    fadeOut(after: delay)
                 }
             }
         }
